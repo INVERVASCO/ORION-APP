@@ -9,7 +9,15 @@ export default function LandingPage() {
       
       {/* NAVBAR */}
       <nav style={{ backgroundColor: 'rgba(10, 22, 40, 0.9)', backdropFilter: 'blur(10px)', padding: '15px 40px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'fixed', top: 0, left: 0, right: 0, zIndex: 100, borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-        <img src="https://i.ibb.co/qLGmzCyZ/orion-logo-png.png" alt="ORION" style={{ height: '45px' }} />
+        <img 
+  src="https://i.ibb.co/qLGmzCyZ/orion-logo-png.png" 
+  alt="ORION" 
+  style={{ 
+    height: '45px',
+    mixBlendMode: 'screen', // <-- Hace que el fondo blanco desaparezca
+    filter: 'invert(1) hue-rotate(180deg)' // <-- Ajusta los colores para que se vean bien en fondo oscuro
+  }} 
+/>
         <div style={{ display: 'flex', gap: '15px' }}>
           <button 
             onClick={() => navigate('/login')} 
