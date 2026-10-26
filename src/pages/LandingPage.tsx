@@ -184,7 +184,7 @@ export default function LandingPage() {
         
         {/* Aquí debes poner la URL que te dio ImgBB al subir el nuevo logo transparente */}
       <img 
-  src="https://ibb.co/qLYfc9GM" 
+  src="https://i.ibb.co/Myk4tpTD/Firefly-Remove-Background.png" 
   alt="ORION" 
   style={{ height: '80px', opacity: 0.8 }} 
 />
