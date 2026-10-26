@@ -183,11 +183,11 @@ export default function LandingPage() {
       <footer style={{ backgroundColor: '#050A14', color: '#64748B', textAlign: 'center', padding: '40px 20px', fontSize: '13px', borderTop: '1px solid rgba(255,255,255,0.05)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '15px' }}>
         
         {/* Aquí debes poner la URL que te dio ImgBB al subir el nuevo logo transparente */}
-        <img 
-          src="URL_DE_TU_LOGO_TRANSPARENTE" 
-          alt="ORION" 
-          style={{ height: '80px', opacity: 0.8 }} 
-        />
+      <img 
+  src="https://ibb.co/qLYfc9GM" 
+  alt="ORION" 
+  style={{ height: '80px', opacity: 0.8 }} 
+/>
         
         <p style={{ margin: 0 }}>© {new Date().getFullYear()} ORION · Campaign Intelligence. Todos los derechos reservados.</p>
       </footer>
