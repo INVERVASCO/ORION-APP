@@ -36,9 +36,14 @@ function App() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // 1. Verificamos la sesión
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
-      setLoading(false);
+      
+      // 2. Agregamos un pequeño retraso para que la animación se disfrute
+      setTimeout(() => {
+        setLoading(false);
+      }, 3500); // 3.5 segundos
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
