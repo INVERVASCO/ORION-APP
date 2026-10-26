@@ -30,6 +30,7 @@ import Importar from './pages/Importar';
 import Usuarios from './pages/Usuarios';
 import Auditoria from './pages/Auditoria';
 import AuditoriaCampo from './pages/AuditoriaCampo';
+import DossierPage from './pages/DossierPage';
 
 function App() {
   const [session, setSession] = useState<Session | null>(null);
@@ -105,6 +106,7 @@ function App() {
           <Route path="usuarios" element={<Usuarios />} />
           <Route path="auditoria" element={<Auditoria />} />
           <Route path="auditoria-campo" element={<AuditoriaCampo />} />
+          <Route path="/dossier" element={<DossierPage />} />
         </Route>
 
         {/* CUALQUIER RUTA DESCONOCIDA VUELVE AL INICIO */}
