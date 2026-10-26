@@ -61,11 +61,11 @@ const MapaSecciones: React.FC<MapaSeccionesProps> = ({ datos }) => {
             ${info.riesgo.toUpperCase()}
           </span></div>
           <div style="display: flex; flex-direction: column; gap: 6px;">
-            <a href="/secciones?seccion=${seccionNum}" 
+            <a href="/app/secciones?seccion=${seccionNum}" 
               style="text-align: center; padding: 6px; background: #00A651; color: white; border-radius: 4px; text-decoration: none; font-weight: bold; font-size: 11px;">
               Ver Detalle Completo →
             </a>
-            <a href="/centro-ia?seccion=${seccionNum}&pct=${info.pct.toFixed(1)}&riesgo=${info.riesgo}" 
+            <a href="/app/centro-ia?seccion=${seccionNum}&pct=${info.pct.toFixed(1)}&riesgo=${info.riesgo}" 
               style="text-align: center; padding: 6px; background: #0066CC; color: white; border-radius: 4px; text-decoration: none; font-weight: bold; font-size: 11px;">
               🤖 Analizar con IA
             </a>
