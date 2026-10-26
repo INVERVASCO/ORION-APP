@@ -8,7 +8,7 @@ export default function LandingPage() {
   return (
     <div style={{ backgroundColor: '#0A1628', minHeight: '100vh', fontFamily: 'Inter, sans-serif', color: '#F9FAFB', overflowX: 'hidden' }}>
       
-      {/* NAVBAR CON EL NUEVO LOGO SVG */}
+      {/* NAVBAR CON EL LOGO SVG */}
       <nav style={{ backgroundColor: 'rgba(10, 22, 40, 0.9)', backdropFilter: 'blur(10px)', padding: '15px 40px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'fixed', top: 0, left: 0, right: 0, zIndex: 100, borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
         
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -19,14 +19,12 @@ export default function LandingPage() {
         </div>
 
         <div style={{ display: 'flex', gap: '15px' }}>
-<button 
-  onClick={() => navigate('/dossier')} 
-  style={{ background: 'transparent', color: '#F59E0B', border: '2px solid #F59E0B', padding: '14px 34px', borderRadius: '10px', cursor: 'pointer', fontWeight: 'bold', fontSize: '16px', transition: 'all 0.2s' }}
-  onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(245, 158, 11, 0.1)'; }}
-  onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
->
-  Descargar Dossier
-</button>
+          <button 
+            onClick={() => navigate('/login')} 
+            style={{ background: 'transparent', color: '#00D4FF', border: '1px solid #00D4FF', padding: '8px 20px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '14px', transition: 'all 0.3s' }}
+            onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(0, 212, 255, 0.1)'}
+            onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+          >
             Iniciar Sesión
           </button>
           <button 
@@ -60,19 +58,20 @@ export default function LandingPage() {
             >
               Ver Demo en Vivo
             </button>
+            
+            {/* BOTÓN CORREGIDO PARA IR AL DOSSIER */}
             <button 
+              onClick={() => navigate('/dossier')} 
               style={{ background: 'transparent', color: '#F59E0B', border: '2px solid #F59E0B', padding: '14px 34px', borderRadius: '10px', cursor: 'pointer', fontWeight: 'bold', fontSize: '16px', transition: 'all 0.2s' }}
               onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(245, 158, 11, 0.1)'; }}
               onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
             >
- <button 
-  onClick={() => navigate('/dossier')} 
-  style={{ background: 'transparent', color: '#F59E0B', border: '2px solid #F59E0B', padding: '14px 34px', borderRadius: '10px', cursor: 'pointer', fontWeight: 'bold', fontSize: '16px', transition: 'all 0.2s' }}
-  onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(245, 158, 11, 0.1)'; }}
-  onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
->
-  Descargar Dossier
-</button>
+              Descargar Dossier
+            </button>
+
+          </div>
+        </div>
+      </header>
 
       {/* SECCIÓN 2: EL PROBLEMA */}
       <section style={{ padding: '80px 20px', backgroundColor: '#111827' }}>
@@ -103,7 +102,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* SECCIÓN 3: LA SOLUCIÓN (SIN MENCIONAR DEEPSEEK) */}
+      {/* SECCIÓN 3: LA SOLUCIÓN */}
       <section style={{ padding: '100px 20px', backgroundColor: '#0A1628' }}>
         <div style={{ textAlign: 'center', marginBottom: '60px' }}>
           <h2 style={{ fontSize: '36px', fontWeight: '800', marginBottom: '15px' }}>
@@ -181,12 +180,11 @@ export default function LandingPage() {
         </p>
       </section>
 
-      {/* FOOTER CON TU NUEVO LOGO TRANSPARENTE CORREGIDO */}
+      {/* FOOTER */}
       <footer style={{ backgroundColor: '#050A14', color: '#64748B', textAlign: 'center', padding: '40px 20px', fontSize: '13px', borderTop: '1px solid rgba(255,255,255,0.05)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '15px' }}>
         
-        {/* REEMPLAZA ESTE ENLACE POR TU ENLACE DIRECTO DE IMGBB (i.ibb.co/...) */}
         <img 
-          src="https://i.ibb.co/Myk4tpTD/Firefly-Remove-Background.png" 
+          src="https://i.ibb.co/qLYfc9GM/logo.png" 
           alt="ORION" 
           style={{ 
             height: 'auto', 
