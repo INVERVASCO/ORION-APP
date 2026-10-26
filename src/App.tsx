@@ -3,9 +3,9 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { supabase } from './lib/supabaseClient';
 import type { Session } from '@supabase/supabase-js';
 
-// IMPORTACIONES DE COMPONENTES Y PÁGINAS
-import OrionAnimatedLogo from './components/OrionAnimatedLogo'; // <-- AQUÍ ESTÁ EL IMPORT CORRECTO
+import OrionAnimatedLogo from './components/OrionAnimatedLogo';
 import Layout from './components/Layout';
+import LandingPage from './pages/LandingPage';
 import Login from './pages/Login';
 import RecuperarPassword from './pages/RecuperarPassword';
 import CambiarPassword from './pages/CambiarPassword';
@@ -30,7 +30,6 @@ import Importar from './pages/Importar';
 import Usuarios from './pages/Usuarios';
 import Auditoria from './pages/Auditoria';
 import AuditoriaCampo from './pages/AuditoriaCampo';
-import LandingPage from './pages/LandingPage';
 
 function App() {
   const [session, setSession] = useState<Session | null>(null);
@@ -49,7 +48,6 @@ function App() {
     return () => subscription.unsubscribe();
   }, []);
 
-  // PANTALLA DE CARGA CON EL LOGO ANIMADO
   if (loading) {
     return (
       <div style={{
@@ -58,15 +56,10 @@ function App() {
         justifyContent: 'center',
         alignItems: 'center',
         height: '100vh',
-        backgroundColor: '#0A1628' // Fondo Navy
+        backgroundColor: '#0A1628'
       }}>
         <OrionAnimatedLogo />
-        <p style={{ 
-          color: '#00D4FF', 
-          marginTop: '20px', 
-          fontWeight: 'bold', 
-          letterSpacing: '2px' 
-        }}>
+        <p style={{ color: '#00D4FF', marginTop: '20px', fontWeight: 'bold', letterSpacing: '2px' }}>
           INICIANDO SISTEMA...
         </p>
       </div>
@@ -76,25 +69,16 @@ function App() {
   return (
     <BrowserRouter>
       <Routes>
-        {/* RUTAS PÚBLICAS */}
-        <Route
-          path="/login"
-          element={!session ? <Login /> : <Navigate to="/" replace />}
-        />
-        <Route
-          path="/recuperar-password"
-          element={!session ? <RecuperarPassword /> : <Navigate to="/" replace />}
-        />
-        <Route
-          path="/cambiar-password"
-          element={<CambiarPassword />}
-        />
+        {/* RUTA PÚBLICA (LANDING PAGE) */}
+        <Route path="/" element={<LandingPage />} />
 
-        {/* RUTAS PROTEGIDAS */}
-        <Route
-          path="/"
-          element={session ? <Layout /> : <Navigate to="/login" replace />}
-        >
+        {/* RUTAS PÚBLICAS DEL SISTEMA */}
+        <Route path="/login" element={!session ? <Login /> : <Navigate to="/app" replace />} />
+        <Route path="/recuperar-password" element={!session ? <RecuperarPassword /> : <Navigate to="/app" replace />} />
+        <Route path="/cambiar-password" element={<CambiarPassword />} />
+
+        {/* RUTAS PROTEGIDAS (EL SISTEMA DENTRO DE LAYOUT) */}
+        <Route path="/app" element={session ? <Layout /> : <Navigate to="/login" replace />}>
           <Route index element={<Dashboard />} />
           <Route path="analisis" element={<Analisis />} />
           <Route path="pronostico" element={<Pronostico />} />
@@ -116,9 +100,9 @@ function App() {
           <Route path="usuarios" element={<Usuarios />} />
           <Route path="auditoria" element={<Auditoria />} />
           <Route path="auditoria-campo" element={<AuditoriaCampo />} />
-          <Route path="/app" element={session ? <Layout /> : <Navigate to="/login" replace />}>
         </Route>
 
+        {/* CUALQUIER RUTA DESCONOCIDA VUELVE AL INICIO */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>
