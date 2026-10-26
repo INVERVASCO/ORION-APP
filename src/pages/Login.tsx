@@ -37,7 +37,7 @@ export default function Login() {
       }
 
       if (data.session) {
-        navigate('/', { replace: true });
+        navigate('/app', { replace: true });
       }
     } catch (err: any) {
       setError('Error inesperado: ' + (err.message || 'Intenta de nuevo'));
