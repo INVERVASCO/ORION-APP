@@ -1,5 +1,6 @@
 import { useNavigate } from 'react-router-dom';
-import { ArrowRight, ShieldCheck, Brain, MapPin, Zap, CheckCircle2, MessageSquare, Target } from 'lucide-react';
+import { ArrowRight, ShieldCheck, Brain, MapPin, Zap, Target } from 'lucide-react';
+import { OrionLogoIcon } from '../components/OrionLogoIcon';
 
 export default function LandingPage() {
   const navigate = useNavigate();
@@ -7,17 +8,17 @@ export default function LandingPage() {
   return (
     <div style={{ backgroundColor: '#0A1628', minHeight: '100vh', fontFamily: 'Inter, sans-serif', color: '#F9FAFB', overflowX: 'hidden' }}>
       
-      {/* NAVBAR */}
+      {/* NAVBAR CON EL NUEVO LOGO SVG DE QWEN */}
       <nav style={{ backgroundColor: 'rgba(10, 22, 40, 0.9)', backdropFilter: 'blur(10px)', padding: '15px 40px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'fixed', top: 0, left: 0, right: 0, zIndex: 100, borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-        <img 
-  src="https://i.ibb.co/qLGmzCyZ/orion-logo-png.png" 
-  alt="ORION" 
-  style={{ 
-    height: '45px',
-    mixBlendMode: 'screen', // <-- Hace que el fondo blanco desaparezca
-    filter: 'invert(1) hue-rotate(180deg)' // <-- Ajusta los colores para que se vean bien en fondo oscuro
-  }} 
-/>
+        
+        {/* Logo Integrado (SVG + Texto) */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <OrionLogoIcon size={40} />
+          <span style={{ fontSize: '22px', fontWeight: '900', letterSpacing: '2px', color: '#F9FAFB' }}>
+            ORION
+          </span>
+        </div>
+
         <div style={{ display: 'flex', gap: '15px' }}>
           <button 
             onClick={() => navigate('/login')} 
@@ -178,8 +179,16 @@ export default function LandingPage() {
         </p>
       </section>
 
-      {/* FOOTER */}
-      <footer style={{ backgroundColor: '#050A14', color: '#64748B', textAlign: 'center', padding: '30px', fontSize: '13px', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+      {/* FOOTER CON TU NUEVO LOGO TRANSPARENTE */}
+      <footer style={{ backgroundColor: '#050A14', color: '#64748B', textAlign: 'center', padding: '40px 20px', fontSize: '13px', borderTop: '1px solid rgba(255,255,255,0.05)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '15px' }}>
+        
+        {/* Aquí debes poner la URL que te dio ImgBB al subir el nuevo logo transparente */}
+        <img 
+          src="URL_DE_TU_LOGO_TRANSPARENTE" 
+          alt="ORION" 
+          style={{ height: '80px', opacity: 0.8 }} 
+        />
+        
         <p style={{ margin: 0 }}>© {new Date().getFullYear()} ORION · Campaign Intelligence. Todos los derechos reservados.</p>
       </footer>
     </div>
