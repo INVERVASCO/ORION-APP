@@ -6,6 +6,7 @@ import type { Session } from '@supabase/supabase-js';
 import OrionAnimatedLogo from './components/OrionAnimatedLogo';
 import Layout from './components/Layout';
 import LandingPage from './pages/LandingPage';
+import DossierPage from './pages/DossierPage'; // <-- IMPORTACIÓN AGREGADA
 import Login from './pages/Login';
 import RecuperarPassword from './pages/RecuperarPassword';
 import CambiarPassword from './pages/CambiarPassword';
@@ -30,21 +31,15 @@ import Importar from './pages/Importar';
 import Usuarios from './pages/Usuarios';
 import Auditoria from './pages/Auditoria';
 import AuditoriaCampo from './pages/AuditoriaCampo';
-import DossierPage from './pages/DossierPage';
 
 function App() {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // 1. Verificamos la sesión
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
-      
-      // 2. Agregamos un pequeño retraso para que la animación se disfrute
-      setTimeout(() => {
-        setLoading(false);
-      }, 3500); // 3.5 segundos
+      setLoading(false);
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
@@ -75,15 +70,15 @@ function App() {
   return (
     <BrowserRouter>
       <Routes>
-        {/* RUTA PÚBLICA (LANDING PAGE) */}
+        {/* RUTAS PÚBLICAS (NO REQUIEREN LOGIN) */}
         <Route path="/" element={<LandingPage />} />
-
-        {/* RUTAS PÚBLICAS DEL SISTEMA */}
+        <Route path="/dossier" element={<DossierPage />} /> {/* <-- AQUÍ ESTÁ LA RUTA CORREGIDA */}
+        
         <Route path="/login" element={!session ? <Login /> : <Navigate to="/app" replace />} />
         <Route path="/recuperar-password" element={!session ? <RecuperarPassword /> : <Navigate to="/app" replace />} />
         <Route path="/cambiar-password" element={<CambiarPassword />} />
 
-        {/* RUTAS PROTEGIDAS (EL SISTEMA DENTRO DE LAYOUT) */}
+        {/* RUTAS PROTEGIDAS (REQUIEREN LOGIN Y VIVEN DENTRO DE /app) */}
         <Route path="/app" element={session ? <Layout /> : <Navigate to="/login" replace />}>
           <Route index element={<Dashboard />} />
           <Route path="analisis" element={<Analisis />} />
@@ -106,10 +101,9 @@ function App() {
           <Route path="usuarios" element={<Usuarios />} />
           <Route path="auditoria" element={<Auditoria />} />
           <Route path="auditoria-campo" element={<AuditoriaCampo />} />
-          <Route path="/dossier" element={<DossierPage />} />
         </Route>
 
-        {/* CUALQUIER RUTA DESCONOCIDA VUELVE AL INICIO */}
+        {/* CUALQUIER OTRA RUTA VUELVE AL INICIO */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>
