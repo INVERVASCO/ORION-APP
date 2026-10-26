@@ -8,10 +8,9 @@ export default function LandingPage() {
   return (
     <div style={{ backgroundColor: '#0A1628', minHeight: '100vh', fontFamily: 'Inter, sans-serif', color: '#F9FAFB', overflowX: 'hidden' }}>
       
-      {/* NAVBAR CON EL NUEVO LOGO SVG DE QWEN */}
+      {/* NAVBAR CON EL NUEVO LOGO SVG */}
       <nav style={{ backgroundColor: 'rgba(10, 22, 40, 0.9)', backdropFilter: 'blur(10px)', padding: '15px 40px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'fixed', top: 0, left: 0, right: 0, zIndex: 100, borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
         
-        {/* Logo Integrado (SVG + Texto) */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           <OrionLogoIcon size={40} />
           <span style={{ fontSize: '22px', fontWeight: '900', letterSpacing: '2px', color: '#F9FAFB' }}>
@@ -39,7 +38,6 @@ export default function LandingPage() {
 
       {/* SECCIÓN 1: HERO */}
       <header style={{ textAlign: 'center', padding: '180px 20px 100px', position: 'relative' }}>
-        {/* Efectos de luz de fondo */}
         <div style={{ position: 'absolute', top: '10%', left: '20%', width: '400px', height: '400px', background: 'radial-gradient(circle, rgba(0, 212, 255, 0.15) 0%, transparent 70%)', filter: 'blur(50px)', zIndex: 0 }}></div>
         <div style={{ position: 'absolute', bottom: '10%', right: '20%', width: '300px', height: '300px', background: 'radial-gradient(circle, rgba(245, 158, 11, 0.1) 0%, transparent 70%)', filter: 'blur(50px)', zIndex: 0 }}></div>
         
@@ -79,7 +77,7 @@ export default function LandingPage() {
               ¿Por qué pierden las campañas?
             </h2>
             <p style={{ fontSize: '18px', color: '#9CA3AF', lineHeight: '1.6' }}>
-              El 73% de las campañas pierden no por falta de recursos, sino por falta de inteligencia. Mientras tú operas con Excel y WhatsApp, tu competencia ya está usando datos.
+              La mayoría de las campañas pierden no por falta de recursos, sino por falta de información útil para tomar decisiones. Mientras tú operas con Excel y WhatsApp, tu competencia ya está usando datos.
             </p>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
@@ -100,7 +98,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* SECCIÓN 3: LA SOLUCIÓN (CARACTERÍSTICAS) */}
+      {/* SECCIÓN 3: LA SOLUCIÓN (SIN MENCIONAR DEEPSEEK) */}
       <section style={{ padding: '100px 20px', backgroundColor: '#0A1628' }}>
         <div style={{ textAlign: 'center', marginBottom: '60px' }}>
           <h2 style={{ fontSize: '36px', fontWeight: '800', marginBottom: '15px' }}>
@@ -112,19 +110,18 @@ export default function LandingPage() {
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '25px', maxWidth: '1100px', margin: '0 auto' }}>
-          {/* Tarjeta 1 */}
           <div style={{ background: '#111827', padding: '30px', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.05)', transition: 'transform 0.3s' }} onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-5px)'} onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}>
             <MapPin size={32} color="#00D4FF" style={{ marginBottom: '20px' }} />
             <h3 style={{ fontSize: '20px', marginBottom: '10px' }}>Auditoría GPS Antifraude</h3>
             <p style={{ color: '#9CA3AF', fontSize: '15px', lineHeight: '1.6' }}>Sabe exactamente dónde se hizo cada encuesta. Detecta si un brigadista está inventando datos desde su casa.</p>
           </div>
-          {/* Tarjeta 2 */}
+          
           <div style={{ background: '#111827', padding: '30px', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.05)', transition: 'transform 0.3s' }} onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-5px)'} onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}>
             <Brain size={32} color="#F59E0B" style={{ marginBottom: '20px' }} />
-            <h3 style={{ fontSize: '20px', marginBottom: '10px' }}>AURA (IA DeepSeek)</h3>
-            <p style={{ color: '#9CA3AF', fontSize: '15px', lineHeight: '1.6' }}>Conectado a DeepSeek. Analiza tus datos y te dice exactamente qué hacer hoy para ganar votos.</p>
+            <h3 style={{ fontSize: '20px', marginBottom: '10px' }}>AURA · Copiloto IA</h3>
+            <p style={{ color: '#9CA3AF', fontSize: '15px', lineHeight: '1.6' }}>Impulsado por Inteligencia Artificial. Analiza tus datos y te dice exactamente qué hacer hoy para ganar votos.</p>
           </div>
-          {/* Tarjeta 3 */}
+          
           <div style={{ background: '#111827', padding: '30px', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.05)', transition: 'transform 0.3s' }} onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-5px)'} onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}>
             <Zap size={32} color="#6366F1" style={{ marginBottom: '20px' }} />
             <h3 style={{ fontSize: '20px', marginBottom: '10px' }}>Pronóstico Electoral</h3>
@@ -179,15 +176,21 @@ export default function LandingPage() {
         </p>
       </section>
 
-      {/* FOOTER CON TU NUEVO LOGO TRANSPARENTE */}
+      {/* FOOTER CON TU NUEVO LOGO TRANSPARENTE CORREGIDO */}
       <footer style={{ backgroundColor: '#050A14', color: '#64748B', textAlign: 'center', padding: '40px 20px', fontSize: '13px', borderTop: '1px solid rgba(255,255,255,0.05)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '15px' }}>
         
-        {/* Aquí debes poner la URL que te dio ImgBB al subir el nuevo logo transparente */}
-      <img 
-  src="https://i.ibb.co/Myk4tpTD/Firefly-Remove-Background.png" 
-  alt="ORION" 
-  style={{ height: '80px', opacity: 0.8 }} 
-/>
+        {/* REEMPLAZA ESTE ENLACE POR TU ENLACE DIRECTO DE IMGBB (i.ibb.co/...) */}
+        <img 
+          src="https://i.ibb.co/Myk4tpTD/Firefly-Remove-Background.png" 
+          alt="ORION" 
+          style={{ 
+            height: 'auto', 
+            maxHeight: '100px', 
+            maxWidth: '100%', 
+            objectFit: 'contain',
+            opacity: 0.8 
+          }} 
+        />
         
         <p style={{ margin: 0 }}>© {new Date().getFullYear()} ORION · Campaign Intelligence. Todos los derechos reservados.</p>
       </footer>
