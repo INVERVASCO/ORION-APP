@@ -19,12 +19,14 @@ export default function LandingPage() {
         </div>
 
         <div style={{ display: 'flex', gap: '15px' }}>
-          <button 
-            onClick={() => navigate('/login')} 
-            style={{ background: 'transparent', color: '#00D4FF', border: '1px solid #00D4FF', padding: '8px 20px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '14px', transition: 'all 0.3s' }}
-            onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(0, 212, 255, 0.1)'}
-            onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
-          >
+<button 
+  onClick={() => navigate('/dossier')} 
+  style={{ background: 'transparent', color: '#F59E0B', border: '2px solid #F59E0B', padding: '14px 34px', borderRadius: '10px', cursor: 'pointer', fontWeight: 'bold', fontSize: '16px', transition: 'all 0.2s' }}
+  onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(245, 158, 11, 0.1)'; }}
+  onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
+>
+  Descargar Dossier
+</button>
             Iniciar Sesión
           </button>
           <button 
