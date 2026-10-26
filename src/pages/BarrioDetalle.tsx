@@ -191,7 +191,7 @@ export default function BarrioDetalle() {
 
   return (
     <div>
-      <button onClick={() => navigate('/municipio')}
+      <button onClick={() => navigate('/app/municipio')}
         style={{ background: 'none', border: 'none', color: '#9F2241', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px', marginBottom: '15px', fontWeight: 'bold', fontSize: '15px' }}>
         <ArrowLeft size={16} /> Volver al Municipio
       </button>
