@@ -268,7 +268,7 @@ export default function Dashboard() {
             <p style={{ margin: 0, fontSize: '14px', opacity: 0.95, lineHeight: '1.5' }}>La IA analiza los datos de tu campaña y te dice qué hacer HOY.</p>
           </div>
           <button
-            onClick={() => navigate('/centro-ia')}
+            onClick={() => navigate('/app/centro-ia')}
             style={{ background: 'white', color: '#0A1628', border: 'none', padding: '16px 28px', borderRadius: '10px', cursor: 'pointer', fontWeight: '800', fontSize: '15px', display: 'flex', alignItems: 'center', gap: '10px', boxShadow: '0 6px 20px rgba(0,0,0,0.15)', transition: 'transform 0.2s', whiteSpace: 'nowrap' }}
           >
             <Zap size={18} /> Ir al Centro IA <ArrowRight size={18} />
@@ -284,7 +284,7 @@ export default function Dashboard() {
             <p style={{ margin: '0 0 12px 0', fontSize: '14px', color: '#4C0519', lineHeight: '1.5' }}>
               El sistema ha detectado <strong>{pronostico.riesgo} secciones en riesgo</strong> y <strong>{pronostico.disputa} en disputa</strong>. Se requiere acción inmediata.
             </p>
-            <button onClick={() => navigate('/pronostico')} style={{ background: '#F43F5E', color: 'white', border: 'none', padding: '10px 18px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <button onClick={() => navigate('/app/pronostico')} style={{ background: '#F43F5E', color: 'white', border: 'none', padding: '10px 18px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px' }}>
               Ver Plan de Trabajo Prioritario <ArrowRight size={16} />
             </button>
           </div>
@@ -336,7 +336,7 @@ export default function Dashboard() {
             pronostico.seccionesEnRiesgo.map((s, idx) => (
               <div 
                 key={s.seccion} 
-                onClick={() => navigate(`/secciones?seccion=${s.seccion + 54}`)}
+                onClick={() => navigate(`/app/secciones?seccion=${s.seccion + 54}`)}
                 style={{ padding: '12px', background: idx === 0 ? '#FFE4E6' : '#F8FAFC', borderRadius: '8px', marginBottom: '10px', borderLeft: '4px solid #F43F5E', cursor: 'pointer', transition: 'transform 0.15s' }}
               >
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '5px' }}>
