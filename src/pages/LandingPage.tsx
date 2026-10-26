@@ -63,11 +63,14 @@ export default function LandingPage() {
               onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(245, 158, 11, 0.1)'; }}
               onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
             >
-              Descargar Dossier
-            </button>
-          </div>
-        </div>
-      </header>
+ <button 
+  onClick={() => navigate('/dossier')} 
+  style={{ background: 'transparent', color: '#F59E0B', border: '2px solid #F59E0B', padding: '14px 34px', borderRadius: '10px', cursor: 'pointer', fontWeight: 'bold', fontSize: '16px', transition: 'all 0.2s' }}
+  onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(245, 158, 11, 0.1)'; }}
+  onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
+>
+  Descargar Dossier
+</button>
 
       {/* SECCIÓN 2: EL PROBLEMA */}
       <section style={{ padding: '80px 20px', backgroundColor: '#111827' }}>
