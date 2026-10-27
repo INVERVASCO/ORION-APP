@@ -13,22 +13,13 @@ export default function DossierPage() {
     if (!element) return;
 
     setDescargando(true);
-
-    // Forzamos un retraso para asegurar que todas las imágenes cargaron
     await new Promise(resolve => setTimeout(resolve, 2000));
 
     const opt = {
       margin: 0,
       filename: 'Dossier_Estrategico_ORION.pdf',
       image: { type: 'jpeg', quality: 1 },
-      html2canvas: { 
-        scale: 2, 
-        useCORS: true, 
-        allowTaint: true,
-        letterRendering: true,
-        scrollY: 0,
-        windowWidth: 1000 
-      },
+      html2canvas: { scale: 2, useCORS: true, allowTaint: true, letterRendering: true, scrollY: 0, windowWidth: 1000 },
       jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
       pagebreak: { mode: ['css', 'legacy'] }
     };
@@ -43,7 +34,6 @@ export default function DossierPage() {
     }
   };
 
-  // REDUJIMOS LA ALTURA A 296mm PARA EVITAR EL DESBORDAMIENTO
   const pageStyle: React.CSSProperties = {
     width: '210mm',
     height: '296mm', 
@@ -102,25 +92,19 @@ export default function DossierPage() {
   return (
     <div style={{ backgroundColor: '#050A14', minHeight: '100vh', fontFamily: 'Inter, sans-serif' }}>
       
-      {/* BOTONES FLOTANTES */}
       <div className="no-print" style={{ position: 'fixed', top: '20px', left: '20px', right: '20px', display: 'flex', justifyContent: 'space-between', zIndex: 1000 }}>
         <button onClick={() => navigate('/')} style={{ background: 'rgba(255,255,255,0.1)', color: 'white', border: '1px solid rgba(255,255,255,0.2)', padding: '12px 24px', borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 'bold', backdropFilter: 'blur(10px)' }}>
           <ArrowLeft size={18} /> Volver
         </button>
         
-        <button 
-          onClick={descargarPDF} 
-          disabled={descargando}
-          style={{ background: descargando ? '#64748B' : '#00D4FF', color: '#0A1628', border: 'none', padding: '12px 30px', borderRadius: '8px', cursor: descargando ? 'wait' : 'pointer', display: 'flex', alignItems: 'center', gap: '8px', fontWeight: '900', boxShadow: '0 0 30px rgba(0, 212, 255, 0.5)' }}
-        >
+        <button onClick={descargarPDF} disabled={descargando} style={{ background: descargando ? '#64748B' : '#00D4FF', color: '#0A1628', border: 'none', padding: '12px 30px', borderRadius: '8px', cursor: descargando ? 'wait' : 'pointer', display: 'flex', alignItems: 'center', gap: '8px', fontWeight: '900', boxShadow: '0 0 30px rgba(0, 212, 255, 0.5)' }}>
           <Download size={18} /> {descargando ? 'Generando PDF...' : 'Descargar Dossier PDF'}
         </button>
       </div>
 
-      {/* CONTENEDOR DEL DOSSIER */}
       <div id="dossier-pdf" style={{ maxWidth: '210mm', margin: '0 auto', boxShadow: '0 0 100px rgba(0,0,0,0.8)' }}>
         
-        {/* PÁGINA 1 */}
+        {/* PÁGINA 1: Cambio "Plataforma" a "Estrategia" */}
         <div style={pageStyle}>
           <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', backgroundImage: 'url(https://i.ibb.co/PZkChNVN/1793051979.png)', backgroundSize: 'cover', backgroundPosition: 'center' }}></div>
           <div style={{ ...overlayStyle, background: 'linear-gradient(to top, rgba(10,22,40,1) 0%, rgba(10,22,40,0.3) 100%)' }}></div>
@@ -133,7 +117,7 @@ export default function DossierPage() {
               <h3 style={{ margin: 0, color: '#00D4FF', letterSpacing: '4px', fontSize: '14px', fontWeight: 'bold' }}>DOSSIER ESTRATÉGICO CONFIDENCIAL</h3>
             </div>
             <h1 style={titleStyle}>No es un software.<br/><span style={{ color: '#00D4FF' }}>Es tu Director de Campaña.</span></h1>
-            <p style={subtitleStyle}>La plataforma de Inteligencia Artificial que erradica la simulación y te asegura la victoria electoral.</p>
+            <p style={subtitleStyle}>La estrategia de Inteligencia Artificial que erradica la simulación y te asegura la victoria electoral.</p>
             <div style={{ marginTop: '40px', display: 'flex', gap: '20px', color: '#94A3B8', fontSize: '14px', fontWeight: 'bold' }}>
               <span>CICLO ELECTORAL 2026-2027</span>
               <span>|</span>
@@ -243,17 +227,17 @@ export default function DossierPage() {
           </div>
         </div>
 
-        {/* PÁGINA 8 */}
+        {/* PÁGINA 8: Cambio a "Blindaje de Presupuesto GPS" */}
         <div style={pageStyle}>
           <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', backgroundImage: 'url(https://i.ibb.co/QvJxQj0T/1793052782.png)', backgroundSize: 'cover', backgroundPosition: 'center' }}></div>
           <div style={{ ...overlayStyle, background: 'linear-gradient(to right, rgba(10,22,40,0.95) 0%, rgba(10,22,40,0.3) 100%)' }}></div>
           
           <div style={contentStyle}>
-            <div style={{ maxWidth: '500px' }}>
+            <div style={{ maxWidth: '550px' }}>
               <ShieldCheck size={40} color="#10B981" style={{ marginBottom: '15px' }} />
-              <h2 style={{ ...titleStyle, fontSize: '40px' }}>Blindaje Operativo GPS</h2>
+              <h2 style={{ ...titleStyle, fontSize: '40px' }}>Blindaje de Presupuesto GPS</h2>
               <p style={{ ...subtitleStyle, fontSize: '18px' }}>
-                Cada paso de tus brigadistas, auditado. Cada peso, justificado. El sistema captura la ubicación exacta y bloquea reportes si el brigadista está a más de 2 km de su zona.
+                Deja de pagar sueldos a fantasmas. Cada paso de tus brigadistas, auditado. Cada peso, justificado. El sistema captura la ubicación exacta y bloquea reportes si el brigadista está a más de 2 km de su zona.
               </p>
             </div>
           </div>
@@ -273,7 +257,7 @@ export default function DossierPage() {
           </div>
         </div>
 
-        {/* PÁGINA 10: CONTACTO */}
+        {/* PÁGINA 10: Cambio a "¿Vas a dejar que tu competencia..." */}
         <div style={{ ...pageStyle, background: 'linear-gradient(135deg, #0A1628 0%, #111827 100%)', pageBreakAfter: 'auto' }}>
           <div style={contentStyle}>
             <div style={{ textAlign: 'center', marginBottom: '30px' }}>
@@ -294,7 +278,9 @@ export default function DossierPage() {
             </div>
 
             <div style={{ textAlign: 'center', background: 'rgba(0, 212, 255, 0.1)', border: '1px solid rgba(0, 212, 255, 0.3)', padding: '25px', borderRadius: '16px' }}>
-              <h3 style={{ fontSize: '20px', color: 'white', marginBottom: '15px' }}>¿Listo para asegurar tu victoria?</h3>
+              <h3 style={{ fontSize: '22px', color: '#F59E0B', marginBottom: '15px', fontWeight: 'bold' }}>
+                ¿Vas a dejar que tu competencia tenga esto primero?
+              </h3>
               
               <div style={{ color: '#E2E8F0', fontSize: '14px', lineHeight: '1.8', marginBottom: '20px' }}>
                 <strong>Oficina:</strong> Avenida Sur 403, Col. Unidad Habitacional Pemex, Piso 3, Oficina 7, Tula de Allende, Hgo. C.P. 42808<br/>
