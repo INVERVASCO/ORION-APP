@@ -1,42 +1,51 @@
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Download, ShieldCheck, Brain, Target, TrendingUp, AlertTriangle, Users, Zap, Printer } from 'lucide-react';
+import { ArrowLeft, Download, ShieldCheck, Brain, Target, AlertTriangle, Users, Zap } from 'lucide-react';
+import { useState } from 'react';
 // @ts-ignore
 import html2pdf from 'html2pdf.js';
 
 export default function DossierPage() {
   const navigate = useNavigate();
+  const [descargando, setDescargando] = useState(false);
 
-  // MÉTODO 1: html2pdf (Mejorado con delay para imágenes)
-  const descargarPDF = () => {
+  const descargarPDF = async () => {
     const element = document.getElementById('dossier-pdf');
     if (!element) return;
+
+    setDescargando(true);
+
+    // Forzamos un pequeño retraso para asegurar que todas las imágenes cargaron
+    await new Promise(resolve => setTimeout(resolve, 2000));
 
     const opt = {
       margin: 0,
       filename: 'Dossier_Estrategico_ORION.pdf',
-      image: { type: 'jpeg', quality: 0.98 },
+      image: { type: 'jpeg', quality: 1 },
       html2canvas: { 
-        scale: 2, 
+        scale: 1.5, // Bajamos un poco la escala para evitar que el navegador se quede sin memoria
         useCORS: true, 
+        allowTaint: true, // Permite imágenes externas sin bloqueo
         letterRendering: true,
-        allowTaint: false,
-        backgroundColor: '#0A1628' 
+        scrollY: 0,
+        windowWidth: 1000 // Forzamos un ancho fijo para que no se desajuste
       },
       jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
-      pagebreak: { mode: ['css', 'legacy'] }
+      pagebreak: { mode: 'css' } // Respetar los pageBreakAfter de CSS
     };
 
-    html2pdf().set(opt).from(element).save();
-  };
-
-  // MÉTODO 2: Imprimir del navegador (Infalible)
-  const imprimirPDF = () => {
-    window.print();
+    try {
+      await html2pdf().set(opt).from(element).save();
+    } catch (error) {
+      console.error("Error al generar PDF:", error);
+      alert("Hubo un problema. Por favor usa el botón de 'Imprimir PDF' y elige 'Guardar como PDF'.");
+    } finally {
+      setDescargando(false);
+    }
   };
 
   const pageStyle: React.CSSProperties = {
     width: '210mm',
-    height: '297mm',
+    height: '297mm', // Altura exacta A4
     position: 'relative',
     overflow: 'hidden',
     pageBreakAfter: 'always',
@@ -65,9 +74,8 @@ export default function DossierPage() {
     justifyContent: 'center'
   };
 
-  // Quitamos el backdropFilter para que html2pdf no falle
   const glassBox: React.CSSProperties = {
-    backgroundColor: 'rgba(17, 24, 39, 0.9)', // Fondo sólido semitransparente
+    backgroundColor: 'rgba(17, 24, 39, 0.95)',
     border: '1px solid rgba(0, 212, 255, 0.3)',
     borderRadius: '16px',
     padding: '40px',
@@ -98,16 +106,17 @@ export default function DossierPage() {
         <button onClick={() => navigate('/')} style={{ background: 'rgba(255,255,255,0.1)', color: 'white', border: '1px solid rgba(255,255,255,0.2)', padding: '12px 24px', borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 'bold', backdropFilter: 'blur(10px)' }}>
           <ArrowLeft size={18} /> Volver
         </button>
-        <div style={{ display: 'flex', gap: '10px' }}>
-          <button onClick={imprimirPDF} style={{ background: 'rgba(255,255,255,0.1)', color: 'white', border: '1px solid rgba(255,255,255,0.2)', padding: '12px 24px', borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 'bold', backdropFilter: 'blur(10px)' }}>
-            <Printer size={18} /> Imprimir PDF
-          </button>
-          <button onClick={descargarPDF} style={{ background: '#00D4FF', color: '#0A1628', border: 'none', padding: '12px 30px', borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', fontWeight: '900', boxShadow: '0 0 30px rgba(0, 212, 255, 0.5)' }}>
-            <Download size={18} /> Descargar PDF
-          </button>
-        </div>
+        
+        <button 
+          onClick={descargarPDF} 
+          disabled={descargando}
+          style={{ background: descargando ? '#64748B' : '#00D4FF', color: '#0A1628', border: 'none', padding: '12px 30px', borderRadius: '8px', cursor: descargando ? 'wait' : 'pointer', display: 'flex', alignItems: 'center', gap: '8px', fontWeight: '900', boxShadow: '0 0 30px rgba(0, 212, 255, 0.5)' }}
+        >
+          <Download size={18} /> {descargando ? 'Generando PDF...' : 'Descargar Dossier PDF'}
+        </button>
       </div>
 
+      {/* CONTENEDOR DEL DOSSIER */}
       <div id="dossier-pdf" style={{ maxWidth: '210mm', margin: '0 auto', boxShadow: '0 0 100px rgba(0,0,0,0.8)' }}>
         
         {/* PÁGINA 1 */}
@@ -263,7 +272,7 @@ export default function DossierPage() {
           </div>
         </div>
 
-        {/* PÁGINA 10: CTA / INVERSIÓN / CONTACTO */}
+        {/* PÁGINA 10: CONTACTO */}
         <div style={{ ...pageStyle, background: 'linear-gradient(135deg, #0A1628 0%, #111827 100%)' }}>
           <div style={contentStyle}>
             <div style={{ textAlign: 'center', marginBottom: '30px' }}>
