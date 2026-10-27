@@ -14,7 +14,7 @@ export default function DossierPage() {
 
     setDescargando(true);
 
-    // Forzamos un pequeño retraso para asegurar que todas las imágenes cargaron
+    // Forzamos un retraso para asegurar que todas las imágenes cargaron
     await new Promise(resolve => setTimeout(resolve, 2000));
 
     const opt = {
@@ -22,15 +22,15 @@ export default function DossierPage() {
       filename: 'Dossier_Estrategico_ORION.pdf',
       image: { type: 'jpeg', quality: 1 },
       html2canvas: { 
-        scale: 1.5, // Bajamos un poco la escala para evitar que el navegador se quede sin memoria
+        scale: 2, 
         useCORS: true, 
-        allowTaint: true, // Permite imágenes externas sin bloqueo
+        allowTaint: true,
         letterRendering: true,
         scrollY: 0,
-        windowWidth: 1000 // Forzamos un ancho fijo para que no se desajuste
+        windowWidth: 1000 
       },
       jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
-      pagebreak: { mode: 'css' } // Respetar los pageBreakAfter de CSS
+      pagebreak: { mode: ['css', 'legacy'] }
     };
 
     try {
@@ -43,9 +43,10 @@ export default function DossierPage() {
     }
   };
 
+  // REDUJIMOS LA ALTURA A 296mm PARA EVITAR EL DESBORDAMIENTO
   const pageStyle: React.CSSProperties = {
     width: '210mm',
-    height: '297mm', // Altura exacta A4
+    height: '296mm', 
     position: 'relative',
     overflow: 'hidden',
     pageBreakAfter: 'always',
@@ -273,7 +274,7 @@ export default function DossierPage() {
         </div>
 
         {/* PÁGINA 10: CONTACTO */}
-        <div style={{ ...pageStyle, background: 'linear-gradient(135deg, #0A1628 0%, #111827 100%)' }}>
+        <div style={{ ...pageStyle, background: 'linear-gradient(135deg, #0A1628 0%, #111827 100%)', pageBreakAfter: 'auto' }}>
           <div style={contentStyle}>
             <div style={{ textAlign: 'center', marginBottom: '30px' }}>
               <h2 style={{ ...titleStyle, fontSize: '36px' }}>Mientras otros operan con Excel,<br/>tú puedes tener un Director de Campaña con IA.</h2>
