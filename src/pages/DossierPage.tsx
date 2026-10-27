@@ -1,11 +1,12 @@
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Download, ShieldCheck, Brain, Target, TrendingUp, AlertTriangle, Users, Zap } from 'lucide-react';
+import { ArrowLeft, Download, ShieldCheck, Brain, Target, TrendingUp, AlertTriangle, Users, Zap, Printer } from 'lucide-react';
 // @ts-ignore
 import html2pdf from 'html2pdf.js';
 
 export default function DossierPage() {
   const navigate = useNavigate();
 
+  // MÉTODO 1: html2pdf (Mejorado con delay para imágenes)
   const descargarPDF = () => {
     const element = document.getElementById('dossier-pdf');
     if (!element) return;
@@ -13,16 +14,26 @@ export default function DossierPage() {
     const opt = {
       margin: 0,
       filename: 'Dossier_Estrategico_ORION.pdf',
-      image: { type: 'jpeg', quality: 1 },
-      html2canvas: { scale: 3, useCORS: true, letterRendering: true },
+      image: { type: 'jpeg', quality: 0.98 },
+      html2canvas: { 
+        scale: 2, 
+        useCORS: true, 
+        letterRendering: true,
+        allowTaint: false,
+        backgroundColor: '#0A1628' 
+      },
       jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
-      pagebreak: { mode: ['avoid-all', 'css', 'legacy'] }
+      pagebreak: { mode: ['css', 'legacy'] }
     };
 
     html2pdf().set(opt).from(element).save();
   };
 
-  // Estilos reutilizables para las páginas
+  // MÉTODO 2: Imprimir del navegador (Infalible)
+  const imprimirPDF = () => {
+    window.print();
+  };
+
   const pageStyle: React.CSSProperties = {
     width: '210mm',
     height: '297mm',
@@ -41,7 +52,7 @@ export default function DossierPage() {
   const overlayStyle: React.CSSProperties = {
     position: 'absolute',
     top: 0, left: 0, right: 0, bottom: 0,
-    backgroundColor: 'rgba(10, 22, 40, 0.75)', // Capa oscura para legibilidad
+    backgroundColor: 'rgba(10, 22, 40, 0.85)',
     zIndex: 1
   };
 
@@ -54,13 +65,13 @@ export default function DossierPage() {
     justifyContent: 'center'
   };
 
+  // Quitamos el backdropFilter para que html2pdf no falle
   const glassBox: React.CSSProperties = {
-    background: 'rgba(255, 255, 255, 0.05)',
-    backdropFilter: 'blur(10px)',
-    border: '1px solid rgba(255, 255, 255, 0.1)',
+    backgroundColor: 'rgba(17, 24, 39, 0.9)', // Fondo sólido semitransparente
+    border: '1px solid rgba(0, 212, 255, 0.3)',
     borderRadius: '16px',
     padding: '40px',
-    boxShadow: '0 20px 40px rgba(0,0,0,0.3)'
+    boxShadow: '0 20px 40px rgba(0,0,0,0.5)'
   };
 
   const titleStyle: React.CSSProperties = {
@@ -68,14 +79,15 @@ export default function DossierPage() {
     fontWeight: '900',
     lineHeight: '1.1',
     marginBottom: '20px',
-    textShadow: '0 4px 20px rgba(0,0,0,0.5)'
+    textShadow: '0 4px 20px rgba(0,0,0,0.8)'
   };
 
   const subtitleStyle: React.CSSProperties = {
     fontSize: '20px',
     color: '#E2E8F0',
     lineHeight: '1.6',
-    maxWidth: '600px'
+    maxWidth: '600px',
+    textShadow: '0 2px 10px rgba(0,0,0,0.5)'
   };
 
   return (
@@ -86,17 +98,22 @@ export default function DossierPage() {
         <button onClick={() => navigate('/')} style={{ background: 'rgba(255,255,255,0.1)', color: 'white', border: '1px solid rgba(255,255,255,0.2)', padding: '12px 24px', borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 'bold', backdropFilter: 'blur(10px)' }}>
           <ArrowLeft size={18} /> Volver
         </button>
-        <button onClick={descargarPDF} style={{ background: '#00D4FF', color: '#0A1628', border: 'none', padding: '12px 30px', borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', fontWeight: '900', boxShadow: '0 0 30px rgba(0, 212, 255, 0.5)', transition: 'transform 0.2s' }} onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.05)'} onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}>
-          <Download size={18} /> Descargar Dossier PDF
-        </button>
+        <div style={{ display: 'flex', gap: '10px' }}>
+          <button onClick={imprimirPDF} style={{ background: 'rgba(255,255,255,0.1)', color: 'white', border: '1px solid rgba(255,255,255,0.2)', padding: '12px 24px', borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 'bold', backdropFilter: 'blur(10px)' }}>
+            <Printer size={18} /> Imprimir PDF
+          </button>
+          <button onClick={descargarPDF} style={{ background: '#00D4FF', color: '#0A1628', border: 'none', padding: '12px 30px', borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', fontWeight: '900', boxShadow: '0 0 30px rgba(0, 212, 255, 0.5)' }}>
+            <Download size={18} /> Descargar PDF
+          </button>
+        </div>
       </div>
 
       <div id="dossier-pdf" style={{ maxWidth: '210mm', margin: '0 auto', boxShadow: '0 0 100px rgba(0,0,0,0.8)' }}>
         
-        {/* ================= PÁGINA 1: PORTADA ================= */}
+        {/* PÁGINA 1 */}
         <div style={pageStyle}>
           <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', backgroundImage: 'url(https://i.ibb.co/PZkChNVN/1793051979.png)', backgroundSize: 'cover', backgroundPosition: 'center' }}></div>
-          <div style={{ ...overlayStyle, background: 'linear-gradient(to top, rgba(10,22,40,1) 0%, rgba(10,22,40,0.4) 100%)' }}></div>
+          <div style={{ ...overlayStyle, background: 'linear-gradient(to top, rgba(10,22,40,1) 0%, rgba(10,22,40,0.3) 100%)' }}></div>
           
           <div style={{ ...contentStyle, justifyContent: 'flex-end', paddingBottom: '80px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '15px', marginBottom: '30px' }}>
@@ -115,7 +132,7 @@ export default function DossierPage() {
           </div>
         </div>
 
-        {/* ================= PÁGINA 2: EL PROBLEMA ================= */}
+        {/* PÁGINA 2 */}
         <div style={pageStyle}>
           <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', backgroundImage: 'url(https://i.ibb.co/N20mFSCB/1793052089.png)', backgroundSize: 'cover', backgroundPosition: 'center' }}></div>
           <div style={{ ...overlayStyle, background: 'linear-gradient(to right, rgba(10,22,40,0.95) 0%, rgba(10,22,40,0.6) 100%)' }}></div>
@@ -138,22 +155,22 @@ export default function DossierPage() {
           </div>
         </div>
 
-        {/* ================= PÁGINA 3: ADN EMOCIONAL ================= */}
+        {/* PÁGINA 3 */}
         <div style={pageStyle}>
           <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', backgroundImage: 'url(https://i.ibb.co/60fYfTw9/1793052658.png)', backgroundSize: 'cover', backgroundPosition: 'center' }}></div>
-          <div style={{ ...overlayStyle, background: 'linear-gradient(to top, rgba(10,22,40,0.95) 0%, rgba(10,22,40,0.2) 100%)' }}></div>
+          <div style={{ ...overlayStyle, background: 'linear-gradient(to top, rgba(10,22,40,0.95) 0%, rgba(10,22,40,0.3) 100%)' }}></div>
           
           <div style={{ ...contentStyle, justifyContent: 'flex-end' }}>
             <div style={glassBox}>
               <h2 style={{ ...titleStyle, fontSize: '36px', marginBottom: '10px' }}>ADN Emocional del Electorado</h2>
               <p style={{ ...subtitleStyle, fontSize: '18px' }}>
-                Las campañas tradicionales preguntan <em>qué</em> quiere la gente. ORION descubre <em>por qué</em> lo quiere. Analiza el sentimiento real (enojo, esperanza, miedo) para que tus discursos conecten con el corazón del votante.
+                Las campañas tradicionales preguntan <em>qué</em> quiere la gente. ORION descubre <em>por qué</em> lo quiere. Analiza el sentimiento real para que tus discursos conecten con el corazón del votante.
               </p>
             </div>
           </div>
         </div>
 
-        {/* ================= PÁGINA 4: CENTRO NEURONAL ================= */}
+        {/* PÁGINA 4 */}
         <div style={pageStyle}>
           <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', backgroundImage: 'url(https://i.ibb.co/9mbR8XjN/1793052345.png)', backgroundSize: 'cover', backgroundPosition: 'center' }}></div>
           <div style={{ ...overlayStyle, background: 'linear-gradient(to right, rgba(10,22,40,0.95) 0%, transparent 100%)' }}></div>
@@ -162,13 +179,13 @@ export default function DossierPage() {
             <div style={{ maxWidth: '500px' }}>
               <h2 style={{ ...titleStyle, fontSize: '40px', color: '#00D4FF' }}>El Centro Neuronal de tu Victoria</h2>
               <p style={{ ...subtitleStyle, fontSize: '18px' }}>
-                Un candidato informado, un equipo conectado, una campaña imparable. ORION unifica datos históricos del INE con el trabajo de campo en tiempo real. No almacena información, la transforma en decisiones.
+                Un candidato informado, un equipo conectado, una campaña imparable. ORION unifica datos históricos del INE con el trabajo de campo en tiempo real.
               </p>
             </div>
           </div>
         </div>
 
-        {/* ================= PÁGINA 5: CONTROL TERRITORIAL ================= */}
+        {/* PÁGINA 5 */}
         <div style={pageStyle}>
           <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', backgroundImage: 'url(https://i.ibb.co/jk7HFxrp/1793052205.png)', backgroundSize: 'cover', backgroundPosition: 'center' }}></div>
           <div style={{ ...overlayStyle, background: 'linear-gradient(to top, rgba(10,22,40,0.95) 0%, rgba(10,22,40,0.3) 100%)' }}></div>
@@ -178,13 +195,13 @@ export default function DossierPage() {
               <Target size={40} color="#F59E0B" style={{ marginBottom: '15px' }} />
               <h2 style={{ ...titleStyle, fontSize: '36px', marginBottom: '10px' }}>Domina cada sección electoral</h2>
               <p style={{ ...subtitleStyle, fontSize: '18px' }}>
-                Visualiza las 52 secciones electorales como si fueran tu propia casa. Identifica zonas seguras, en disputa y de riesgo. La información está en todas partes. La inteligencia no.
+                Visualiza las secciones electorales como si fueran tu propia casa. Identifica zonas seguras, en disputa y de riesgo. La información está en todas partes. La inteligencia no.
               </p>
             </div>
           </div>
         </div>
 
-        {/* ================= PÁGINA 6: BRIGADISTAS ================= */}
+        {/* PÁGINA 6 */}
         <div style={pageStyle}>
           <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', backgroundImage: 'url(https://i.ibb.co/PGkq7gbv/1793052461.png)', backgroundSize: 'cover', backgroundPosition: 'center' }}></div>
           <div style={{ ...overlayStyle, background: 'linear-gradient(to right, rgba(10,22,40,0.95) 0%, rgba(10,22,40,0.4) 100%)' }}></div>
@@ -194,29 +211,29 @@ export default function DossierPage() {
               <Users size={40} color="#00D4FF" style={{ marginBottom: '15px' }} />
               <h2 style={{ ...titleStyle, fontSize: '40px' }}>Operación Territorial Real</h2>
               <p style={{ ...subtitleStyle, fontSize: '18px' }}>
-                Controla a tus presidentes, secretarios y vocales por colonia. Sabrás con precisión matemática quién está cumpliendo con su cuota de movilización y dónde tienes huecos antes de la votación.
+                Controla a tus presidentes, secretarios y vocales por colonia. Sabrás con precisión matemática quién está cumpliendo con su cuota de movilización y dónde tienes huecos.
               </p>
             </div>
           </div>
         </div>
 
-        {/* ================= PÁGINA 7: AURA IA ================= */}
+        {/* PÁGINA 7 */}
         <div style={pageStyle}>
           <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', backgroundImage: 'url(https://i.ibb.co/p880mHY/1793052543.png)', backgroundSize: 'cover', backgroundPosition: 'center' }}></div>
-          <div style={{ ...overlayStyle, background: 'linear-gradient(to top, rgba(10,22,40,0.95) 0%, rgba(10,22,40,0.1) 100%)' }}></div>
+          <div style={{ ...overlayStyle, background: 'linear-gradient(to top, rgba(10,22,40,0.95) 0%, rgba(10,22,40,0.2) 100%)' }}></div>
           
           <div style={{ ...contentStyle, justifyContent: 'flex-end' }}>
             <div style={glassBox}>
               <Brain size={40} color="#8B5CF6" style={{ marginBottom: '15px' }} />
               <h2 style={{ ...titleStyle, fontSize: '36px', marginBottom: '10px' }}>AURA: Tu Copiloto de Campaña</h2>
               <p style={{ ...subtitleStyle, fontSize: '18px' }}>
-                AURA no duerme. No se cansa. No se equivoca. Pregúntale: <em>"¿En qué colonias debo enfocarme hoy?"</em> y en segundos analizará 21 tablas de datos para darte recomendaciones estratégicas.
+                AURA no duerme. No se cansa. No se equivoca. Pregúntale: <em>"¿En qué colonias debo enfocarme hoy?"</em> y en segundos analizará 21 tablas de datos para darte recomendaciones.
               </p>
             </div>
           </div>
         </div>
 
-        {/* ================= PÁGINA 8: GPS ================= */}
+        {/* PÁGINA 8 */}
         <div style={pageStyle}>
           <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', backgroundImage: 'url(https://i.ibb.co/QvJxQj0T/1793052782.png)', backgroundSize: 'cover', backgroundPosition: 'center' }}></div>
           <div style={{ ...overlayStyle, background: 'linear-gradient(to right, rgba(10,22,40,0.95) 0%, rgba(10,22,40,0.3) 100%)' }}></div>
@@ -232,7 +249,7 @@ export default function DossierPage() {
           </div>
         </div>
 
-        {/* ================= PÁGINA 9: VICTORIA ================= */}
+        {/* PÁGINA 9 */}
         <div style={pageStyle}>
           <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', backgroundImage: 'url(https://i.ibb.co/VppsM1kD/1793052874.png)', backgroundSize: 'cover', backgroundPosition: 'center' }}></div>
           <div style={{ ...overlayStyle, background: 'rgba(10,22,40,0.85)' }}></div>
@@ -246,18 +263,18 @@ export default function DossierPage() {
           </div>
         </div>
 
-        {/* ================= PÁGINA 10: CTA / INVERSIÓN ================= */}
+        {/* PÁGINA 10: CTA / INVERSIÓN / CONTACTO */}
         <div style={{ ...pageStyle, background: 'linear-gradient(135deg, #0A1628 0%, #111827 100%)' }}>
           <div style={contentStyle}>
-            <div style={{ textAlign: 'center', marginBottom: '60px' }}>
-              <h2 style={{ ...titleStyle, fontSize: '42px' }}>Mientras otros operan con Excel,<br/>tú puedes tener un Director de Campaña con IA.</h2>
+            <div style={{ textAlign: 'center', marginBottom: '30px' }}>
+              <h2 style={{ ...titleStyle, fontSize: '36px' }}>Mientras otros operan con Excel,<br/>tú puedes tener un Director de Campaña con IA.</h2>
             </div>
             
-            <div style={{ display: 'flex', gap: '30px', justifyContent: 'center' }}>
+            <div style={{ display: 'flex', gap: '20px', justifyContent: 'center', marginBottom: '40px' }}>
               <div style={{ ...glassBox, flex: 1, textAlign: 'center', borderTop: '4px solid #00D4FF' }}>
-                <h3 style={{ color: '#00D4FF', fontSize: '24px', marginBottom: '10px' }}>Licencia por Ciclo</h3>
-                <div style={{ fontSize: '36px', fontWeight: '900', color: 'white', marginBottom: '20px' }}>$350,000 <span style={{ fontSize: '16px', color: '#94A3B8' }}>MXN</span></div>
-                <ul style={{ textAlign: 'left', color: '#E2E8F0', lineHeight: '2', listStyle: 'none', padding: 0 }}>
+                <h3 style={{ color: '#00D4FF', fontSize: '22px', marginBottom: '10px' }}>Licencia por Ciclo</h3>
+                <div style={{ fontSize: '32px', fontWeight: '900', color: 'white', marginBottom: '20px' }}>$350,000 <span style={{ fontSize: '14px', color: '#94A3B8' }}>MXN</span></div>
+                <ul style={{ textAlign: 'left', color: '#E2E8F0', lineHeight: '1.8', listStyle: 'none', padding: 0, fontSize: '14px' }}>
                   <li>✓ Clonación exclusiva en 48h</li>
                   <li>✓ Carga de datos e IA entrenada</li>
                   <li>✓ Capacitación a tu equipo</li>
@@ -266,12 +283,18 @@ export default function DossierPage() {
               </div>
             </div>
 
-            <div style={{ marginTop: '60px', textAlign: 'center' }}>
-              <h3 style={{ fontSize: '24px', color: 'white', marginBottom: '20px' }}>¿Listo para asegurar tu victoria?</h3>
-              <a href="https://wa.me/tu-numero" style={{ display: 'inline-block', background: '#00D4FF', color: '#0A1628', padding: '18px 40px', borderRadius: '12px', textDecoration: 'none', fontWeight: '900', fontSize: '18px', boxShadow: '0 10px 30px rgba(0,212,255,0.4)' }}>
+            <div style={{ textAlign: 'center', background: 'rgba(0, 212, 255, 0.1)', border: '1px solid rgba(0, 212, 255, 0.3)', padding: '25px', borderRadius: '16px' }}>
+              <h3 style={{ fontSize: '20px', color: 'white', marginBottom: '15px' }}>¿Listo para asegurar tu victoria?</h3>
+              
+              <div style={{ color: '#E2E8F0', fontSize: '14px', lineHeight: '1.8', marginBottom: '20px' }}>
+                <strong>Oficina:</strong> Avenida Sur 403, Col. Unidad Habitacional Pemex, Piso 3, Oficina 7, Tula de Allende, Hgo. C.P. 42808<br/>
+                <strong>Teléfono:</strong> 773 732 7730 · <strong>Móvil:</strong> 55 4926 3775
+              </div>
+
+              <a href="https://wa.me/525549263775" style={{ display: 'inline-block', background: '#00D4FF', color: '#0A1628', padding: '15px 30px', borderRadius: '8px', textDecoration: 'none', fontWeight: '900', fontSize: '16px', boxShadow: '0 10px 30px rgba(0,212,255,0.4)' }}>
                 Agendar Demostración Privada
               </a>
-              <p style={{ color: '#64748B', marginTop: '20px', fontSize: '14px' }}>orion-electoral.com · Campaign Intelligence</p>
+              <p style={{ color: '#64748B', marginTop: '15px', fontSize: '12px' }}>orion-electoral.com · Campaign Intelligence</p>
             </div>
           </div>
         </div>
@@ -281,9 +304,10 @@ export default function DossierPage() {
       <style>{`
         @media print {
           .no-print { display: none !important; }
-          body { background-color: white !important; }
+          body { background-color: white !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
           #dossier-pdf { box-shadow: none !important; max-width: 100% !important; }
           @page { size: A4 portrait; margin: 0; }
+          div { page-break-inside: avoid; }
         }
       `}</style>
     </div>
