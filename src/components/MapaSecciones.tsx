@@ -38,11 +38,10 @@ const MapaSecciones: React.FC<MapaSeccionesProps> = ({ datos }) => {
     const seccionNum = Number(feature.properties.seccion);
     const info = datos[seccionNum];
 
-    // 🖱️ Eventos de mouse
     layer.on({
       mouseover: (e: any) => {
         const l = e.target;
-        l.setStyle({ weight: 3, color: '#00A651', fillOpacity: 0.9 });
+        l.setStyle({ weight: 3, color: '#00D4FF', fillOpacity: 0.9 });
       },
       mouseout: (e: any) => {
         const l = e.target;
@@ -50,7 +49,6 @@ const MapaSecciones: React.FC<MapaSeccionesProps> = ({ datos }) => {
       }
     });
 
-    // 📝 Popup HTML
     layer.bindPopup(`
       <div style="font-family: sans-serif; font-size: 14px; min-width: 200px;">
         <strong style="color: #0D9488; font-size: 16px;">Sección ${seccionNum}</strong><br/>
@@ -62,11 +60,11 @@ const MapaSecciones: React.FC<MapaSeccionesProps> = ({ datos }) => {
           </span></div>
           <div style="display: flex; flex-direction: column; gap: 6px;">
             <a href="/app/secciones?seccion=${seccionNum}" 
-              style="text-align: center; padding: 6px; background: #00A651; color: white; border-radius: 4px; text-decoration: none; font-weight: bold; font-size: 11px;">
+              style="text-align: center; padding: 6px; background: #00D4FF; color: white; border-radius: 4px; text-decoration: none; font-weight: bold; font-size: 11px;">
               Ver Detalle Completo →
             </a>
             <a href="/app/centro-ia?seccion=${seccionNum}&pct=${info.pct.toFixed(1)}&riesgo=${info.riesgo}" 
-              style="text-align: center; padding: 6px; background: #0066CC; color: white; border-radius: 4px; text-decoration: none; font-weight: bold; font-size: 11px;">
+              style="text-align: center; padding: 6px; background: #6366F1; color: white; border-radius: 4px; text-decoration: none; font-weight: bold; font-size: 11px;">
               🤖 Analizar con IA
             </a>
           </div>
@@ -76,12 +74,12 @@ const MapaSecciones: React.FC<MapaSeccionesProps> = ({ datos }) => {
   };
 
   return (
-    <div style={{ position: 'relative' }}>
-      <div style={{ height: '600px', width: '100%', borderRadius: '12px', overflow: 'hidden', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' }}>
+    <div style={{ position: 'relative', width: '100%', height: '100%', minHeight: '400px' }}>
+      <div style={{ height: '100%', width: '100%', minHeight: '400px', borderRadius: '12px', overflow: 'hidden', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' }}>
         <MapContainer 
           center={[20.05, -98.36]} 
           zoom={12} 
-          style={{ height: '100%', width: '100%' }}
+          style={{ height: '100%', width: '100%', minHeight: '400px' }}
         >
           <TileLayer
             attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
@@ -96,34 +94,27 @@ const MapaSecciones: React.FC<MapaSeccionesProps> = ({ datos }) => {
         </MapContainer>
       </div>
 
-      {/* 📖 LEYENDA FLOTANTE */}
+      {/* LEYENDA FLOTANTE */}
       <div style={{
-        position: 'absolute', bottom: '20px', right: '20px',
-        background: 'rgba(255, 255, 255, 0.95)', padding: '12px 16px',
+        position: 'absolute', bottom: '10px', right: '10px',
+        background: 'rgba(255, 255, 255, 0.95)', padding: '10px 14px',
         borderRadius: '10px', boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-        fontSize: '12px', zIndex: 1000, minWidth: '160px'
+        fontSize: '11px', zIndex: 1000, minWidth: '140px'
       }}>
-        <div style={{ fontWeight: 'bold', marginBottom: '8px', color: '#333', fontSize: '13px' }}>
+        <div style={{ fontWeight: 'bold', marginBottom: '6px', color: '#333', fontSize: '12px' }}>
           🗳️ Estado Electoral
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '5px' }}>
-          <span style={{ display: 'inline-block', width: '14px', height: '14px', background: '#10B981', borderRadius: '3px' }}></span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
+          <span style={{ display: 'inline-block', width: '12px', height: '12px', background: '#10B981', borderRadius: '3px' }}></span>
           <span><b>Segura</b> (≥45%)</span>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '5px' }}>
-          <span style={{ display: 'inline-block', width: '14px', height: '14px', background: '#F59E0B', borderRadius: '3px' }}></span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
+          <span style={{ display: 'inline-block', width: '12px', height: '12px', background: '#F59E0B', borderRadius: '3px' }}></span>
           <span><b>Disputa</b> (35-44%)</span>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '5px' }}>
-          <span style={{ display: 'inline-block', width: '14px', height: '14px', background: '#EF4444', borderRadius: '3px' }}></span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
+          <span style={{ display: 'inline-block', width: '12px', height: '12px', background: '#EF4444', borderRadius: '3px' }}></span>
           <span><b>Riesgo</b> (&lt;35%)</span>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <span style={{ display: 'inline-block', width: '14px', height: '14px', background: '#9CA3AF', borderRadius: '3px' }}></span>
-          <span>Sin datos</span>
-        </div>
-        <div style={{ marginTop: '8px', paddingTop: '8px', borderTop: '1px solid #eee', fontSize: '10px', color: '#666' }}>
-          💡 Clic en una sección para ver detalle
         </div>
       </div>
     </div>
