@@ -40,10 +40,10 @@ function App() {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       
-      // Retraso de 6 segundos para disfrutar la animación del logo
+      // Tiempo reducido a 2.5 segundos
       setTimeout(() => {
         setLoading(false);
-      }, 6000); 
+      }, 2500); 
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
@@ -55,18 +55,9 @@ function App() {
 
   if (loading) {
     return (
-      <div style={{
-        display: 'flex',
-        flexDirection: 'column',
-        justifyContent: 'center',
-        alignItems: 'center',
-        height: '100vh',
-        backgroundColor: '#0A1628'
-      }}>
+      <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', height: '100vh', backgroundColor: '#0A1628' }}>
         <OrionAnimatedLogo />
-        <p style={{ color: '#00D4FF', marginTop: '20px', fontWeight: 'bold', letterSpacing: '2px' }}>
-          INICIANDO SISTEMA...
-        </p>
+        <p style={{ color: '#00D4FF', marginTop: '20px', fontWeight: 'bold', letterSpacing: '2px' }}>INICIANDO SISTEMA...</p>
       </div>
     );
   }
