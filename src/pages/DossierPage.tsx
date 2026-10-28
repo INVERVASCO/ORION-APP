@@ -29,7 +29,7 @@ export default function DossierPage() {
       await html2pdf().set(opt).from(element).save();
     } catch (error) {
       console.error("Error al generar PDF:", error);
-      alert("Hubo un problema. Por favor usa el botón de 'Imprimir PDF' y elige 'Guardar como PDF'.");
+      alert("Hubo un problema. Por favor intenta de nuevo.");
     } finally {
       setDescargando(false);
     }
@@ -38,7 +38,6 @@ export default function DossierPage() {
   return (
     <div style={{ backgroundColor: '#050A14', minHeight: '100vh', fontFamily: 'Inter, sans-serif' }}>
       
-      {/* BOTONES FLOTANTES */}
       <div className="no-print" style={{ position: 'fixed', top: '20px', left: '20px', right: '20px', display: 'flex', justifyContent: 'space-between', zIndex: 1000, flexWrap: 'wrap', gap: '10px' }}>
         <button onClick={() => navigate('/')} style={{ background: 'rgba(255,255,255,0.1)', color: 'white', border: '1px solid rgba(255,255,255,0.2)', padding: '10px 20px', borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 'bold', backdropFilter: 'blur(10px)' }}>
           <ArrowLeft size={18} /> Volver
@@ -53,7 +52,7 @@ export default function DossierPage() {
         
         {/* PÁGINA 1 */}
         <div className="pdf-page">
-          <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', backgroundImage: 'url(https://i.ibb.co/PZkChNVN/1793051979.png)', backgroundSize: 'cover', backgroundPosition: 'center' }}></div>
+          <div className="bg-image" style={{ backgroundImage: 'url(https://i.ibb.co/PZkChNVN/1793051979.png)' }}></div>
           <div className="overlay" style={{ background: 'linear-gradient(to top, rgba(10,22,40,1) 0%, rgba(10,22,40,0.3) 100%)' }}></div>
           
           <div className="content" style={{ justifyContent: 'flex-end', paddingBottom: '40px' }}>
@@ -75,7 +74,7 @@ export default function DossierPage() {
 
         {/* PÁGINA 2 */}
         <div className="pdf-page">
-          <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', backgroundImage: 'url(https://i.ibb.co/N20mFSCB/1793052089.png)', backgroundSize: 'cover', backgroundPosition: 'center' }}></div>
+          <div className="bg-image" style={{ backgroundImage: 'url(https://i.ibb.co/N20mFSCB/1793052089.png)' }}></div>
           <div className="overlay" style={{ background: 'linear-gradient(to right, rgba(10,22,40,0.95) 0%, rgba(10,22,40,0.6) 100%)' }}></div>
           
           <div className="content">
@@ -98,7 +97,7 @@ export default function DossierPage() {
 
         {/* PÁGINA 3 */}
         <div className="pdf-page">
-          <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', backgroundImage: 'url(https://i.ibb.co/60fYfTw9/1793052658.png)', backgroundSize: 'cover', backgroundPosition: 'center' }}></div>
+          <div className="bg-image" style={{ backgroundImage: 'url(https://i.ibb.co/60fYfTw9/1793052658.png)' }}></div>
           <div className="overlay" style={{ background: 'linear-gradient(to top, rgba(10,22,40,0.95) 0%, rgba(10,22,40,0.3) 100%)' }}></div>
           
           <div className="content" style={{ justifyContent: 'flex-end' }}>
@@ -113,7 +112,7 @@ export default function DossierPage() {
 
         {/* PÁGINA 4 */}
         <div className="pdf-page">
-          <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', backgroundImage: 'url(https://i.ibb.co/9mbR8XjN/1793052345.png)', backgroundSize: 'cover', backgroundPosition: 'center' }}></div>
+          <div className="bg-image" style={{ backgroundImage: 'url(https://i.ibb.co/9mbR8XjN/1793052345.png)' }}></div>
           <div className="overlay" style={{ background: 'linear-gradient(to right, rgba(10,22,40,0.95) 0%, transparent 100%)' }}></div>
           
           <div className="content">
@@ -128,7 +127,7 @@ export default function DossierPage() {
 
         {/* PÁGINA 5 */}
         <div className="pdf-page">
-          <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', backgroundImage: 'url(https://i.ibb.co/jk7HFxrp/1793052205.png)', backgroundSize: 'cover', backgroundPosition: 'center' }}></div>
+          <div className="bg-image" style={{ backgroundImage: 'url(https://i.ibb.co/jk7HFxrp/1793052205.png)' }}></div>
           <div className="overlay" style={{ background: 'linear-gradient(to top, rgba(10,22,40,0.95) 0%, rgba(10,22,40,0.3) 100%)' }}></div>
           
           <div className="content" style={{ justifyContent: 'flex-end' }}>
@@ -144,7 +143,7 @@ export default function DossierPage() {
 
         {/* PÁGINA 6 */}
         <div className="pdf-page">
-          <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', backgroundImage: 'url(https://i.ibb.co/PGkq7gbv/1793052461.png)', backgroundSize: 'cover', backgroundPosition: 'center' }}></div>
+          <div className="bg-image" style={{ backgroundImage: 'url(https://i.ibb.co/PGkq7gbv/1793052461.png)' }}></div>
           <div className="overlay" style={{ background: 'linear-gradient(to right, rgba(10,22,40,0.95) 0%, rgba(10,22,40,0.4) 100%)' }}></div>
           
           <div className="content">
@@ -160,7 +159,7 @@ export default function DossierPage() {
 
         {/* PÁGINA 7 */}
         <div className="pdf-page">
-          <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', backgroundImage: 'url(https://i.ibb.co/p880mHY/1793052543.png)', backgroundSize: 'cover', backgroundPosition: 'center' }}></div>
+          <div className="bg-image" style={{ backgroundImage: 'url(https://i.ibb.co/p880mHY/1793052543.png)' }}></div>
           <div className="overlay" style={{ background: 'linear-gradient(to top, rgba(10,22,40,0.95) 0%, rgba(10,22,40,0.2) 100%)' }}></div>
           
           <div className="content" style={{ justifyContent: 'flex-end' }}>
@@ -176,7 +175,7 @@ export default function DossierPage() {
 
         {/* PÁGINA 8 */}
         <div className="pdf-page">
-          <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', backgroundImage: 'url(https://i.ibb.co/QvJxQj0T/1793052782.png)', backgroundSize: 'cover', backgroundPosition: 'center' }}></div>
+          <div className="bg-image" style={{ backgroundImage: 'url(https://i.ibb.co/QvJxQj0T/1793052782.png)' }}></div>
           <div className="overlay" style={{ background: 'linear-gradient(to right, rgba(10,22,40,0.95) 0%, rgba(10,22,40,0.3) 100%)' }}></div>
           
           <div className="content">
@@ -192,7 +191,7 @@ export default function DossierPage() {
 
         {/* PÁGINA 9 */}
         <div className="pdf-page">
-          <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', backgroundImage: 'url(https://i.ibb.co/VppsM1kD/1793052874.png)', backgroundSize: 'cover', backgroundPosition: 'center' }}></div>
+          <div className="bg-image" style={{ backgroundImage: 'url(https://i.ibb.co/VppsM1kD/1793052874.png)' }}></div>
           <div className="overlay" style={{ background: 'rgba(10,22,40,0.85)' }}></div>
           
           <div className="content" style={{ textAlign: 'center', alignItems: 'center' }}>
@@ -246,6 +245,7 @@ export default function DossierPage() {
 
       {/* ESTILOS CSS RESPONSIVOS */}
       <style>{`
+        /* --- ESTILOS PARA COMPUTADORA (Y PDF) --- */
         .pdf-page {
           width: 210mm;
           height: 296mm; 
@@ -258,6 +258,14 @@ export default function DossierPage() {
           padding: 60px;
           box-sizing: border-box;
           color: white;
+        }
+
+        .bg-image {
+          position: absolute;
+          top: 0; left: 0; width: 100%; height: 100%;
+          background-size: cover;
+          background-position: center;
+          z-index: 0;
         }
 
         .overlay {
@@ -283,31 +291,51 @@ export default function DossierPage() {
           box-shadow: 0 20px 40px rgba(0,0,0,0.5);
         }
 
-        /* ADAPTACIÓN PARA CELULARES Y TABLETS */
+        /* --- ESTILOS PARA CELULARES Y TABLETS (RESPONSIVE) --- */
         @media screen and (max-width: 800px) {
           .pdf-page {
             width: 100% !important;
             height: auto !important;
             min-height: 100vh;
-            padding: 40px 20px !important;
+            padding: 80px 20px 40px 20px !important; /* Espacio extra arriba para los botones */
             border-bottom: 2px solid #00D4FF;
+            display: block; /* Cambia de flex a block para mejor flujo */
           }
           
           .title-text {
             font-size: 32px !important;
           }
 
-          .grid-2-cols {
-            flex-direction: column !important;
-            gap: 15px !important;
+          .content {
+            height: auto;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            min-height: calc(100vh - 120px); /* Ajuste para centrar el contenido */
           }
 
           .glass-box {
             padding: 20px !important;
+            width: 100% !important;
+            box-sizing: border-box;
+          }
+
+          .grid-2-cols {
+            flex-direction: column !important;
+            gap: 15px !important;
+            width: 100%;
+          }
+          
+          /* Asegura que el fondo no se coma el texto en móvil */
+          .bg-image {
+            background-position: center;
+          }
+          .overlay {
+            background: rgba(10, 22, 40, 0.85) !important; /* Oscurece más el fondo en móvil */
           }
         }
 
-        /* ESTILOS PARA IMPRESIÓN / PDF */
+        /* --- ESTILOS DE IMPRESIÓN (SOLO PDF) --- */
         @media print {
           .no-print { display: none !important; }
           body { background-color: white !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
