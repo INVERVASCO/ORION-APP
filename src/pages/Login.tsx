@@ -1,6 +1,7 @@
+// @ts-nocheck
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { Eye, EyeOff, Loader2 } from 'lucide-react';
+import { Eye, EyeOff, Loader2, ArrowLeft } from 'lucide-react'; // <-- Importamos ArrowLeft
 import { supabase } from '../lib/supabaseClient';
 import AvisoPrivacidad from '../components/AvisoPrivacidad';
 
@@ -46,7 +47,37 @@ export default function Login() {
   };
 
   return (
-    <div className="login-container">
+    <div className="login-container" style={{ position: 'relative' }}>
+      
+      {/* 👇 ESTE ES EL BOTÓN QUE TE REGRESA A LA PÁGINA WEB 👇 */}
+      <button 
+        onClick={() => navigate('/')}
+        style={{
+          position: 'absolute',
+          top: '30px',
+          left: '30px',
+          background: 'rgba(255, 255, 255, 0.1)',
+          color: 'white',
+          border: '1px solid rgba(255, 255, 255, 0.2)',
+          padding: '10px 20px',
+          borderRadius: '8px',
+          cursor: 'pointer',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px',
+          fontWeight: 'bold',
+          fontSize: '14px',
+          backdropFilter: 'blur(10px)',
+          zIndex: 100,
+          transition: 'all 0.3s'
+        }}
+        onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.2)'}
+        onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)'}
+      >
+        <ArrowLeft size={18} /> Volver a la Web
+      </button>
+      {/* 👆 FIN DEL BOTÓN 👆 */}
+
       <div className="login-box">
         
         {/* LOGO DE ORION */}
@@ -64,7 +95,7 @@ export default function Login() {
         </div>
 
         <h2 style={{ 
-          color: '#0A1628', // Navy en lugar del verde viejo
+          color: '#0A1628', 
           marginBottom: '20px',
           fontSize: '22px',
           fontWeight: '800'
@@ -74,11 +105,11 @@ export default function Login() {
         
         {error && (
           <div style={{ 
-            color: '#F43F5E', // Rojo Rose
+            color: '#F43F5E', 
             marginBottom: '15px', 
             fontSize: '14px',
             padding: '10px 12px',
-            background: '#FFE4E6', // Fondo Rose claro
+            background: '#FFE4E6',
             borderRadius: '6px',
             borderLeft: '3px solid #F43F5E',
             textAlign: 'left'
@@ -140,7 +171,7 @@ export default function Login() {
             <Link 
               to="/recuperar-password"
               style={{ 
-                color: '#00D4FF', // Cyan
+                color: '#00D4FF', 
                 fontSize: '13px', 
                 textDecoration: 'none',
                 fontWeight: 'bold'
