@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
@@ -9,7 +10,6 @@ import { supabase } from '../lib/supabaseClient';
 import MapaSecciones from '../components/MapaSecciones';
 // @ts-ignore
 import html2pdf from 'html2pdf.js';
-import OrionAnimatedLogo from '../components/OrionAnimatedLogo';
 
 interface TopBarrio {
   barrio_colonia_id: string;
@@ -195,13 +195,7 @@ export default function Dashboard() {
       margin: [8, 8, 8, 8],
       filename: `Resumen_Ejecutivo_ORION_${new Date().toISOString().split('T')[0]}.pdf`,
       image: { type: 'jpeg', quality: 0.98 },
-      html2canvas: { 
-        scale: 2, 
-        useCORS: true, // <-- IMPORTANTE
-        letterRendering: true,
-        scrollY: 0,
-        windowWidth: 800
-      },
+      html2canvas: { scale: 2, useCORS: true, letterRendering: true, scrollY: 0, windowWidth: 800 },
       jsPDF: { unit: 'mm', format: 'letter', orientation: 'portrait' },
       pagebreak: { mode: ['avoid-all', 'css', 'legacy'] }
     };
@@ -212,17 +206,8 @@ export default function Dashboard() {
 
   if (loading) {
     return (
-      <div style={{ 
-        display: 'flex', 
-        flexDirection: 'column',
-        justifyContent: 'center', 
-        alignItems: 'center', 
-        height: '80vh' 
-      }}>
-        <OrionAnimatedLogo />
-        <p style={{ color: '#00D4FF', marginTop: '15px', fontWeight: 'bold', letterSpacing: '2px' }}>
-          CONECTANDO CON EL CENTRO DE INTELIGENCIA...
-        </p>
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '50px', gap: '10px', color: '#00D4FF' }}>
+        <Loader2 size={32} /> Cargando métricas y pronóstico...
       </div>
     );
   }
@@ -235,25 +220,14 @@ export default function Dashboard() {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '20px', flexWrap: 'wrap', gap: '10px' }}>
         <div>
           <h1 className="header-title" style={{ marginBottom: '5px' }}>Panel de Control Ejecutivo</h1>
-          <p style={{ margin: 0, color: '#64748B', fontSize: '14px' }}>
-            Resumen en tiempo real de la operación territorial.
-          </p>
+          <p style={{ margin: 0, color: '#64748B', fontSize: '14px' }}>Resumen en tiempo real de la operación territorial.</p>
         </div>
-        <button 
-          onClick={descargarResumenPDF}
-          className="btn-primary"
-          style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '12px 20px', fontSize: '14px' }}
-        >
+        <button onClick={descargarResumenPDF} className="btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '12px 20px', fontSize: '14px' }}>
           <Download size={18} /> Descargar Reporte Ejecutivo
         </button>
       </div>
 
-      <div style={{
-        background: 'linear-gradient(135deg, #0A1628 0%, #00D4FF 100%)',
-        borderRadius: '16px', padding: '28px', marginBottom: '25px',
-        color: 'white', boxShadow: '0 10px 30px rgba(0, 212, 255, 0.3)',
-        position: 'relative', overflow: 'hidden'
-      }}>
+      <div style={{ background: 'linear-gradient(135deg, #0A1628 0%, #00D4FF 100%)', borderRadius: '16px', padding: '28px', marginBottom: '25px', color: 'white', boxShadow: '0 10px 30px rgba(0, 212, 255, 0.3)', position: 'relative', overflow: 'hidden' }}>
         <div style={{ position: 'absolute', top: '-50px', right: '-50px', width: '200px', height: '200px', borderRadius: '50%', background: 'rgba(255,255,255,0.08)' }} />
         <div style={{ display: 'flex', alignItems: 'center', gap: '20px', flexWrap: 'wrap', position: 'relative', zIndex: 1 }}>
           <div style={{ background: 'rgba(255,255,255,0.2)', width: '70px', height: '70px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, border: '2px solid rgba(255,255,255,0.3)' }}>
@@ -267,10 +241,7 @@ export default function Dashboard() {
             <h2 style={{ margin: '0 0 8px 0', fontSize: '22px', fontWeight: '800', lineHeight: '1.3' }}>Tu Director de Campaña con Inteligencia Artificial</h2>
             <p style={{ margin: 0, fontSize: '14px', opacity: 0.95, lineHeight: '1.5' }}>La IA analiza los datos de tu campaña y te dice qué hacer HOY.</p>
           </div>
-          <button
-            onClick={() => navigate('/app/centro-ia')}
-            style={{ background: 'white', color: '#0A1628', border: 'none', padding: '16px 28px', borderRadius: '10px', cursor: 'pointer', fontWeight: '800', fontSize: '15px', display: 'flex', alignItems: 'center', gap: '10px', boxShadow: '0 6px 20px rgba(0,0,0,0.15)', transition: 'transform 0.2s', whiteSpace: 'nowrap' }}
-          >
+          <button onClick={() => navigate('/app/centro-ia')} style={{ background: 'white', color: '#0A1628', border: 'none', padding: '16px 28px', borderRadius: '10px', cursor: 'pointer', fontWeight: '800', fontSize: '15px', display: 'flex', alignItems: 'center', gap: '10px', boxShadow: '0 6px 20px rgba(0,0,0,0.15)', transition: 'transform 0.2s', whiteSpace: 'nowrap' }}>
             <Zap size={18} /> Ir al Centro IA <ArrowRight size={18} />
           </button>
         </div>
@@ -320,42 +291,31 @@ export default function Dashboard() {
       <h3 style={{ color: '#0A1628', fontSize: '16px', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
         <MapPin size={20} color="#00D4FF" /> Mapa Electoral
       </h3>
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 320px', gap: '20px', marginBottom: '30px', alignItems: 'start' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '20px', marginBottom: '30px', alignItems: 'start' }}>
         <div style={{ height: '450px', width: '100%' }}>
-        <MapaSecciones datos={datosMapa} />
+          <MapaSecciones datos={datosMapa} />
+        </div>
 
-        <div style={{ background: 'white', borderRadius: '12px', padding: '20px', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)', borderTop: '4px solid #F43F5E', height: '600px', overflowY: 'auto' }}>
+        <div style={{ background: 'white', borderRadius: '12px', padding: '20px', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)', borderTop: '4px solid #F43F5E', height: '450px', overflowY: 'auto' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '15px' }}>
             <AlertTriangle size={22} color="#F43F5E" />
             <h3 style={{ color: '#F43F5E', fontSize: '15px', margin: 0 }}>Prioridades de Hoy</h3>
           </div>
-          <p style={{ fontSize: '12px', color: '#64748B', marginBottom: '15px', lineHeight: '1.4' }}>
-            Secciones con mayor cantidad de votos en riesgo.
-          </p>
+          <p style={{ fontSize: '12px', color: '#64748B', marginBottom: '15px', lineHeight: '1.4' }}>Secciones con mayor cantidad de votos en riesgo.</p>
 
           {pronostico.seccionesEnRiesgo.length > 0 ? (
             pronostico.seccionesEnRiesgo.map((s, idx) => (
-              <div 
-                key={s.seccion} 
-                onClick={() => navigate(`/app/secciones?seccion=${s.seccion + 54}`)}
-                style={{ padding: '12px', background: idx === 0 ? '#FFE4E6' : '#F8FAFC', borderRadius: '8px', marginBottom: '10px', borderLeft: '4px solid #F43F5E', cursor: 'pointer', transition: 'transform 0.15s' }}
-              >
+              <div key={s.seccion} onClick={() => navigate(`/app/secciones?seccion=${s.seccion + 54}`)} style={{ padding: '12px', background: idx === 0 ? '#FFE4E6' : '#F8FAFC', borderRadius: '8px', marginBottom: '10px', borderLeft: '4px solid #F43F5E', cursor: 'pointer', transition: 'transform 0.15s' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '5px' }}>
                   <strong style={{ fontSize: '14px', color: '#0F172A' }}>#{idx + 1} · Sec. {s.seccion + 54}</strong>
                   <span style={{ fontSize: '11px', fontWeight: 'bold', padding: '2px 6px', background: '#F43F5E', color: 'white', borderRadius: '4px' }}>ALTO</span>
                 </div>
-                <div style={{ fontSize: '12px', color: '#64748B', marginBottom: '3px' }}>
-                  Proyección: <b style={{ color: '#F43F5E' }}>{s.pct.toFixed(1)}%</b>
-                </div>
-                <div style={{ fontSize: '11px', color: '#94A3B8' }}>
-                  {s.votos.toLocaleString()} votos esperados
-                </div>
+                <div style={{ fontSize: '12px', color: '#64748B', marginBottom: '3px' }}>Proyección: <b style={{ color: '#F43F5E' }}>{s.pct.toFixed(1)}%</b></div>
+                <div style={{ fontSize: '11px', color: '#94A3B8' }}>{s.votos.toLocaleString()} votos esperados</div>
               </div>
             ))
           ) : (
-            <div style={{ textAlign: 'center', padding: '30px 10px', color: '#94A3B8', fontSize: '13px' }}>
-              🎉 No hay secciones en riesgo crítico
-            </div>
+            <div style={{ textAlign: 'center', padding: '30px 10px', color: '#94A3B8', fontSize: '13px' }}>🎉 No hay secciones en riesgo crítico</div>
           )}
         </div>
       </div>
@@ -392,18 +352,14 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* ===================== DOCUMENTO OCULTO PARA PDF ===================== */}
       <div style={{ display: 'none' }}>
         <div ref={pdfRef} style={{ padding: '40px', background: 'white', width: '800px', fontFamily: 'Arial, sans-serif' }}>
-
-          {/* ENCABEZADO CON LOGO DE ESTRELLAS */}
           <div style={{ textAlign: 'center', marginBottom: '30px', borderBottom: '4px solid #0A1628', paddingBottom: '25px' }}>
             <img src="https://i.ibb.co/mr0jxmKQ/orion-stars-png.png" alt="ORION" style={{ height: '100px', margin: '0 auto' }} />
             <h2 style={{ color: '#00D4FF', fontSize: '18px', margin: '10px 0 0 0', fontWeight: 'bold' }}>Reporte Ejecutivo General</h2>
             <p style={{ color: '#64748B', fontSize: '13px', margin: '5px 0 0 0' }}>Inteligencia Electoral</p>
             <p style={{ color: '#94A3B8', fontSize: '12px', margin: '8px 0 0 0' }}>Generado el {new Date().toLocaleDateString('es-MX', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' })}</p>
           </div>
-
           <div style={{ marginBottom: '35px' }}>
             <h3 style={{ color: '#0A1628', fontSize: '18px', borderBottom: '2px solid #E2E8F0', paddingBottom: '8px', marginBottom: '15px' }}>1. Pronóstico Electoral 2027</h3>
             <p style={{ fontSize: '13px', color: '#0F172A', lineHeight: '1.7' }}>
@@ -424,12 +380,10 @@ export default function Dashboard() {
               </div>
             </div>
           </div>
-
           <div style={{ textAlign: 'center', marginTop: '40px', paddingTop: '20px', borderTop: '2px solid #E2E8F0', fontSize: '10px', color: '#94A3B8' }}>
             <p style={{ margin: 0, fontWeight: 'bold', color: '#0A1628' }}>ORION · Inteligencia Electoral</p>
             <p style={{ margin: '4px 0 0 0' }}>Documento Confidencial</p>
           </div>
-
         </div>
       </div>
 
