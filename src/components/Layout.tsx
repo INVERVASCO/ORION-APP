@@ -4,7 +4,7 @@ import {
   LayoutDashboard, Users, Vote, LogOut, Menu, X, Contact, 
   Hash, Upload, PieChart, Shield, Target, TrendingUp, 
   ShieldAlert, AlertTriangle, CheckCircle2, Brain, DollarSign,
-  Calendar as CalendarIcon, Mic, MessageCircle, Map, Globe // <-- Ícono agregado
+  Calendar as CalendarIcon, Mic, MessageCircle, Map, MapPin, Globe // <-- Importaciones completas
 } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 
@@ -147,6 +147,7 @@ export default function Layout() {
             <span>Ir a la Página Web</span>
           </div>
 
+          {/* BOTÓN DE CERRAR SESIÓN */}
           <div
             className="menu-item"
             onClick={handleCerrarSesion}
@@ -219,6 +220,3 @@ export default function Layout() {
     </div>
   );
 }
-
-// Necesitamos importar MapPin para el menú
-import { MapPin } from 'lucide-react';
