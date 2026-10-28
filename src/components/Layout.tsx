@@ -4,7 +4,7 @@ import {
   LayoutDashboard, Users, Vote, LogOut, Menu, X, Contact, 
   Hash, Upload, PieChart, Shield, Target, TrendingUp, 
   ShieldAlert, AlertTriangle, CheckCircle2, Brain, DollarSign,
-  Calendar as CalendarIcon, Mic, MessageCircle, Map , Globe ,
+  Calendar as CalendarIcon, Mic, MessageCircle, Map, Globe // <-- Ícono agregado
 } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 
@@ -136,17 +136,8 @@ export default function Layout() {
         </nav>
 
         <div style={{ marginTop: 'auto' }}>
-          <div
-            className="menu-item"
-            onClick={handleCerrarSesion}
-            style={{ opacity: cerrandoSesion ? 0.5 : 1 }}
-          >
-            <LogOut size={20} />
-            <span>{cerrandoSesion ? 'Cerrando sesión...' : 'Cerrar Sesión'}</span>
-          </div>
-        </div>
-                <div style={{ marginTop: 'auto' }}>
-          {/* BOTÓN PARA VOLVER A LA WEB */}
+          
+          {/* BOTÓN PARA VOLVER A LA PÁGINA WEB */}
           <div
             className="menu-item"
             onClick={() => navigate('/')}
@@ -156,7 +147,6 @@ export default function Layout() {
             <span>Ir a la Página Web</span>
           </div>
 
-          {/* BOTÓN DE CERRAR SESIÓN */}
           <div
             className="menu-item"
             onClick={handleCerrarSesion}
