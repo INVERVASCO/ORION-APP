@@ -27,7 +27,6 @@ export default function Municipio() {
 
       if (error) {
         setError('Error al cargar los barrios: ' + error.message);
-        console.error(error);
       } else {
         setBarrios(data || []);
         setBarriosFiltrados(data || []);
@@ -38,7 +37,6 @@ export default function Municipio() {
     fetchBarrios();
   }, []);
 
-  // Filtro de búsqueda
   useEffect(() => {
     if (busqueda.trim() === '') {
       setBarriosFiltrados(barrios);
@@ -69,7 +67,6 @@ export default function Municipio() {
         Se encontraron <strong>{barrios.length}</strong> barrios, colonias y localidades. Selecciona uno para gestionar su estructura:
       </p>
 
-      {/* Barra de búsqueda */}
       <div style={{ position: 'relative', marginBottom: '25px', maxWidth: '500px' }}>
         <Search size={20} style={{ position: 'absolute', left: '12px', top: '12px', color: '#999' }} />
         <input
@@ -78,11 +75,8 @@ export default function Municipio() {
           value={busqueda}
           onChange={(e) => setBusqueda(e.target.value)}
           style={{
-            width: '100%',
-            padding: '12px 12px 12px 40px',
-            borderRadius: '6px',
-            border: '1px solid #E0E0E0',
-            fontSize: '16px'
+            width: '100%', padding: '12px 12px 12px 40px',
+            borderRadius: '6px', border: '1px solid #E0E0E0', fontSize: '16px'
           }}
         />
       </div>
@@ -94,7 +88,8 @@ export default function Municipio() {
           <div 
             key={barrio.id} 
             className="grid-item"
-            onClick={() => navigate(`/municipio/${barrio.id}`)}
+            // AQUÍ ESTÁ EL ARREGLO: Agregamos /app a la ruta
+            onClick={() => navigate(`/app/municipio/${barrio.id}`)} 
           >
             <MapPin size={30} color="#9F2241" style={{ marginBottom: '10px' }} />
             <h3>{barrio.nombre}</h3>
