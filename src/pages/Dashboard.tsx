@@ -321,6 +321,7 @@ export default function Dashboard() {
         <MapPin size={20} color="#00D4FF" /> Mapa Electoral
       </h3>
       <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 320px', gap: '20px', marginBottom: '30px', alignItems: 'start' }}>
+        <div style={{ height: '450px', width: '100%' }}>
         <MapaSecciones datos={datosMapa} />
 
         <div style={{ background: 'white', borderRadius: '12px', padding: '20px', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)', borderTop: '4px solid #F43F5E', height: '600px', overflowY: 'auto' }}>
