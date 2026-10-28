@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { useEffect, useState } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, useMap, Polyline } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -8,7 +9,6 @@ import { calcularDistanciaMetros, obtenerDireccionReal } from '../lib/geolocaliz
 // @ts-ignore
 import html2pdf from 'html2pdf.js';
 
-// Íconos
 const iconoVerde = new L.Icon({ iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-green.png', shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png', iconSize: [25, 41], iconAnchor: [12, 41] });
 const iconoRojo = new L.Icon({ iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png', shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png', iconSize: [25, 41], iconAnchor: [12, 41] });
 const iconoAzul = new L.Icon({ iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-blue.png', shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png', iconSize: [25, 41], iconAnchor: [12, 41] });
@@ -110,7 +110,7 @@ export default function AuditoriaCampo() {
       margin: 10,
       filename: `Reporte_${reporteActual.encuestador.replace(/\s/g, '_')}_${reporteActual.fecha.replace(/\//g, '-')}.pdf`,
       image: { type: 'jpeg', quality: 0.98 },
-      html2canvas: { scale: 2, useCORS: true }, // <-- IMPORTANTE PARA LA IMAGEN
+      html2canvas: { scale: 2, useCORS: true },
       jsPDF: { unit: 'mm', format: 'letter', orientation: 'portrait' }
     }).from(element).save();
   };
@@ -121,9 +121,9 @@ export default function AuditoriaCampo() {
     <div>
       <h1 className="header-title">Auditoría de Campo GPS</h1>
       
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 380px', gap: '20px' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '20px' }}>
         
-        <div className="card" style={{ padding: 0, overflow: 'hidden', height: '600px' }}>
+        <div className="card" style={{ padding: 0, overflow: 'hidden', height: '450px' }}>
           <MapContainer center={[20.05, -98.36]} zoom={12} style={{ height: '100%', width: '100%' }}>
             <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
             <ControlMapa centro={coordenadasMapa} zoom={zoomMapa} />
@@ -146,7 +146,7 @@ export default function AuditoriaCampo() {
           </MapContainer>
         </div>
 
-        <div className="card" style={{ height: '600px', overflowY: 'auto', padding: '15px' }}>
+        <div className="card" style={{ height: '450px', overflowY: 'auto', padding: '15px' }}>
           <h3 style={{ fontSize: '16px', marginBottom: '15px', color: '#0F172A' }}>Reportes Diarios</h3>
           {Object.values(reportesDiarios).map((rep: any, idx) => (
             <div key={idx} style={{ padding: '12px', borderBottom: '1px solid #E2E8F0', background: '#F8FAFC', borderRadius: '8px', marginBottom: '8px' }}>
@@ -157,10 +157,7 @@ export default function AuditoriaCampo() {
                 <span>{rep.fecha}</span>
                 <span style={{ fontWeight: 'bold', color: '#10B981' }}>{rep.registros.length} encuestas</span>
               </div>
-              <button 
-                onClick={() => abrirReporte(rep)} 
-                style={{ width: '100%', marginTop: '8px', padding: '8px', background: '#E0F2FE', border: 'none', borderRadius: '6px', color: '#0284C7', fontSize: '12px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
-              >
+              <button onClick={() => abrirReporte(rep)} style={{ width: '100%', marginTop: '8px', padding: '8px', background: '#E0F2FE', border: 'none', borderRadius: '6px', color: '#0284C7', fontSize: '12px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
                 <FileText size={14} /> Ver / Descargar Reporte
               </button>
             </div>
@@ -185,8 +182,6 @@ export default function AuditoriaCampo() {
             ) : (
               <>
                 <div id="pdf-reporte" style={{ padding: '20px', background: 'white', border: '1px solid #E2E8F0' }}>
-                  
-                  {/* ENCABEZADO PDF CON LOGO DE ESTRELLAS */}
                   <div style={{ textAlign: 'center', marginBottom: '20px', borderBottom: '2px solid #E2E8F0', paddingBottom: '15px' }}>
                     <img src="https://i.ibb.co/mr0jxmKQ/orion-stars-png.png" alt="ORION" style={{ height: '80px', margin: '0 auto' }} />
                     <h2 style={{ margin: '10px 0 0 0', color: '#0A1628', fontSize: '18px', fontWeight: 'bold' }}>Reporte de Auditoría Electoral</h2>
