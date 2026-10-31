@@ -1,5 +1,4 @@
 // src/lib/syncManager.tsx
-// ✅ Motor Offline-First con IndexedDB nativo (sin dependencias)
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { supabase } from './supabaseClient';
 
@@ -202,7 +201,6 @@ const Queue = {
       return new Promise((resolve, reject) => {
         const tx = db.transaction(STORES.queue, 'readwrite');
         const store = tx.objectStore(STORES.queue);
-        // Limpiar y reinsertar
         const clearReq = store.clear();
         clearReq.onsuccess = () => {
           queue.forEach((item) => store.put(item));
