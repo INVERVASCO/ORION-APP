@@ -1,4 +1,5 @@
 // src/lib/geolocalizacion.ts
+import { supabase } from './supabaseClient';
 
 export interface Ubicacion {
   lat: number;
@@ -35,13 +36,11 @@ export const obtenerUbicacion = (
             `GPS impreciso: ${accuracy}m (máx ${precisionMaxima}m). ` +
             'Pide al usuario salir a área abierta.'
           );
-          // No rechazamos, pero marcamos baja precisión
         }
 
         // ✅ Validación 2: Timestamp reciente (anti-spoofing básico)
         const diferencia = ahora - timestamp;
         if (diferencia > 30000) {
-          // Más de 30 segundos de diferencia
           console.warn(`GPS desactualizado: ${diferencia}ms de diferencia`);
         }
 
@@ -113,6 +112,3 @@ export const esGPSConfiable = (ubicacion: Ubicacion): boolean => {
   // Confiable si: precisión < 100m Y timestamp < 60 segundos
   return ubicacion.precision < 100 && diferencia < 60000;
 };
-
-// Necesario para la Edge Function
-import { supabase } from './supabaseClient';
