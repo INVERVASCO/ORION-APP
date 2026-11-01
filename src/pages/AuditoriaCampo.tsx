@@ -4,13 +4,21 @@ import { MapContainer, TileLayer, Marker, Popup, useMap, Polyline } from 'react-
 import MarkerClusterGroup from 'react-leaflet-cluster';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
-import { Loader2, AlertTriangle, User, X, Download, FileText, Crosshair } from 'lucide-react';
+import { Loader2, AlertTriangle, User, X, Download, FileText, Crosshair, Wifi, Activity } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 import { calcularDistanciaMetros, obtenerDireccionReal } from '../lib/geolocalizacion';
 // @ts-ignore
 import html2pdf from 'html2pdf.js';
 
-// 🎨 Estilo "Uber": Puntos pequeños en lugar de pines gigantes
+// 🎨 Función para asignar un color único a cada brigadista
+const stringToColor = (str: string) => {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) hash = str.charCodeAt(i) + ((hash << 5) - hash);
+  const c = (hash & 0x00FFFFFF).toString(16).toUpperCase();
+  return '#' + '00000'.substring(0, 6 - c.length) + c;
+};
+
+// 🎨 Puntos pequeños estilo Uber
 const crearIconoPunto = (color: string) => {
   return L.divIcon({
     className: 'custom-div-icon',
@@ -21,11 +29,10 @@ const crearIconoPunto = (color: string) => {
   });
 };
 
-const iconoVerde = crearIconoPunto('#10B981'); // Válido
-const iconoRojo = crearIconoPunto('#F43F5E'); // Alerta / Lejos
-const iconoAzul = crearIconoPunto('#00D4FF'); // Centro del barrio
+const iconoAlerta = crearIconoPunto('#F43F5E');
+const iconoAzul = crearIconoPunto('#00D4FF');
 
-// 🧭 Botón para centrar el mapa en la ubicación del monitorista
+// 🧭 Botón de Mi Ubicación
 function BotonMiUbicacion() {
   const map = useMap();
   const [ubicando, setUbicando] = useState(false);
@@ -36,7 +43,7 @@ function BotonMiUbicacion() {
     map.locate({ setView: true, maxZoom: 16, enableHighAccuracy: true })
       .on('locationfound', () => setUbicando(false))
       .on('locationerror', () => {
-        alert('No se pudo obtener tu ubicación. Revisa los permisos de tu navegador.');
+        alert('No se pudo obtener tu ubicación. Revisa los permisos.');
         setUbicando(false);
       });
   };
@@ -58,10 +65,9 @@ function BotonMiUbicacion() {
   );
 }
 
-// ✈️ Control de Vuelo: Al cambiar el filtro (Hoy, Ayer, Todos), el mapa se centra automáticamente
+// ✈️ Control de Vuelo
 function ControlVuelo({ pines }: { pines: any[] }) {
   const map = useMap();
-
   useEffect(() => {
     if (pines.length > 0) {
       const bounds = L.latLngBounds(pines.map(p => [p.latitud, p.longitud]));
@@ -72,14 +78,14 @@ function ControlVuelo({ pines }: { pines: any[] }) {
       }
     }
   }, [pines, map]);
-
   return null;
 }
 
 export default function AuditoriaCampo() {
   const [encuestas, setEncuestas] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filtroFecha, setFiltroFecha] = useState<'hoy' | 'ayer' | 'todos'>('hoy'); // Por defecto en HOY
+  const [filtroFecha, setFiltroFecha] = useState<'hoy' | 'ayer' | 'todos'>('hoy');
+  const [filtroBrigadista, setFiltroBrigadista] = useState<string>('todos');
   
   const [modalReporte, setModalReporte] = useState(false);
   const [reporteActual, setReporteActual] = useState<{ encuestador: string, fecha: string, registros: any[] } | null>(null);
@@ -106,23 +112,18 @@ export default function AuditoriaCampo() {
           let esSospechosa = false;
           let motivoAlerta = '';
 
-          // 🛡️ LÓGICA DE VALIDACIÓN CLARA
           if (e.precision_gps !== null && e.precision_gps < 1) {
-            esSospechosa = true;
-            motivoAlerta = 'GPS alterado (Fake GPS)';
+            esSospechosa = true; motivoAlerta = 'GPS alterado';
           }
 
           if (lat_centro && lng_centro) {
             distancia = calcularDistanciaMetros(e.latitud, e.longitud, lat_centro, lng_centro);
-            // Si está a más de 2km, lo marcamos como fuera de rango
             if (distancia > 2000) {
               esSospechosa = true; 
-              const km = (distancia / 1000).toFixed(1);
-              motivoAlerta = `A ${km} km del barrio (Fuera de zona)`;
+              motivoAlerta = `A ${(distancia / 1000).toFixed(1)} km (Fuera de zona)`;
             }
           } else {
-            esSospechosa = true; 
-            motivoAlerta = 'Barrio sin georreferencia (No validable)';
+            esSospechosa = true; motivoAlerta = 'Barrio sin georreferencia';
           }
 
           return {
@@ -147,16 +148,30 @@ export default function AuditoriaCampo() {
   }, []);
 
   const encuestasFiltradas = encuestas.filter(e => {
-    if (filtroFecha === 'todos') return true;
-    const hoy = new Date();
-    hoy.setHours(0, 0, 0, 0);
-    const ayer = new Date(hoy);
-    ayer.setDate(ayer.getDate() - 1);
-
-    if (filtroFecha === 'hoy') return e.timestamp >= hoy.getTime();
-    if (filtroFecha === 'ayer') return e.timestamp >= ayer.getTime() && e.timestamp < hoy.getTime();
-    return true;
+    let cumpleFecha = true;
+    if (filtroFecha !== 'todos') {
+      const hoy = new Date(); hoy.setHours(0, 0, 0, 0);
+      const ayer = new Date(hoy); ayer.setDate(ayer.getDate() - 1);
+      if (filtroFecha === 'hoy') cumpleFecha = e.timestamp >= hoy.getTime();
+      if (filtroFecha === 'ayer') cumpleFecha = e.timestamp >= ayer.getTime() && e.timestamp < hoy.getTime();
+    }
+    let cumpleBrigadista = true;
+    if (filtroBrigadista !== 'todos') cumpleBrigadista = e.encuestador_nombre === filtroBrigadista;
+    return cumpleFecha && cumpleBrigadista;
   });
+
+  const listaBrigadistas = Array.from(new Set(encuestas.map(e => e.encuestador_nombre))).sort();
+
+  // 🌐 Lógica del Semáforo (Brigadistas Online)
+  // Consideramos ONLINE si su última encuesta fue en las últimas 3 horas
+  const estadoBrigadistas = listaBrigadistas.map(nombre => {
+    const encuestasBrigadista = encuestas.filter(e => e.encuestador_nombre === nombre);
+    const ultimaEncuesta = Math.max(...encuestasBrigadista.map(e => e.timestamp));
+    const ahora = Date.now();
+    const estaOnline = (ahora - ultimaEncuesta) < (3 * 60 * 60 * 1000); // 3 horas
+    
+    return { nombre, estaOnline, ultimaEncuesta };
+  }).sort((a, b) => b.ultimaEncuesta - a.ultimaEncuesta); // Ordenar por el más reciente
 
   const reportesDiarios = encuestasFiltradas.reduce((acc: any, curr) => {
     const key = `${curr.encuestador_nombre}-${curr.fecha_dia}`;
@@ -190,102 +205,152 @@ export default function AuditoriaCampo() {
     }).from(element).save();
   };
 
-  if (loading) return <div style={{ padding: '50px', textAlign: 'center' }}><Loader2 className="animate-spin" /> Cargando...</div>;
+  if (loading) return <div style={{ padding: '50px', textAlign: 'center', height: '100vh', background: '#0F172A', color: '#00D4FF' }}><Loader2 className="animate-spin" size={48} style={{ margin: '0 auto', marginBottom: '20px' }}/> Iniciando Sistema de Monitoreo...</div>;
 
   return (
-    <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '10px' }}>
-        <h1 className="header-title" style={{ marginBottom: 0 }}>Auditoría de Campo GPS</h1>
-        
-        <div style={{ display: 'flex', gap: '5px', background: '#F1F5F9', padding: '4px', borderRadius: '8px' }}>
-          <button onClick={() => setFiltroFecha('hoy')} style={{ padding: '8px 16px', borderRadius: '6px', border: 'none', background: filtroFecha === 'hoy' ? 'white' : 'transparent', fontWeight: 'bold', fontSize: '13px', cursor: 'pointer', boxShadow: filtroFecha === 'hoy' ? '0 2px 4px rgba(0,0,0,0.1)' : 'none' }}>Hoy</button>
-          <button onClick={() => setFiltroFecha('ayer')} style={{ padding: '8px 16px', borderRadius: '6px', border: 'none', background: filtroFecha === 'ayer' ? 'white' : 'transparent', fontWeight: 'bold', fontSize: '13px', cursor: 'pointer', boxShadow: filtroFecha === 'ayer' ? '0 2px 4px rgba(0,0,0,0.1)' : 'none' }}>Ayer</button>
-          <button onClick={() => setFiltroFecha('todos')} style={{ padding: '8px 16px', borderRadius: '6px', border: 'none', background: filtroFecha === 'todos' ? 'white' : 'transparent', fontWeight: 'bold', fontSize: '13px', cursor: 'pointer', boxShadow: filtroFecha === 'todos' ? '0 2px 4px rgba(0,0,0,0.1)' : 'none' }}>Todos</button>
+    // 💻 DISEÑO BÚNKER (FULL SCREEN)
+    <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 40px)', background: '#0F172A', borderRadius: '12px', overflow: 'hidden', color: 'white' }}>
+      
+      {/* 🔝 HEADER OSCURO */}
+      <div style={{ padding: '15px 20px', background: '#1E293B', borderBottom: '1px solid #334155', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+          <Activity size={28} color="#00D4FF" />
+          <div>
+            <h1 style={{ margin: 0, fontSize: '20px', fontWeight: '900', letterSpacing: '1px', color: 'white' }}>CENTRO DE MONITOREO ORION</h1>
+            <p style={{ margin: 0, fontSize: '12px', color: '#94A3B8' }}>Sala de Control Táctica en Tiempo Real</p>
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', gap: '15px', alignItems: 'center' }}>
+          <select 
+            value={filtroBrigadista} onChange={(e) => setFiltroBrigadista(e.target.value)}
+            style={{ padding: '8px 12px', borderRadius: '6px', border: '1px solid #475569', background: '#0F172A', color: 'white', fontSize: '13px', outline: 'none' }}
+          >
+            <option value="todos">Todos los brigadistas</option>
+            {listaBrigadistas.map(b => <option key={b} value={b}>{b}</option>)}
+          </select>
+
+          <div style={{ display: 'flex', gap: '5px', background: '#0F172A', padding: '4px', borderRadius: '6px', border: '1px solid #475569' }}>
+            <button onClick={() => setFiltroFecha('hoy')} style={{ padding: '6px 12px', borderRadius: '4px', border: 'none', background: filtroFecha === 'hoy' ? '#00D4FF' : 'transparent', color: filtroFecha === 'hoy' ? '#0F172A' : '#94A3B8', fontWeight: 'bold', fontSize: '12px', cursor: 'pointer' }}>HOY</button>
+            <button onClick={() => setFiltroFecha('ayer')} style={{ padding: '6px 12px', borderRadius: '4px', border: 'none', background: filtroFecha === 'ayer' ? '#00D4FF' : 'transparent', color: filtroFecha === 'ayer' ? '#0F172A' : '#94A3B8', fontWeight: 'bold', fontSize: '12px', cursor: 'pointer' }}>AYER</button>
+            <button onClick={() => setFiltroFecha('todos')} style={{ padding: '6px 12px', borderRadius: '4px', border: 'none', background: filtroFecha === 'todos' ? '#00D4FF' : 'transparent', color: filtroFecha === 'todos' ? '#0F172A' : '#94A3B8', fontWeight: 'bold', fontSize: '12px', cursor: 'pointer' }}>TODOS</button>
+          </div>
         </div>
       </div>
-      
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '20px' }}>
+
+      {/* 🗺️ MAPA Y REPORTES */}
+      <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
         
-        <div className="card" style={{ padding: 0, overflow: 'hidden', height: '450px', position: 'relative' }}>
-          <MapContainer center={[20.05, -98.36]} zoom={12} style={{ height: '100%', width: '100%', zIndex: 1 }}>
-            <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+        {/* MAPA GIGANTE (Izquierda) */}
+        <div style={{ flex: 3, position: 'relative' }}>
+          <MapContainer center={[20.05, -98.36]} zoom={12} style={{ height: '100%', width: '100%' }}>
+            {/* Usamos un tema de mapa oscuro para que se vea más táctico */}
+            <TileLayer url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png" />
             
-            {/* El mapa vuela automáticamente a los pines filtrados */}
             <ControlVuelo pines={encuestasFiltradas} />
-            
-            {/* Botón de ubicación "Uber" */}
             <BotonMiUbicacion />
 
-            <MarkerClusterGroup 
-              chunkedLoading 
-              maxClusterRadius={40} 
-              disableClusteringAtZoom={13} // Al acercarse, se separan
-              spiderfyOnMaxZoom={true} 
-              showCoverageOnHover={false}
-            >
-              {encuestasFiltradas.map((e) => (
-                <div key={e.id}>
-                  <Marker position={[e.latitud, e.longitud]} icon={e.es_sospechosa ? iconoRojo : iconoVerde}>
-                    <Popup>
-                      <div style={{ fontSize: '13px', lineHeight: '1.5', minWidth: '160px' }}>
-                        <b style={{ color: e.es_sospechosa ? '#F43F5E' : '#10B981', display: 'block', marginBottom: '4px' }}>
-                          {e.es_sospechosa ? '⚠️ ALERTA' : '✅ Válida'}
-                        </b>
-                        <strong>Quién:</strong> {e.encuestador_nombre}<br/>
-                        <strong>Dónde:</strong> {e.barrio_nombre}<br/>
-                        {e.es_sospechosa && <span style={{ color: '#F43F5E', fontSize: '11px', display: 'block', marginTop: '4px', fontWeight: 'bold' }}>{e.motivo_alerta}</span>}
-                      </div>
-                    </Popup>
-                  </Marker>
-
-                  {/* Si es sospechosa, dibujamos una línea al centro del barrio */}
-                  {e.es_sospechosa && e.barrio_lat && e.barrio_lng && (
-                    <>
-                      <Marker position={[e.barrio_lat, e.barrio_lng]} icon={iconoAzul}>
-                        <Popup><b>Centro del barrio: {e.barrio_nombre}</b></Popup>
-                      </Marker>
-                      <Polyline positions={[[e.latitud, e.longitud], [e.barrio_lat, e.barrio_lng]]} color="#F43F5E" weight={2} dashArray="5, 10" />
-                    </>
-                  )}
-                </div>
-              ))}
+            <MarkerClusterGroup chunkedLoading maxClusterRadius={40} disableClusteringAtZoom={13} spiderfyOnMaxZoom={true} showCoverageOnHover={false}>
+              {encuestasFiltradas.map((e) => {
+                const colorPunto = e.es_sospechosa ? iconoAlerta : crearIconoPunto(stringToColor(e.encuestador_nombre));
+                return (
+                  <div key={e.id}>
+                    <Marker position={[e.latitud, e.longitud]} icon={colorPunto}>
+                      <Popup>
+                        <div style={{ fontSize: '13px', lineHeight: '1.5', minWidth: '160px', color: '#333' }}>
+                          <b style={{ color: e.es_sospechosa ? '#F43F5E' : stringToColor(e.encuestador_nombre), display: 'block', marginBottom: '4px' }}>
+                            {e.es_sospechosa ? '⚠️ ALERTA' : '✅ Válida'}
+                          </b>
+                          <strong>Quién:</strong> {e.encuestador_nombre}<br/>
+                          <strong>Dónde:</strong> {e.barrio_nombre}<br/>
+                          {e.es_sospechosa && <span style={{ color: '#F43F5E', fontSize: '11px', display: 'block', marginTop: '4px', fontWeight: 'bold' }}>{e.motivo_alerta}</span>}
+                        </div>
+                      </Popup>
+                    </Marker>
+                    {e.es_sospechosa && e.barrio_lat && e.barrio_lng && (
+                      <>
+                        <Marker position={[e.barrio_lat, e.barrio_lng]} icon={iconoAzul}>
+                          <Popup><b>Centro del barrio: {e.barrio_nombre}</b></Popup>
+                        </Marker>
+                        <Polyline positions={[[e.latitud, e.longitud], [e.barrio_lat, e.barrio_lng]]} color="#F43F5E" weight={2} dashArray="5, 10" />
+                      </>
+                    )}
+                  </div>
+                );
+              })}
             </MarkerClusterGroup>
           </MapContainer>
         </div>
 
-        <div className="card" style={{ height: '450px', overflowY: 'auto', padding: '15px' }}>
-          <h3 style={{ fontSize: '16px', marginBottom: '15px', color: '#0F172A' }}>Reportes Diarios</h3>
-          {Object.values(reportesDiarios).length === 0 ? (
-            <p style={{ color: '#64748B', fontSize: '14px', textAlign: 'center' }}>No hay encuestas en este periodo.</p>
-          ) : Object.values(reportesDiarios).map((rep: any, idx) => {
-            const alertas = rep.registros.filter((r:any) => r.es_sospechosa).length;
-            return (
-              <div key={idx} style={{ padding: '12px', borderBottom: '1px solid #E2E8F0', background: '#F8FAFC', borderRadius: '8px', marginBottom: '8px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 'bold', color: '#0F172A' }}>
-                  <User size={16} color="#00D4FF" /> {rep.encuestador}
-                </div>
-                <div style={{ fontSize: '12px', color: '#64748B', marginTop: '4px', display: 'flex', justifyContent: 'space-between' }}>
-                  <span>{rep.fecha}</span>
-                  <span style={{ fontWeight: 'bold', color: '#10B981' }}>{rep.registros.length} encuestas</span>
-                </div>
-                {alertas > 0 && (
-                  <div style={{ marginTop: '6px', fontSize: '11px', color: '#F43F5E', display: 'flex', alignItems: 'center', gap: '4px', fontWeight: 'bold' }}>
-                    <AlertTriangle size={12} /> {alertas} con alertas de distancia
+        {/* PANEL LATERAL DE REPORTES (Derecha) */}
+        <div style={{ flex: 1, minWidth: '320px', background: '#1E293B', borderLeft: '1px solid #334155', display: 'flex', flexDirection: 'column' }}>
+          <div style={{ padding: '15px', borderBottom: '1px solid #334155', background: '#0F172A' }}>
+            <h3 style={{ margin: 0, fontSize: '15px', color: '#00D4FF', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <FileText size={18} /> Reportes Diarios
+            </h3>
+          </div>
+          <div style={{ flex: 1, overflowY: 'auto', padding: '15px' }}>
+            {Object.values(reportesDiarios).length === 0 ? (
+              <p style={{ color: '#64748B', fontSize: '13px', textAlign: 'center', marginTop: '20px' }}>No hay encuestas en este periodo.</p>
+            ) : Object.values(reportesDiarios).map((rep: any, idx) => {
+              const alertas = rep.registros.filter((r:any) => r.es_sospechosa).length;
+              const colorBrigadista = stringToColor(rep.encuestador);
+              
+              return (
+                <div key={idx} style={{ padding: '12px', background: '#0F172A', borderRadius: '8px', marginBottom: '10px', border: '1px solid #334155' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 'bold', color: 'white', fontSize: '14px' }}>
+                    <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: colorBrigadista }}></div>
+                    {rep.encuestador}
                   </div>
-                )}
-                <button onClick={() => abrirReporte(rep)} style={{ width: '100%', marginTop: '8px', padding: '8px', background: '#E0F2FE', border: 'none', borderRadius: '6px', color: '#0284C7', fontSize: '12px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
-                  <FileText size={14} /> Ver / Descargar Reporte
-                </button>
-              </div>
-            );
-          })}
+                  <div style={{ fontSize: '12px', color: '#94A3B8', marginTop: '6px', display: 'flex', justifyContent: 'space-between' }}>
+                    <span>{rep.fecha}</span>
+                    <span style={{ fontWeight: 'bold', color: '#10B981' }}>{rep.registros.length} encuestas</span>
+                  </div>
+                  {alertas > 0 && (
+                    <div style={{ marginTop: '6px', fontSize: '11px', color: '#F43F5E', display: 'flex', alignItems: 'center', gap: '4px', fontWeight: 'bold' }}>
+                      <AlertTriangle size={12} /> {alertas} con alertas
+                    </div>
+                  )}
+                  <button onClick={() => abrirReporte(rep)} style={{ width: '100%', marginTop: '10px', padding: '8px', background: '#00D4FF', border: 'none', borderRadius: '6px', color: '#0F172A', fontSize: '12px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+                    <Download size={14} /> Descargar PDF
+                  </button>
+                </div>
+              );
+            })}
+          </div>
         </div>
       </div>
 
-      {/* MODAL DE REPORTE Y PDF */}
+      {/* 🚦 SEMÁFORO DE BRIGADISTAS (Parte inferior) */}
+      <div style={{ height: '100px', background: '#1E293B', borderTop: '2px solid #00D4FF', display: 'flex', alignItems: 'center', padding: '0 20px', overflowX: 'auto', gap: '15px' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', marginRight: '20px', borderRight: '1px solid #334155', paddingRight: '20px' }}>
+          <span style={{ fontSize: '12px', color: '#94A3B8', fontWeight: 'bold' }}>ESTATUS DE RED</span>
+          <span style={{ fontSize: '16px', color: '#10B981', fontWeight: '900', display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <Wifi size={18} /> {estadoBrigadistas.filter(b => b.estaOnline).length} ONLINE
+          </span>
+        </div>
+
+        {estadoBrigadistas.map((brigadista, idx) => (
+          <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '10px', background: '#0F172A', padding: '10px 15px', borderRadius: '8px', border: '1px solid #334155' }}>
+            <div style={{ position: 'relative' }}>
+              <div style={{ width: '35px', height: '35px', borderRadius: '50%', background: stringToColor(brigadista.nombre), display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', color: 'white', fontSize: '14px' }}>
+                {brigadista.nombre.charAt(0).toUpperCase()}
+              </div>
+              {/* El puntito verde/rojo de conexión */}
+              <div style={{ position: 'absolute', bottom: 0, right: 0, width: '12px', height: '12px', borderRadius: '50%', background: brigadista.estaOnline ? '#10B981' : '#64748B', border: '2px solid #0F172A' }}></div>
+            </div>
+            <div>
+              <p style={{ margin: 0, fontSize: '13px', fontWeight: 'bold', color: 'white', whiteSpace: 'nowrap' }}>{brigadista.nombre}</p>
+              <p style={{ margin: 0, fontSize: '11px', color: brigadista.estaOnline ? '#10B981' : '#64748B', fontWeight: 'bold' }}>{brigadista.estaOnline ? 'EN LÍNEA' : 'DESCONECTADO'}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* MODAL DEL PDF (Mismo de siempre) */}
       {modalReporte && reporteActual && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 2000, padding: '20px' }}>
-          <div style={{ background: 'white', borderRadius: '14px', padding: '25px', width: '100%', maxWidth: '800px', maxHeight: '90vh', overflowY: 'auto' }}>
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 2000, padding: '20px' }}>
+          <div style={{ background: 'white', borderRadius: '14px', padding: '25px', width: '100%', maxWidth: '800px', maxHeight: '90vh', overflowY: 'auto', color: '#333' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
               <h3 style={{ margin: 0, fontSize: '18px', color: '#0F172A' }}>Reporte Diario de Auditoría</h3>
               <button onClick={() => setModalReporte(false)} style={{ background: 'none', border: 'none', cursor: 'pointer' }}><X size={22} color="#64748B" /></button>
