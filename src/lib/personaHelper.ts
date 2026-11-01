@@ -8,21 +8,24 @@ interface PersonaData {
   direccion?: string | null;
   barrio_colonia_id?: string | null;
   origen_captura?: string | null;
+  consentimiento_aceptado: boolean; // 🚀 OBLIGATORIO
 }
 
-/**
- * Busca una persona existente por teléfono. Si existe, la reutiliza.
- * Si no existe, la crea. Retorna el ID y si fue nueva o existente.
- */
-export async function obtenerOCrearPersona(data: PersonaData): Promise<{ id: string; esNueva: boolean } | null> {
-  const telefono = (data.telefono || '').trim();
+const normalizarTelefono = (tel: string | null) => {
+  if (!tel) return null;
+  let limpio = tel.replace(/\D/g, '');
+  if (limpio.length === 12 && limpio.startsWith('52')) limpio = limpio.substring(2);
+  return limpio.length === 10 ? limpio : null;
+};
 
-  // Si tiene teléfono, buscar duplicado
-  if (telefono) {
+export async function obtenerOCrearPersona(data: PersonaData): Promise<{ id: string; esNueva: boolean } | null> {
+  const telefonoNormalizado = normalizarTelefono(data.telefono);
+
+  if (telefonoNormalizado) {
     const { data: existente } = await supabase
       .from('personas')
       .select('id')
-      .eq('telefono', telefono)
+      .eq('telefono', telefonoNormalizado)
       .maybeSingle();
 
     if (existente) {
@@ -30,12 +33,17 @@ export async function obtenerOCrearPersona(data: PersonaData): Promise<{ id: str
     }
   }
 
-  // Crear nueva persona
+  // Si el formulario no envía true, no guardamos.
+  if (!data.consentimiento_aceptado) {
+    console.error('Se intentó guardar una persona sin consentimiento.');
+    return null;
+  }
+
   const { data: nueva, error } = await supabase
     .from('personas')
     .insert([{
       ...data,
-      consentimiento_aceptado: true,
+      telefono: telefonoNormalizado,
       fecha_consentimiento: new Date().toISOString(),
     }])
     .select('id')
