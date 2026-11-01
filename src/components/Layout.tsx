@@ -43,7 +43,6 @@ export default function Layout() {
   };
   const cerrarConfirm = () => setConfirmModal({ ...confirmModal, visible: false });
 
-  // 🚀 DEFINIMOS EL MENÚ CON SUS ROLES PERMITIDOS
   const menuItems = [
     { name: 'Dashboard', path: '/app', icon: <LayoutDashboard size={20} />, roles: ['admin', 'coordinador', 'brigadista', 'consulta'] },
     { name: 'Activismo', path: '/app/activismo', icon: <Users size={20} />, roles: ['admin', 'coordinador', 'brigadista'] },
@@ -65,7 +64,7 @@ export default function Layout() {
     { name: 'Reportes', path: '/app/reportes', icon: <PieChart size={20} />, roles: ['admin', 'coordinador', 'consulta'] },
     { name: 'Secciones', path: '/app/secciones', icon: <Hash size={20} />, roles: ['admin', 'coordinador'] },
     { name: 'Usuarios', path: '/app/usuarios', icon: <Shield size={20} />, roles: ['admin'] },
-    { name: 'Geocodificación', path: '/app/admin-geocode', icon: <Map size={20} />, roles: ['admin'] }, // Oculto para no-admins
+    { name: 'Geocodificación', path: '/app/admin-geocode', icon: <Map size={20} />, roles: ['admin'] },
   ];
 
   const handleNavigation = (path: string) => {
@@ -94,7 +93,6 @@ export default function Layout() {
     );
   };
 
-  // Filtramos los items según el rol
   const menuPermitido = menuItems.filter(item => item.roles.includes(userRole));
 
   return (
@@ -106,7 +104,8 @@ export default function Layout() {
         >
           {isSidebarOpen ? <X size={28} /> : <Menu size={28} />}
         </button>
-        <img src="https://i.ibb.co/qLGmzCyZ/orion-logo-png.png" alt="ORION" style={{ height: '30px' }} />
+        {/* 🚀 IMAGEN LOCAL */}
+        <img src="/orion-logo.png" alt="ORION" style={{ height: '30px' }} onError={(e) => { e.currentTarget.src = 'https://ui-avatars.com/api/?name=ORION&background=0A1628&color=00D4FF&bold=true'; }} />
         <div style={{ width: '28px' }}></div>
       </header>
 
@@ -119,15 +118,16 @@ export default function Layout() {
 
       <aside className={`sidebar ${isSidebarOpen ? 'open' : ''}`}>
         <div className="sidebar-logo">
+          {/* 🚀 IMAGEN LOCAL */}
           <img 
-            src="https://i.ibb.co/qLGmzCyZ/orion-logo-png.png" 
+            src="/orion-logo.png" 
             alt="ORION" 
-            style={{ width: '180px', height: 'auto', filter: 'drop-shadow(0px 0px 15px rgba(0, 212, 255, 0.3))' }} 
+            style={{ width: '180px', height: 'auto', filter: 'drop-shadow(0px 0px 15px rgba(0, 212, 255, 0.3))' }}
+            onError={(e) => { e.currentTarget.src = 'https://ui-avatars.com/api/?name=ORION&background=0A1628&color=00D4FF&bold=true&size=180'; }}
           />
         </div>
 
         <nav>
-          {/* 🚀 RENDERIZAMOS SOLO LOS PERMITIDOS */}
           {menuPermitido.map((item) => (
             <div
               key={item.name}
@@ -141,7 +141,6 @@ export default function Layout() {
         </nav>
 
         <div style={{ marginTop: 'auto' }}>
-          
           <div style={{ padding: '10px 20px', background: 'rgba(0, 212, 255, 0.05)', borderRadius: '8px', marginBottom: '10px' }}>
             <p style={{ margin: 0, fontSize: '11px', color: '#94A3B8' }}>ROL ACTUAL:</p>
             <p style={{ margin: 0, fontSize: '13px', color: '#00D4FF', fontWeight: 'bold', textTransform: 'uppercase' }}>{userRole || 'Cargando...'}</p>
