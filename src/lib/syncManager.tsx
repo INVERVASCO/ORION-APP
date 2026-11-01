@@ -276,7 +276,18 @@ const publicarEstado = () => {
 
 const limpiarPayload = (payload: any) => {
   if (!payload || typeof payload !== 'object') return payload;
-  const { _localId, ...limpio } = payload;
+  
+  // Extraemos _localId y cualquier relación anidada que cause error
+  const { 
+    _localId, 
+    barrios_colonias, 
+    personas, 
+    secciones_electorales, 
+    casillas, 
+    perfiles,
+    ...limpio 
+  } = payload;
+  
   return limpio;
 };
 
