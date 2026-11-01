@@ -1,12 +1,11 @@
-// src/lib/supabaseClient.ts
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+const supabaseUrl = import.meta.env.SUPABASE_URL;
+const supabaseAnonKey = import.meta.env.SUPABASE_ANON_KEY;
 
 if (!supabaseUrl || !supabaseAnonKey) {
   throw new Error(
-    '❌ Faltan variables de entorno: VITE_SUPABASE_URL y VITE_SUPABASE_ANON_KEY. ' +
+    '❌ Faltan variables de entorno: SUPABASE_URL y SUPABASE_ANON_KEY. ' +
     'Revisa la configuración de Vercel o tu archivo .env.local'
   );
 }
