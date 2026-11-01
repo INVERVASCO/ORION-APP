@@ -12,17 +12,18 @@ interface MapaSeccionesProps {
 }
 
 const MapaSecciones: React.FC<MapaSeccionesProps> = ({ datos }) => {
-  const geoJsonKey = Object.keys(datos).length > 0 ? `data-${Object.keys(datos).length}` : 'inicial';
+  // 🚀 CLAVE: Usamos un hash basado en el contenido real, no solo en la cantidad de keys
+  const geoJsonKey = JSON.stringify(datos);
 
   const getEstiloSeccion = (seccion: number) => {
     const seccionNum = Number(seccion);
     const info = datos[seccionNum];
-    let color = '#9CA3AF';
+    let color = '#9CA3AF'; // Gris por defecto
 
     if (info) {
-      if (info.riesgo === 'alto') color = '#EF4444';
-      else if (info.riesgo === 'medio') color = '#F59E0B';
-      else if (info.riesgo === 'bajo') color = '#10B981';
+      if (info.riesgo === 'alto') color = '#EF4444'; // Rojo
+      else if (info.riesgo === 'medio') color = '#F59E0B'; // Amarillo
+      else if (info.riesgo === 'bajo') color = '#10B981'; // Verde
     }
 
     return {
@@ -64,10 +65,6 @@ const MapaSecciones: React.FC<MapaSeccionesProps> = ({ datos }) => {
               style="text-align: center; padding: 6px; background: #00D4FF; color: white; border-radius: 4px; text-decoration: none; font-weight: bold; font-size: 11px;">
               Ver Detalle Completo →
             </a>
-            <a href="/app/centro-ia?seccion=${seccionNum}&pct=${info.pct.toFixed(1)}&riesgo=${info.riesgo}" 
-              style="text-align: center; padding: 6px; background: #6366F1; color: white; border-radius: 4px; text-decoration: none; font-weight: bold; font-size: 11px;">
-              🤖 Analizar con IA
-            </a>
           </div>
         ` : '<i style="color: #999;">Sin datos calculados</i>'}
       </div>
@@ -77,11 +74,7 @@ const MapaSecciones: React.FC<MapaSeccionesProps> = ({ datos }) => {
   return (
     <div style={{ position: 'relative', width: '100%', height: '100%', minHeight: '400px' }}>
       <div style={{ height: '100%', width: '100%', minHeight: '400px', borderRadius: '12px', overflow: 'hidden', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' }}>
-        <MapContainer 
-          center={[20.05, -98.36]} 
-          zoom={12} 
-          style={{ height: '100%', width: '100%', minHeight: '400px' }}
-        >
+        <MapContainer center={[20.05, -98.36]} zoom={12} style={{ height: '100%', width: '100%', minHeight: '400px' }}>
           <TileLayer
             attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
@@ -110,11 +103,11 @@ const MapaSecciones: React.FC<MapaSeccionesProps> = ({ datos }) => {
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
           <span style={{ display: 'inline-block', width: '12px', height: '12px', background: '#F59E0B', borderRadius: '3px' }}></span>
-          <span><b>Disputa</b> (35-44%)</span>
+          <span><b>Disputa</b> (30-44%)</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
           <span style={{ display: 'inline-block', width: '12px', height: '12px', background: '#EF4444', borderRadius: '3px' }}></span>
-          <span><b>Riesgo</b> (&lt;35%)</span>
+          <span><b>Riesgo</b> (&lt;30%)</span>
         </div>
       </div>
     </div>
