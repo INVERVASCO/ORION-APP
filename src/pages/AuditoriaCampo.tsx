@@ -162,8 +162,6 @@ export default function AuditoriaCampo() {
 
   const listaBrigadistas = Array.from(new Set(encuestas.map(e => e.encuestador_nombre))).sort();
 
-  // 🌐 Lógica del Semáforo (Brigadistas Online)
-  // Consideramos ONLINE si su última encuesta fue en las últimas 3 horas
   const estadoBrigadistas = listaBrigadistas.map(nombre => {
     const encuestasBrigadista = encuestas.filter(e => e.encuestador_nombre === nombre);
     const ultimaEncuesta = Math.max(...encuestasBrigadista.map(e => e.timestamp));
@@ -171,7 +169,7 @@ export default function AuditoriaCampo() {
     const estaOnline = (ahora - ultimaEncuesta) < (3 * 60 * 60 * 1000); // 3 horas
     
     return { nombre, estaOnline, ultimaEncuesta };
-  }).sort((a, b) => b.ultimaEncuesta - a.ultimaEncuesta); // Ordenar por el más reciente
+  }).sort((a, b) => b.ultimaEncuesta - a.ultimaEncuesta);
 
   const reportesDiarios = encuestasFiltradas.reduce((acc: any, curr) => {
     const key = `${curr.encuestador_nombre}-${curr.fecha_dia}`;
@@ -208,7 +206,6 @@ export default function AuditoriaCampo() {
   if (loading) return <div style={{ padding: '50px', textAlign: 'center', height: '100vh', background: '#0F172A', color: '#00D4FF' }}><Loader2 className="animate-spin" size={48} style={{ margin: '0 auto', marginBottom: '20px' }}/> Iniciando Sistema de Monitoreo...</div>;
 
   return (
-    // 💻 DISEÑO BÚNKER (FULL SCREEN)
     <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 40px)', background: '#0F172A', borderRadius: '12px', overflow: 'hidden', color: 'white' }}>
       
       {/* 🔝 HEADER OSCURO */}
@@ -241,10 +238,11 @@ export default function AuditoriaCampo() {
       {/* 🗺️ MAPA Y REPORTES */}
       <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
         
-        {/* MAPA GIGANTE (Izquierda) */}
+        {/* MAPA GIGANTE */}
         <div style={{ flex: 3, position: 'relative' }}>
-          <MapContainer center={[20.05, -98.36]} zoom={12} style={{ height: '100%', width: '100%' }}>
-            {/* Usamos un tema de mapa oscuro para que se vea más táctico */}
+          <MapContainer center={[20.05, -98.36]} zoom={12} style={{ height: '100%', width: '100%', background: '#0F172A' }}>
+            
+            {/* 🚀 EL MAPA OSCURO NATIVO Y GRATUITO */}
             <TileLayer url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png" />
             
             <ControlVuelo pines={encuestasFiltradas} />
@@ -282,7 +280,7 @@ export default function AuditoriaCampo() {
           </MapContainer>
         </div>
 
-        {/* PANEL LATERAL DE REPORTES (Derecha) */}
+        {/* PANEL LATERAL DE REPORTES */}
         <div style={{ flex: 1, minWidth: '320px', background: '#1E293B', borderLeft: '1px solid #334155', display: 'flex', flexDirection: 'column' }}>
           <div style={{ padding: '15px', borderBottom: '1px solid #334155', background: '#0F172A' }}>
             <h3 style={{ margin: 0, fontSize: '15px', color: '#00D4FF', display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -321,7 +319,7 @@ export default function AuditoriaCampo() {
         </div>
       </div>
 
-      {/* 🚦 SEMÁFORO DE BRIGADISTAS (Parte inferior) */}
+      {/* 🚦 SEMÁFORO DE BRIGADISTAS CON AVATARES */}
       <div style={{ height: '100px', background: '#1E293B', borderTop: '2px solid #00D4FF', display: 'flex', alignItems: 'center', padding: '0 20px', overflowX: 'auto', gap: '15px' }}>
         <div style={{ display: 'flex', flexDirection: 'column', marginRight: '20px', borderRight: '1px solid #334155', paddingRight: '20px' }}>
           <span style={{ fontSize: '12px', color: '#94A3B8', fontWeight: 'bold' }}>ESTATUS DE RED</span>
@@ -330,24 +328,32 @@ export default function AuditoriaCampo() {
           </span>
         </div>
 
-        {estadoBrigadistas.map((brigadista, idx) => (
-          <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '10px', background: '#0F172A', padding: '10px 15px', borderRadius: '8px', border: '1px solid #334155' }}>
-            <div style={{ position: 'relative' }}>
-              <div style={{ width: '35px', height: '35px', borderRadius: '50%', background: stringToColor(brigadista.nombre), display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', color: 'white', fontSize: '14px' }}>
-                {brigadista.nombre.charAt(0).toUpperCase()}
+        {estadoBrigadistas.map((brigadista, idx) => {
+          const color = stringToColor(brigadista.nombre);
+          const avatarUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(brigadista.nombre)}&background=${color.replace('#', '')}&color=fff&bold=true`;
+
+          return (
+            <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '12px', background: '#0F172A', padding: '8px 15px', borderRadius: '12px', border: '1px solid #334155', boxShadow: '0 4px 6px rgba(0,0,0,0.2)' }}>
+              <div style={{ position: 'relative' }}>
+                <img 
+                  src={avatarUrl} 
+                  alt={brigadista.nombre} 
+                  style={{ width: '40px', height: '40px', borderRadius: '50%', border: `2px solid ${brigadista.estaOnline ? '#10B981' : '#475569'}` }} 
+                />
+                <div style={{ position: 'absolute', bottom: 0, right: 0, width: '12px', height: '12px', borderRadius: '50%', background: brigadista.estaOnline ? '#10B981' : '#64748B', border: '2px solid #0F172A' }}></div>
               </div>
-              {/* El puntito verde/rojo de conexión */}
-              <div style={{ position: 'absolute', bottom: 0, right: 0, width: '12px', height: '12px', borderRadius: '50%', background: brigadista.estaOnline ? '#10B981' : '#64748B', border: '2px solid #0F172A' }}></div>
+              <div>
+                <p style={{ margin: 0, fontSize: '14px', fontWeight: 'bold', color: 'white', whiteSpace: 'nowrap' }}>{brigadista.nombre}</p>
+                <p style={{ margin: 0, fontSize: '11px', color: brigadista.estaOnline ? '#10B981' : '#64748B', fontWeight: 'bold' }}>
+                  {brigadista.estaOnline ? 'EN LÍNEA' : 'DESCONECTADO'}
+                </p>
+              </div>
             </div>
-            <div>
-              <p style={{ margin: 0, fontSize: '13px', fontWeight: 'bold', color: 'white', whiteSpace: 'nowrap' }}>{brigadista.nombre}</p>
-              <p style={{ margin: 0, fontSize: '11px', color: brigadista.estaOnline ? '#10B981' : '#64748B', fontWeight: 'bold' }}>{brigadista.estaOnline ? 'EN LÍNEA' : 'DESCONECTADO'}</p>
-            </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
-      {/* MODAL DEL PDF (Mismo de siempre) */}
+      {/* MODAL DEL PDF */}
       {modalReporte && reporteActual && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 2000, padding: '20px' }}>
           <div style={{ background: 'white', borderRadius: '14px', padding: '25px', width: '100%', maxWidth: '800px', maxHeight: '90vh', overflowY: 'auto', color: '#333' }}>
