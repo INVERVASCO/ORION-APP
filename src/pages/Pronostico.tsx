@@ -3,7 +3,7 @@ import { useEffect, useState, useRef } from 'react';
 import html2pdf from 'html2pdf.js';
 import { 
   Loader2, TrendingUp, TrendingDown, Minus, Target, 
-  AlertTriangle, CheckCircle2, BarChart3, Users, UserCheck, FileText, Filter, Download
+  AlertTriangle, CheckCircle2, BarChart3, Users, UserCheck, FileText, Filter, Download, User
 } from 'lucide-react';
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ReferenceLine
@@ -17,6 +17,13 @@ interface Resultado {
   total_votos: number;
   lista_nominal: number;
   morena: number;
+  pan: number;
+  pri: number;
+  prd: number;
+  pvem: number;
+  pt: number;
+  mc: number;
+  otros: number;
 }
 
 interface PronosticoData {
@@ -36,6 +43,15 @@ interface PronosticoData {
   capturados: number;
 }
 
+const PARTIDOS = [
+  { value: 'todos', label: 'Votos Totales (Participación)' },
+  { value: 'morena', label: 'MORENA' },
+  { value: 'pan', label: 'PAN' },
+  { value: 'pri', label: 'PRI' },
+  { value: 'mc', label: 'Movimiento Ciudadano' },
+  { value: 'pt', label: 'Partido del Trabajo' },
+];
+
 export default function Pronostico() {
   const [datos, setDatos] = useState<PronosticoData[]>([]);
   const [loading, setLoading] = useState(true);
@@ -43,6 +59,9 @@ export default function Pronostico() {
   const [filtroSemaforo, setFiltroSemaforo] = useState<'todas' | 'segura' | 'disputa' | 'riesgo'>('todas');
   const [generandoPDF, setGenerandoPDF] = useState(false);
   
+  // 🚀 SELECTOR DE PARTIDO
+  const [partidoObjetivo, setPartidoObjetivo] = useState('todos');
+
   const pdfRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -78,11 +97,18 @@ export default function Pronostico() {
         const res2018 = secResultados.filter(r => r.anio === 2018);
         const res2024 = secResultados.filter(r => r.anio === 2024);
 
-        const votos2018 = res2018.reduce((sum, r) => sum + r.morena, 0);
-        const votos2024 = res2024.reduce((sum, r) => sum + r.morena, 0);
-        const totalVotos2024 = res2024.reduce((sum, r) => sum + r.total_votos, 0);
-        const lista2024 = res2024.reduce((sum, r) => sum + r.lista_nominal, 0);
+        // 🚀 CÁLCULO DINÁMICO
+        const getVotos = (res: any[]) => {
+          return res.reduce((sum, r) => {
+            if (partidoObjetivo === 'todos') return sum + r.total_votos;
+            return sum + (Number(r[partidoObjetivo]) || 0);
+          }, 0);
+        };
 
+        const votos2018 = getVotos(res2018);
+        const votos2024 = getVotos(res2024);
+        const totalVotos2024 = res2024.reduce((sum, r) => sum + r.total_votos, 0);
+        
         const pct2024 = totalVotos2024 > 0 ? (votos2024 / totalVotos2024) * 100 : 0;
 
         let proyeccionVotos = votos2024;
@@ -108,15 +134,18 @@ export default function Pronostico() {
 
         proyeccionVotos = Math.round(proyeccionVotos * factorEstructura * factorPadron);
 
-        if (lista2024 > 0) {
-          proyeccionPct = (proyeccionVotos / lista2024) * 100;
+        if (totalVotos2024 > 0) {
+          proyeccionPct = (proyeccionVotos / totalVotos2024) * 100;
         }
 
+        // 🚦 SEMÁFORO NEUTRAL (Ajusta los rangos según la realidad del cliente)
         let semaforo: 'segura' | 'disputa' | 'riesgo' = 'disputa';
         if (proyeccionPct >= 45) semaforo = 'segura';
-        else if (proyeccionPct < 35) semaforo = 'riesgo';
+        else if (proyeccionPct < 25) semaforo = 'riesgo';
 
-        let explicacion = `En 2024, el partido obtuvo el ${pct2024.toFixed(1)}% de la votación. `;
+        const nombrePartido = partidoObjetivo === 'todos' ? 'la votación total' : partidoObjetivo.toUpperCase();
+        
+        let explicacion = `En 2024, ${nombrePartido} obtuvo ${votos2024.toLocaleString()} votos (${pct2024.toFixed(1)}%). `;
         if (tendencia === 'baja') {
           explicacion += `La tendencia histórica muestra una caída. `;
         } else if (tendencia === 'sube') {
@@ -124,7 +153,7 @@ export default function Pronostico() {
         } else {
           explicacion += `La tendencia histórica se mantiene estable. `;
         }
-        explicacion += `Con la estructura actual (${activistasSeccion} activistas y ${capturadosSeccion} capturados), el sistema proyecta un ${proyeccionPct.toFixed(1)}% para 2027.`;
+        explicacion += `Con la estructura actual (${activistasSeccion} activistas y ${capturadosSeccion} capturados), el sistema proyecta ${proyeccionVotos.toLocaleString()} votos (${proyeccionPct.toFixed(1)}%) para 2027.`;
 
         let recomendacion = '';
         if (semaforo === 'segura') {
@@ -158,7 +187,7 @@ export default function Pronostico() {
     };
 
     cargarDatos();
-  }, []);
+  }, [partidoObjetivo]); // 🚀 Se recalcula cuando cambia el partido
 
   const descargarPDFSeccion = () => {
     if (!pdfRef.current || !seccionSeleccionada) return;
@@ -168,7 +197,7 @@ export default function Pronostico() {
       margin: [10, 10, 10, 10],
       filename: `Plan_Trabajo_Seccion_${seccionSeleccionada.seccion}.pdf`,
       image: { type: 'jpeg', quality: 0.98 },
-      html2canvas: { scale: 2, useCORS: true }, // <-- IMPORTANTE
+      html2canvas: { scale: 2, useCORS: true },
       jsPDF: { unit: 'mm', format: 'letter', orientation: 'portrait' },
       pagebreak: { mode: ['avoid-all', 'css', 'legacy'] }
     };
@@ -204,6 +233,18 @@ export default function Pronostico() {
           <p style={{ margin: 0, color: '#64748B', fontSize: '14px' }}>
             Proyección basada en tendencia histórica y estructura actual.
           </p>
+        </div>
+        
+        {/* 🚀 SELECTOR DE PARTIDO */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'white', padding: '6px 12px', borderRadius: '8px', border: '1px solid #E2E8F0' }}>
+          <User size={18} color="#64748B" />
+          <select 
+            value={partidoObjetivo} 
+            onChange={(e) => setPartidoObjetivo(e.target.value)}
+            style={{ padding: '6px', border: 'none', outline: 'none', fontSize: '14px', fontWeight: 'bold', color: '#0A1628', background: 'transparent' }}
+          >
+            {PARTIDOS.map(p => <option key={p.value} value={p.value}>{p.label}</option>)}
+          </select>
         </div>
       </div>
 
@@ -371,7 +412,7 @@ export default function Pronostico() {
                   <YAxis stroke="#64748B" tick={{ fontSize: 12 }} />
                   <Tooltip 
                     contentStyle={{ borderRadius: '8px', border: '1px solid #E2E8F0' }} 
-                    formatter={(value) => [`${value} votos`, 'Partido']}
+                    formatter={(value) => [`${value} votos`, 'Votos']}
                   />
                   <ReferenceLine x="2024" stroke="#94A3B8" strokeDasharray="3 3" label={{ value: "Actual", position: "top", fill: '#64748B', fontSize: 10 }} />
                   <Line type="monotone" dataKey="votos" stroke="#00D4FF" strokeWidth={3} dot={{ fill: '#00D4FF', r: 5 }} activeDot={{ r: 7 }} />
@@ -407,7 +448,6 @@ export default function Pronostico() {
         <div ref={pdfRef} style={{ width: '210mm', padding: '15mm', backgroundColor: 'white', fontFamily: 'Arial, sans-serif', color: '#333' }}>
           {seccionSeleccionada && (
             <>
-              {/* ENCABEZADO CON LOGO DE ESTRELLAS */}
               <div style={{ borderBottom: '4px solid #0A1628', paddingBottom: '15px', marginBottom: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div>
                   <img src="https://i.ibb.co/mr0jxmKQ/orion-stars-png.png" alt="ORION" style={{ height: '60px' }} />
