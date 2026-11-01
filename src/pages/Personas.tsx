@@ -109,7 +109,7 @@ export default function Personas() {
     });
   };
 
-  const handleCrearPersona = async (e: React.FormEvent) => {
+    const handleCrearPersona = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!personaNueva) return;
 
@@ -121,7 +121,8 @@ export default function Personas() {
 
     setGuardando(true);
 
-    const nuevaPersona = {
+    // ✅ 1. PAYLOAD LIMPIO (Solo columnas reales de la tabla 'personas')
+    const payloadLimpio = {
       nombre_completo: personaNueva.nombre_completo,
       telefono: personaNueva.telefono || null,
       correo_electronico: personaNueva.correo_electronico || null,
@@ -132,23 +133,29 @@ export default function Personas() {
       consentimiento_aceptado: true,
       fecha_consentimiento: new Date().toISOString(),
       origen_captura: 'Captura manual',
-      created_at: new Date().toISOString(),
-      barrios_colonias: barrios.find(b => b.id === personaNueva.barrio_colonia_id) ? { nombre: barrios.find(b => b.id === personaNueva.barrio_colonia_id)?.nombre } : null
+      created_at: new Date().toISOString()
     };
 
-    // ✅ MODO OFFLINE
-    const res = await offlineInsert('personas', nuevaPersona);
+    // ✅ 2. OBJETO PARA LA INTERFAZ (Incluye el nombre del barrio)
+    const barrioEncontrado = barrios.find(b => b.id === personaNueva.barrio_colonia_id);
+    const nuevaPersonaUI = {
+      ...payloadLimpio,
+      id: `temp-${Date.now()}`,
+      barrios_colonias: barrioEncontrado ? { nombre: barrioEncontrado.nombre } : null
+    };
+
+    // ✅ 3. MODO OFFLINE (Enviamos el payload limpio)
+    const res = await offlineInsert('personas', payloadLimpio);
 
     if (res.ok) {
-      setPersonas([nuevaPersona, ...personas]);
+      setPersonas([nuevaPersonaUI, ...personas]);
       setPersonaNueva(null);
       setAceptoAviso(false);
-      setToastMensaje(res.queued ? '📡 Sin señal: Persona guardada localmente.' : `¡${nuevaPersona.nombre_completo} registrado con éxito!`);
+      setToastMensaje(res.queued ? '📡 Sin señal: Persona guardada localmente.' : `¡${nuevaPersonaUI.nombre_completo} registrado con éxito!`);
       setToastVisible(true);
     }
     setGuardando(false);
   };
-
   const handleGuardarEdicion = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!personaEditar) return;
