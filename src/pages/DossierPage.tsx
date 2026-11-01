@@ -50,42 +50,30 @@ export default function DossierPage() {
 
       <div id="dossier-pdf" style={{ maxWidth: '210mm', margin: '0 auto', boxShadow: '0 0 100px rgba(0,0,0,0.8)', backgroundColor: '#0A1628' }}>
         
-        {/* PÁGINA 1 */}
+        {/* PÁGINA 1: PORTADA */}
         <div className="pdf-page">
-          <div className="bg-image" style={{ backgroundImage: 'url(https://i.ibb.co/PZkChNVN/1793051979.png)' }}></div>
-          <div className="overlay" style={{ background: 'linear-gradient(to top, rgba(10,22,40,1) 0%, rgba(10,22,40,0.3) 100%)' }}></div>
-          
-          <div className="content" style={{ justifyContent: 'flex-end', paddingBottom: '40px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '15px', marginBottom: '30px' }}>
-              <div style={{ width: '60px', height: '60px', background: 'rgba(0,212,255,0.2)', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid #00D4FF' }}>
-                <Brain size={32} color="#00D4FF" />
-              </div>
-              <h3 style={{ margin: 0, color: '#00D4FF', letterSpacing: '4px', fontSize: '14px', fontWeight: 'bold' }}>DOSSIER ESTRATÉGICO</h3>
-            </div>
-            <h1 className="title-text" style={{ fontSize: '48px', fontWeight: '900', lineHeight: '1.1', marginBottom: '20px', textShadow: '0 4px 20px rgba(0,0,0,0.8)' }}>No es un software.<br/><span style={{ color: '#00D4FF' }}>Es tu Director de Campaña.</span></h1>
-            <p style={{ fontSize: '20px', color: '#E2E8F0', lineHeight: '1.6', maxWidth: '600px', textShadow: '0 2px 10px rgba(0,0,0,0.5)' }}>La estrategia de Inteligencia Artificial que erradica la simulación y te asegura la victoria electoral.</p>
-            <div style={{ marginTop: '40px', display: 'flex', gap: '20px', color: '#94A3B8', fontSize: '14px', fontWeight: 'bold' }}>
-              <span>CICLO 2026-2027</span>
-              <span>|</span>
-              <span>ORION CAMPAIGN INTELLIGENCE</span>
+          <div className="bg-image" style={{ backgroundImage: 'url(/dossier/01-portada.png)', opacity: 0.4 }}></div>
+          <div className="overlay" style={{ background: 'linear-gradient(to top, rgba(10,22,40,1) 0%, rgba(10,22,40,0.2) 100%)' }}></div>
+          <div className="content" style={{ justifyContent: 'center', alignItems: 'center', textAlign: 'center' }}>
+            <h3 style={{ margin: '0 0 20px 0', color: '#00D4FF', letterSpacing: '4px', fontSize: '16px', fontWeight: 'bold' }}>DOSSIER ESTRATÉGICO CONFIDENCIAL</h3>
+            <h1 className="title-text" style={{ fontSize: '52px', fontWeight: '900', lineHeight: '1.1', marginBottom: '20px', textShadow: '0 4px 20px rgba(0,0,0,0.8)' }}>No es un software.<br/><span style={{ color: '#00D4FF' }}>Es tu Director de Campaña.</span></h1>
+            <p style={{ fontSize: '20px', color: '#E2E8F0', lineHeight: '1.6', maxWidth: '600px', textShadow: '0 2px 10px rgba(0,0,0,0.5)' }}>La plataforma de Inteligencia Artificial que erradica la simulación y te asegura la victoria electoral.</p>
+            <div style={{ marginTop: '50px', color: '#94A3B8', fontSize: '14px', fontWeight: 'bold', letterSpacing: '1px' }}>
+              CICLO ELECTORAL 2026-2027 | ORION CAMPAIGN INTELLIGENCE
             </div>
           </div>
         </div>
 
-        {/* PÁGINA 2 */}
-        <div className="pdf-page">
-          <div className="bg-image" style={{ backgroundImage: 'url(https://i.ibb.co/N20mFSCB/1793052089.png)' }}></div>
-          <div className="overlay" style={{ background: 'linear-gradient(to right, rgba(10,22,40,0.95) 0%, rgba(10,22,40,0.6) 100%)' }}></div>
-          
+        {/* PÁGINA 2: EL PROBLEMA */}
+        <div className="pdf-page" style={{ background: '#0A1628' }}>
           <div className="content">
-            <div style={{ maxWidth: '500px' }}>
-              <AlertTriangle size={48} color="#F43F5E" style={{ marginBottom: '20px' }} />
-              <h2 className="title-text" style={{ fontSize: '40px', fontWeight: '900', color: '#F43F5E', lineHeight: '1.1', marginBottom: '20px' }}>¿Por qué las campañas siguen perdiendo?</h2>
-              <p style={{ fontSize: '18px', color: '#E2E8F0', lineHeight: '1.6', marginBottom: '30px' }}>
-                Miles de pesos se pierden cada elección por reportes falsos y simulación de trabajo territorial. El 73% de las campañas pierde no por falta de recursos, sino por falta de inteligencia.
+            <div style={{ maxWidth: '600px' }}>
+              <h2 className="title-text" style={{ fontSize: '42px', fontWeight: '900', color: '#F43F5E', lineHeight: '1.1', marginBottom: '30px' }}>1. ¿Por qué las campañas siguen perdiendo?</h2>
+              <p style={{ fontSize: '20px', color: '#E2E8F0', lineHeight: '1.6', marginBottom: '40px' }}>
+                Miles de pesos se pierden cada elección por reportes falsos y simulación de trabajo territorial. <strong>El 73% de las campañas pierde no por falta de recursos, sino por falta de inteligencia.</strong>
               </p>
-              <div className="glass-box" style={{ padding: '20px', borderLeft: '4px solid #F43F5E' }}>
-                <ul style={{ margin: 0, paddingLeft: '20px', color: '#E2E8F0', lineHeight: '1.8' }}>
+              <div className="glass-box" style={{ padding: '30px', borderLeft: '4px solid #F43F5E' }}>
+                <ul style={{ margin: 0, paddingLeft: '20px', color: '#E2E8F0', lineHeight: '2', fontSize: '18px' }}>
                   <li>Brigadistas reportando desde su casa.</li>
                   <li>Presupuesto diluido en zonas improductivas.</li>
                   <li>Descubrimiento tardío de crisis territoriales.</li>
@@ -95,14 +83,13 @@ export default function DossierPage() {
           </div>
         </div>
 
-        {/* PÁGINA 3 */}
+        {/* PÁGINA 3: ADN EMOCIONAL */}
         <div className="pdf-page">
-          <div className="bg-image" style={{ backgroundImage: 'url(https://i.ibb.co/60fYfTw9/1793052658.png)' }}></div>
-          <div className="overlay" style={{ background: 'linear-gradient(to top, rgba(10,22,40,0.95) 0%, rgba(10,22,40,0.3) 100%)' }}></div>
-          
-          <div className="content" style={{ justifyContent: 'flex-end' }}>
-            <div className="glass-box">
-              <h2 className="title-text" style={{ fontSize: '36px', fontWeight: '900', marginBottom: '10px' }}>ADN Emocional del Electorado</h2>
+          <div className="bg-image" style={{ backgroundImage: 'url(/dossier/02-adn.png)' }}></div>
+          <div className="overlay" style={{ background: 'linear-gradient(to top, rgba(10,22,40,1) 0%, rgba(10,22,40,0.1) 100%)' }}></div>
+          <div className="content" style={{ justifyContent: 'flex-end', paddingBottom: '60px' }}>
+            <div className="glass-box" style={{ maxWidth: '700px' }}>
+              <h2 className="title-text" style={{ fontSize: '40px', fontWeight: '900', marginBottom: '15px' }}>ADN Emocional del Electorado</h2>
               <p style={{ fontSize: '18px', color: '#E2E8F0', lineHeight: '1.6' }}>
                 Las campañas tradicionales preguntan <em>qué</em> quiere la gente. ORION descubre <em>por qué</em> lo quiere. Analiza el sentimiento real para que tus discursos conecten con el corazón del votante.
               </p>
@@ -110,14 +97,13 @@ export default function DossierPage() {
           </div>
         </div>
 
-        {/* PÁGINA 4 */}
+        {/* PÁGINA 4: CENTRO NEURONAL */}
         <div className="pdf-page">
-          <div className="bg-image" style={{ backgroundImage: 'url(https://i.ibb.co/9mbR8XjN/1793052345.png)' }}></div>
-          <div className="overlay" style={{ background: 'linear-gradient(to right, rgba(10,22,40,0.95) 0%, transparent 100%)' }}></div>
-          
+          <div className="bg-image" style={{ backgroundImage: 'url(/dossier/03-centro-neuronal.png)' }}></div>
+          <div className="overlay" style={{ background: 'linear-gradient(to right, rgba(10,22,40,0.95) 0%, rgba(10,22,40,0.2) 100%)' }}></div>
           <div className="content">
             <div style={{ maxWidth: '500px' }}>
-              <h2 className="title-text" style={{ fontSize: '40px', fontWeight: '900', color: '#00D4FF', lineHeight: '1.1', marginBottom: '20px' }}>El Centro Neuronal de tu Victoria</h2>
+              <h2 className="title-text" style={{ fontSize: '42px', fontWeight: '900', color: '#00D4FF', lineHeight: '1.1', marginBottom: '20px' }}>El Centro Neuronal de tu Victoria</h2>
               <p style={{ fontSize: '18px', color: '#E2E8F0', lineHeight: '1.6' }}>
                 Un candidato informado, un equipo conectado, una campaña imparable. ORION unifica datos históricos del INE con el trabajo de campo en tiempo real.
               </p>
@@ -125,15 +111,13 @@ export default function DossierPage() {
           </div>
         </div>
 
-        {/* PÁGINA 5 */}
+        {/* PÁGINA 5: DOMINA CADA SECCIÓN */}
         <div className="pdf-page">
-          <div className="bg-image" style={{ backgroundImage: 'url(https://i.ibb.co/jk7HFxrp/1793052205.png)' }}></div>
-          <div className="overlay" style={{ background: 'linear-gradient(to top, rgba(10,22,40,0.95) 0%, rgba(10,22,40,0.3) 100%)' }}></div>
-          
-          <div className="content" style={{ justifyContent: 'flex-end' }}>
-            <div className="glass-box">
-              <Target size={40} color="#F59E0B" style={{ marginBottom: '15px' }} />
-              <h2 className="title-text" style={{ fontSize: '36px', fontWeight: '900', marginBottom: '10px' }}>Domina cada sección electoral</h2>
+          <div className="bg-image" style={{ backgroundImage: 'url(/dossier/04-secciones.png)', opacity: 0.6 }}></div>
+          <div className="overlay" style={{ background: 'linear-gradient(to right, rgba(10,22,40,1) 0%, rgba(10,22,40,0.3) 100%)' }}></div>
+          <div className="content">
+            <div style={{ maxWidth: '500px' }}>
+              <h2 className="title-text" style={{ fontSize: '46px', fontWeight: '900', lineHeight: '1.1', marginBottom: '20px' }}>Domina cada sección electoral</h2>
               <p style={{ fontSize: '18px', color: '#E2E8F0', lineHeight: '1.6' }}>
                 Visualiza las secciones electorales como si fueran tu propia casa. Identifica zonas seguras, en disputa y de riesgo. La información está en todas partes. La inteligencia no.
               </p>
@@ -141,15 +125,14 @@ export default function DossierPage() {
           </div>
         </div>
 
-        {/* PÁGINA 6 */}
+        {/* PÁGINA 6: OPERACIÓN TERRITORIAL */}
         <div className="pdf-page">
-          <div className="bg-image" style={{ backgroundImage: 'url(https://i.ibb.co/PGkq7gbv/1793052461.png)' }}></div>
-          <div className="overlay" style={{ background: 'linear-gradient(to right, rgba(10,22,40,0.95) 0%, rgba(10,22,40,0.4) 100%)' }}></div>
-          
+          <div className="bg-image" style={{ backgroundImage: 'url(/dossier/05-brigadistas.png)' }}></div>
+          <div className="overlay" style={{ background: 'linear-gradient(to right, rgba(10,22,40,0.9) 0%, rgba(10,22,40,0.1) 100%)' }}></div>
           <div className="content">
             <div style={{ maxWidth: '500px' }}>
-              <Users size={40} color="#00D4FF" style={{ marginBottom: '15px' }} />
-              <h2 className="title-text" style={{ fontSize: '40px', fontWeight: '900', lineHeight: '1.1', marginBottom: '20px' }}>Operación Territorial Real</h2>
+              <Users size={48} color="#00D4FF" style={{ marginBottom: '20px' }} />
+              <h2 className="title-text" style={{ fontSize: '42px', fontWeight: '900', lineHeight: '1.1', marginBottom: '20px' }}>Operación Territorial Real</h2>
               <p style={{ fontSize: '18px', color: '#E2E8F0', lineHeight: '1.6' }}>
                 Controla a tus presidentes, secretarios y vocales por colonia. Sabrás con precisión matemática quién está cumpliendo con su cuota de movilización y dónde tienes huecos.
               </p>
@@ -157,15 +140,13 @@ export default function DossierPage() {
           </div>
         </div>
 
-        {/* PÁGINA 7 */}
+        {/* PÁGINA 7: AURA COPILOTO */}
         <div className="pdf-page">
-          <div className="bg-image" style={{ backgroundImage: 'url(https://i.ibb.co/p880mHY/1793052543.png)' }}></div>
-          <div className="overlay" style={{ background: 'linear-gradient(to top, rgba(10,22,40,0.95) 0%, rgba(10,22,40,0.2) 100%)' }}></div>
-          
-          <div className="content" style={{ justifyContent: 'flex-end' }}>
-            <div className="glass-box">
-              <Brain size={40} color="#8B5CF6" style={{ marginBottom: '15px' }} />
-              <h2 className="title-text" style={{ fontSize: '36px', fontWeight: '900', marginBottom: '10px' }}>AURA: Tu Copiloto de Campaña</h2>
+          <div className="bg-image" style={{ backgroundImage: 'url(/dossier/06-aura.png)' }}></div>
+          <div className="overlay" style={{ background: 'linear-gradient(to top, rgba(10,22,40,0.95) 0%, rgba(10,22,40,0.1) 100%)' }}></div>
+          <div className="content" style={{ justifyContent: 'flex-end', paddingBottom: '60px' }}>
+            <div className="glass-box" style={{ maxWidth: '700px' }}>
+              <h2 className="title-text" style={{ fontSize: '42px', fontWeight: '900', marginBottom: '15px' }}>AURA: Tu Copiloto de Campaña</h2>
               <p style={{ fontSize: '18px', color: '#E2E8F0', lineHeight: '1.6' }}>
                 AURA no duerme. No se cansa. No se equivoca. Pregúntale: <em>"¿En qué colonias debo enfocarme hoy?"</em> y en segundos analizará 21 tablas de datos para darte recomendaciones.
               </p>
@@ -173,48 +154,46 @@ export default function DossierPage() {
           </div>
         </div>
 
-        {/* PÁGINA 8 */}
+        {/* PÁGINA 8: BLINDAJE GPS */}
         <div className="pdf-page">
-          <div className="bg-image" style={{ backgroundImage: 'url(https://i.ibb.co/QvJxQj0T/1793052782.png)' }}></div>
-          <div className="overlay" style={{ background: 'linear-gradient(to right, rgba(10,22,40,0.95) 0%, rgba(10,22,40,0.3) 100%)' }}></div>
-          
+          <div className="bg-image" style={{ backgroundImage: 'url(/dossier/07-gps.png)' }}></div>
+          <div className="overlay" style={{ background: 'linear-gradient(to right, rgba(10,22,40,0.95) 0%, rgba(10,22,40,0.2) 100%)' }}></div>
           <div className="content">
-            <div style={{ maxWidth: '550px' }}>
-              <ShieldCheck size={40} color="#10B981" style={{ marginBottom: '15px' }} />
-              <h2 className="title-text" style={{ fontSize: '40px', fontWeight: '900', lineHeight: '1.1', marginBottom: '20px' }}>Blindaje de Presupuesto GPS</h2>
+            <div style={{ maxWidth: '500px' }}>
+              <ShieldCheck size={48} color="#10B981" style={{ marginBottom: '20px' }} />
+              <h2 className="title-text" style={{ fontSize: '42px', fontWeight: '900', lineHeight: '1.1', marginBottom: '20px' }}>Blindaje Operativo GPS</h2>
               <p style={{ fontSize: '18px', color: '#E2E8F0', lineHeight: '1.6' }}>
-                Deja de pagar sueldos a fantasmas. Cada paso de tus brigadistas, auditado. Cada peso, justificado. El sistema captura la ubicación exacta y bloquea reportes si el brigadista está a más de 2 km de su zona.
+                Cada paso de tus brigadistas, auditado. Cada peso, justificado. El sistema captura la ubicación exacta y bloquea reportes si el brigadista está a más de 2 km de su zona.
               </p>
             </div>
           </div>
         </div>
 
-        {/* PÁGINA 9 */}
+        {/* PÁGINA 9: GANAR O PERDER */}
         <div className="pdf-page">
-          <div className="bg-image" style={{ backgroundImage: 'url(https://i.ibb.co/VppsM1kD/1793052874.png)' }}></div>
+          <div className="bg-image" style={{ backgroundImage: 'url(/dossier/08-ganar.png)' }}></div>
           <div className="overlay" style={{ background: 'rgba(10,22,40,0.85)' }}></div>
-          
           <div className="content" style={{ textAlign: 'center', alignItems: 'center' }}>
             <Zap size={60} color="#F59E0B" style={{ marginBottom: '30px' }} />
             <h2 className="title-text" style={{ fontSize: '52px', fontWeight: '900', lineHeight: '1.1', marginBottom: '20px' }}>La diferencia entre ganar y perder</h2>
-            <p style={{ fontSize: '22px', color: '#E2E8F0', textAlign: 'center', maxWidth: '700px', lineHeight: '1.6' }}>
+            <p style={{ fontSize: '24px', color: '#E2E8F0', textAlign: 'center', maxWidth: '700px', lineHeight: '1.6' }}>
               rara vez está en el dinero. Está en la información que nadie más ve.
             </p>
           </div>
         </div>
 
-        {/* PÁGINA 10 */}
+        {/* PÁGINA 10: PRECIO Y CONTACTO */}
         <div className="pdf-page" style={{ background: 'linear-gradient(135deg, #0A1628 0%, #111827 100%)' }}>
-          <div className="content">
-            <div style={{ textAlign: 'center', marginBottom: '30px' }}>
-              <h2 className="title-text" style={{ fontSize: '36px', fontWeight: '900', lineHeight: '1.1', marginBottom: '20px' }}>Mientras otros operan con Excel,<br/>tú puedes tener un Director de Campaña con IA.</h2>
+          <div className="content" style={{ justifyContent: 'center' }}>
+            <div style={{ textAlign: 'center', marginBottom: '40px' }}>
+              <h2 className="title-text" style={{ fontSize: '38px', fontWeight: '900', lineHeight: '1.2', marginBottom: '20px' }}>Mientras otros operan con Excel,<br/>tú puedes tener un Director de Campaña con IA.</h2>
             </div>
             
             <div className="grid-2-cols" style={{ display: 'flex', gap: '20px', justifyContent: 'center', marginBottom: '40px' }}>
               <div className="glass-box" style={{ flex: 1, textAlign: 'center', borderTop: '4px solid #00D4FF' }}>
-                <h3 style={{ color: '#00D4FF', fontSize: '22px', marginBottom: '10px' }}>Licencia por Ciclo</h3>
-                <div style={{ fontSize: '32px', fontWeight: '900', color: 'white', marginBottom: '20px' }}>$350,000 <span style={{ fontSize: '14px', color: '#94A3B8' }}>MXN</span></div>
-                <ul style={{ textAlign: 'left', color: '#E2E8F0', lineHeight: '1.8', listStyle: 'none', padding: 0, fontSize: '14px' }}>
+                <h3 style={{ color: '#00D4FF', fontSize: '24px', marginBottom: '10px' }}>Licencia por Ciclo</h3>
+                <div style={{ fontSize: '42px', fontWeight: '900', color: 'white', marginBottom: '20px' }}>$450,000 <span style={{ fontSize: '16px', color: '#94A3B8' }}>MXN</span></div>
+                <ul style={{ textAlign: 'left', color: '#E2E8F0', lineHeight: '1.8', listStyle: 'none', padding: 0, fontSize: '15px' }}>
                   <li>✓ Clonación exclusiva en 48h</li>
                   <li>✓ Carga de datos e IA entrenada</li>
                   <li>✓ Capacitación a tu equipo</li>
@@ -223,29 +202,28 @@ export default function DossierPage() {
               </div>
             </div>
 
-            <div className="glass-box" style={{ textAlign: 'center', background: 'rgba(0, 212, 255, 0.1)', border: '1px solid rgba(0, 212, 255, 0.3)', padding: '25px', borderRadius: '16px' }}>
-              <h3 style={{ fontSize: '22px', color: '#F59E0B', marginBottom: '15px', fontWeight: 'bold' }}>
-                ¿Vas a dejar que tu competencia tenga esto primero?
+            <div className="glass-box" style={{ textAlign: 'center', background: 'rgba(0, 212, 255, 0.1)', border: '1px solid rgba(0, 212, 255, 0.3)', padding: '30px', borderRadius: '16px' }}>
+              <h3 style={{ fontSize: '24px', color: '#F59E0B', marginBottom: '15px', fontWeight: 'bold' }}>
+                ¿Listo para asegurar tu victoria?
               </h3>
               
-              <div style={{ color: '#E2E8F0', fontSize: '14px', lineHeight: '1.8', marginBottom: '20px' }}>
+              <div style={{ color: '#E2E8F0', fontSize: '14px', lineHeight: '1.8', marginBottom: '25px' }}>
                 <strong>Oficina:</strong> Avenida Sur 403, Col. Unidad Habitacional Pemex, Piso 3, Oficina 7, Tula de Allende, Hgo. C.P. 42808<br/>
                 <strong>Teléfono:</strong> 773 732 7730 · <strong>Móvil:</strong> 55 4926 3775
               </div>
 
-              <a href="https://wa.me/525549263775" style={{ display: 'inline-block', background: '#00D4FF', color: '#0A1628', padding: '15px 30px', borderRadius: '8px', textDecoration: 'none', fontWeight: '900', fontSize: '16px', boxShadow: '0 10px 30px rgba(0,212,255,0.4)' }}>
+              <a href="https://wa.me/525549263775" style={{ display: 'inline-block', background: '#00D4FF', color: '#0A1628', padding: '15px 40px', borderRadius: '8px', textDecoration: 'none', fontWeight: '900', fontSize: '18px', boxShadow: '0 10px 30px rgba(0,212,255,0.4)' }}>
                 Agendar Demostración Privada
               </a>
-              <p style={{ color: '#64748B', marginTop: '15px', fontSize: '12px' }}>orion-electoral.com · Campaign Intelligence</p>
+              <p style={{ color: '#64748B', marginTop: '20px', fontSize: '13px' }}>orion-electoral.com · Campaign Intelligence</p>
             </div>
           </div>
         </div>
 
       </div>
 
-      {/* ESTILOS CSS RESPONSIVOS */}
+      {/* ESTILOS CSS RESPONSIVOS Y DE IMPRESIÓN */}
       <style>{`
-        /* --- ESTILOS PARA COMPUTADORA (Y PDF) --- */
         .pdf-page {
           width: 210mm;
           height: 296mm; 
@@ -259,7 +237,6 @@ export default function DossierPage() {
           box-sizing: border-box;
           color: white;
         }
-
         .bg-image {
           position: absolute;
           top: 0; left: 0; width: 100%; height: 100%;
@@ -267,13 +244,11 @@ export default function DossierPage() {
           background-position: center;
           z-index: 0;
         }
-
         .overlay {
           position: absolute;
           top: 0; left: 0; right: 0; bottom: 0;
           z-index: 1;
         }
-
         .content {
           position: relative;
           z-index: 2;
@@ -282,60 +257,30 @@ export default function DossierPage() {
           flex-direction: column;
           justify-content: center;
         }
-
         .glass-box {
-          background-color: rgba(17, 24, 39, 0.95);
+          background-color: rgba(17, 24, 39, 0.85);
           border: 1px solid rgba(0, 212, 255, 0.3);
           border-radius: 16px;
           padding: 40px;
           box-shadow: 0 20px 40px rgba(0,0,0,0.5);
+          backdrop-filter: blur(10px);
         }
-
-        /* --- ESTILOS PARA CELULARES Y TABLETS (RESPONSIVE) --- */
         @media screen and (max-width: 800px) {
           .pdf-page {
             width: 100% !important;
             height: auto !important;
             min-height: 100vh;
-            padding: 80px 20px 40px 20px !important; /* Espacio extra arriba para los botones */
+            padding: 80px 20px 40px 20px !important;
             border-bottom: 2px solid #00D4FF;
-            display: block; /* Cambia de flex a block para mejor flujo */
+            display: block;
           }
-          
-          .title-text {
-            font-size: 32px !important;
-          }
-
-          .content {
-            height: auto;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            min-height: calc(100vh - 120px); /* Ajuste para centrar el contenido */
-          }
-
-          .glass-box {
-            padding: 20px !important;
-            width: 100% !important;
-            box-sizing: border-box;
-          }
-
-          .grid-2-cols {
-            flex-direction: column !important;
-            gap: 15px !important;
-            width: 100%;
-          }
-          
-          /* Asegura que el fondo no se coma el texto en móvil */
-          .bg-image {
-            background-position: center;
-          }
-          .overlay {
-            background: rgba(10, 22, 40, 0.85) !important; /* Oscurece más el fondo en móvil */
-          }
+          .title-text { font-size: 32px !important; }
+          .content { height: auto; display: flex; flex-direction: column; justify-content: center; min-height: calc(100vh - 120px); }
+          .glass-box { padding: 20px !important; width: 100% !important; box-sizing: border-box; }
+          .grid-2-cols { flex-direction: column !important; gap: 15px !important; width: 100%; }
+          .bg-image { background-position: center; }
+          .overlay { background: rgba(10, 22, 40, 0.85) !important; }
         }
-
-        /* --- ESTILOS DE IMPRESIÓN (SOLO PDF) --- */
         @media print {
           .no-print { display: none !important; }
           body { background-color: white !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
