@@ -4,13 +4,8 @@ import { supabase } from './supabaseClient';
 export interface Ubicacion {
   lat: number;
   lng: number;
-  precision: number; // en metros
+  precision: number;
   timestamp: number;
-}
-
-export interface UbicacionError {
-  error: string;
-  codigo: number;
 }
 
 // ✅ Validación estricta de GPS
@@ -58,7 +53,7 @@ export const obtenerUbicacion = (
       {
         enableHighAccuracy: true,
         timeout: 20000,
-        maximumAge: 0, // No usar caché
+        maximumAge: 0,
       }
     );
   });
@@ -91,7 +86,6 @@ export async function obtenerDireccionReal(
   lng: number
 ): Promise<string> {
   try {
-    // Intenta primero con la Edge Function
     const { data, error } = await supabase.functions.invoke('geocode', {
       body: { lat, lng },
     });
@@ -100,7 +94,6 @@ export async function obtenerDireccionReal(
     return data?.direccion || 'Dirección no disponible';
   } catch (error) {
     console.error('Error geocodificación:', error);
-    // Fallback: devuelve coordenadas formateadas
     return `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
   }
 }
@@ -109,6 +102,5 @@ export async function obtenerDireccionReal(
 export const esGPSConfiable = (ubicacion: Ubicacion): boolean => {
   const ahora = Date.now();
   const diferencia = ahora - ubicacion.timestamp;
-  // Confiable si: precisión < 100m Y timestamp < 60 segundos
   return ubicacion.precision < 100 && diferencia < 60000;
 };
