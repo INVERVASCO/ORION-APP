@@ -133,7 +133,7 @@ export default function Encuestas() {
     setEncuestaNueva({...encuestaNueva, tipo: rango, pregunta: PREGUNTAS_ADN[rango][0]});
   };
 
-  const handleCrear = async (e: React.FormEvent) => {
+    const handleCrear = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!encuestaNueva) return;
     
@@ -175,7 +175,8 @@ export default function Encuestas() {
 
     const { data: { user } } = await supabase.auth.getUser();
 
-    const nuevaEncuesta = {
+    // ✅ 1. PAYLOAD LIMPIO (Solo columnas reales de la tabla 'encuestas')
+    const payloadLimpio = {
       tipo: encuestaNueva.tipo,
       pregunta: encuestaNueva.pregunta,
       respuesta: encuestaNueva.respuesta || null,
@@ -185,15 +186,22 @@ export default function Encuestas() {
       precision_gps: ubicacion.precision,
       encuestador_id: user?.id || null,
       es_sospechosa: esSospechosa,
-      created_at: new Date().toISOString(),
-      barrios_colonias: barrios.find(b => b.id === encuestaNueva.barrio_colonia_id) ? { nombre: barrios.find(b => b.id === encuestaNueva.barrio_colonia_id)?.nombre } : null
+      created_at: new Date().toISOString()
     };
 
-    // ✅ MODO OFFLINE
-    const res = await offlineInsert('encuestas', nuevaEncuesta);
+    // ✅ 2. OBJETO PARA LA INTERFAZ (Incluye el nombre del barrio para mostrarlo en la UI)
+    const barrioEncontrado = barrios.find(b => b.id === encuestaNueva.barrio_colonia_id);
+    const nuevaEncuestaUI = {
+      ...payloadLimpio,
+      id: `temp-${Date.now()}`, // ID temporal para que React no marque error
+      barrios_colonias: barrioEncontrado ? { nombre: barrioEncontrado.nombre } : null
+    };
+
+    // ✅ 3. MODO OFFLINE (Enviamos el payload limpio)
+    const res = await offlineInsert('encuestas', payloadLimpio);
 
     if (res.ok) {
-      setEncuestas([nuevaEncuesta, ...encuestas]);
+      setEncuestas([nuevaEncuestaUI, ...encuestas]);
       setModalAbierto(false);
       
       if (res.queued) {
@@ -207,7 +215,6 @@ export default function Encuestas() {
     }
     setGuardando(false);
   };
-
   const handleEliminar = (id: string) => {
     mostrarConfirm(
       '¿Eliminar esta encuesta?',
