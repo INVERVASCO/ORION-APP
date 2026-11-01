@@ -166,7 +166,7 @@ export default function AuditoriaCampo() {
     const encuestasBrigadista = encuestas.filter(e => e.encuestador_nombre === nombre);
     const ultimaEncuesta = Math.max(...encuestasBrigadista.map(e => e.timestamp));
     const ahora = Date.now();
-    const estaOnline = (ahora - ultimaEncuesta) < (3 * 60 * 60 * 1000); // 3 horas
+    const estaOnline = (ahora - ultimaEncuesta) < (3 * 60 * 60 * 1000);
     
     return { nombre, estaOnline, ultimaEncuesta };
   }).sort((a, b) => b.ultimaEncuesta - a.ultimaEncuesta);
@@ -208,6 +208,17 @@ export default function AuditoriaCampo() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 40px)', background: '#0F172A', borderRadius: '12px', overflow: 'hidden', color: 'white' }}>
       
+      {/* 🛠️ FILTRO CSS PARA MODO OSCURO REAL (SIN API KEY) */}
+      <style>{`
+        .leaflet-layer {
+          filter: invert(100%) hue-rotate(180deg) brightness(95%) contrast(90%);
+        }
+        /* Evitar que los pines y popups se inviertan */
+        .leaflet-marker-icon, .leaflet-popup {
+          filter: invert(0%) hue-rotate(0deg) brightness(100%) contrast(100%) !important;
+        }
+      `}</style>
+
       {/* 🔝 HEADER OSCURO */}
       <div style={{ padding: '15px 20px', background: '#1E293B', borderBottom: '1px solid #334155', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
@@ -242,8 +253,8 @@ export default function AuditoriaCampo() {
         <div style={{ flex: 3, position: 'relative' }}>
           <MapContainer center={[20.05, -98.36]} zoom={12} style={{ height: '100%', width: '100%', background: '#0F172A' }}>
             
-            {/* 🚀 EL MAPA OSCURO NATIVO Y GRATUITO */}
-            <TileLayer url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png" />
+            {/* 🚀 MAPA BASE GRATUITO DE OSM (El CSS lo vuelve oscuro) */}
+            <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
             
             <ControlVuelo pines={encuestasFiltradas} />
             <BotonMiUbicacion />
