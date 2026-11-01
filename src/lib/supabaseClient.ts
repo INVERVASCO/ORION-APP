@@ -6,7 +6,7 @@ const supabaseAnonKey = import.meta.env.SUPABASE_ANON_KEY;
 if (!supabaseUrl || !supabaseAnonKey) {
   throw new Error(
     '❌ Faltan variables de entorno: SUPABASE_URL y SUPABASE_ANON_KEY. ' +
-    'Revisa la configuración de Vercel o tu archivo .env.local'
+    'Revisa la configuración de Vercel.'
   );
 }
 
