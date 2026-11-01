@@ -33,6 +33,7 @@ import Importar from './pages/Importar';
 import Usuarios from './pages/Usuarios';
 import Auditoria from './pages/Auditoria';
 import AuditoriaCampo from './pages/AuditoriaCampo';
+import AdminGeocode from './pages/AdminGeocode';
 
 function App() {
   const [session, setSession] = useState<Session | null>(null);
@@ -93,6 +94,7 @@ function App() {
             <Route path="usuarios" element={<Usuarios />} />
             <Route path="auditoria" element={<Auditoria />} />
             <Route path="auditoria-campo" element={<AuditoriaCampo />} />
+            <Route path="admin-geocode" element={<AdminGeocode />} />
           </Route>
 
           <Route path="*" element={<Navigate to="/" replace />} />
