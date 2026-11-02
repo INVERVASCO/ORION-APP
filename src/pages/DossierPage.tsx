@@ -1,8 +1,7 @@
-// @ts-nocheck
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Download, ShieldCheck, Brain, Target, AlertTriangle, Users, Zap } from 'lucide-react';
 import { useState } from 'react';
-// @ts-ignore
+// @ts-ignore (Ignoramos solo esta línea porque no hay tipos oficiales, ya lo declaramos en vite-env.d.ts)
 import html2pdf from 'html2pdf.js';
 
 export default function DossierPage() {
@@ -14,7 +13,7 @@ export default function DossierPage() {
     if (!element) return;
 
     setDescargando(true);
-    await new Promise(resolve => setTimeout(resolve, 3000)); // Damos más tiempo para que carguen las imágenes
+    await new Promise(resolve => setTimeout(resolve, 3000));
 
     const opt = {
       margin: 0,
