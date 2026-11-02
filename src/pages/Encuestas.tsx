@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { useEffect, useState } from 'react';
 import { 
   Search, Trash2, Plus, X, Loader2, CheckCircle2, 
@@ -31,7 +30,7 @@ interface ConfirmModalData {
   onConfirm: () => void;
 }
 
-const PREGUNTAS_ADN = {
+const PREGUNTAS_ADN: Record<string, string[]> = {
   'adn_18_30': [
     "Si pudieras cambiar UNA SOLA COSA de Tula para quedarte a vivir aquí toda tu vida, ¿qué sería?",
     "¿Qué es lo que más te frustra de cómo te ven los políticos?",
@@ -85,8 +84,12 @@ export default function Encuestas() {
       ]);
       
       if (encuestasRes.data) {
-        setEncuestas(encuestasRes.data as any);
-        setFiltradas(encuestasRes.data as any);
+        const procesadas = encuestasRes.data.map((e: any) => ({
+          ...e,
+          barrios_colonias: Array.isArray(e.barrios_colonias) ? e.barrios_colonias[0] : e.barrios_colonias
+        }));
+        setEncuestas(procesadas as any);
+        setFiltradas(procesadas as any);
       }
       if (barriosRes.data) setBarrios(barriosRes.data);
       setLoading(false);
@@ -189,9 +192,11 @@ export default function Encuestas() {
     };
 
     const barrioEncontrado = barrios.find(b => b.id === encuestaNueva.barrio_colonia_id);
-    const nuevaEncuestaUI = {
+    const nuevaEncuestaUI: Encuesta = {
       ...payloadLimpio,
       id: `temp-${Date.now()}`,
+      seccion_electoral_id: null,
+      fecha_encuesta: new Date().toISOString(),
       barrios_colonias: barrioEncontrado ? { nombre: barrioEncontrado.nombre } : null
     };
 
