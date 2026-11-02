@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { useEffect, useState } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { supabase } from './lib/supabaseClient';
@@ -40,9 +39,10 @@ function App() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // 🚀 Ahora la carga es real. En cuanto Supabase responde, se quita el loading
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
-      setTimeout(() => setLoading(false), 2000); 
+      setLoading(false);
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
