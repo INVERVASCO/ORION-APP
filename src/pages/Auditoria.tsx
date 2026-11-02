@@ -25,73 +25,62 @@ export default function Auditoria() {
   const [filtroAccion, setFiltroAccion] = useState('');
   const [registroSeleccionado, setRegistroSeleccionado] = useState<RegistroAuditoria | null>(null);
 
-  // 🚀 ESTADOS PARA LA PAGINACIÓN
-  const [paginaActual, setPaginaActual] = useState(1);
-  const registrosPorPagina = 20;
+  // 🚀 ESTADOS DE PAGINACIÓN SERVER-SIDE
+  const [page, setPage] = useState(0);
+  const [totalCount, setTotalCount] = useState(0);
+  const PAGE_SIZE = 20; // Tamaño de página para auditoría
 
+  // Cargar perfiles de usuario (esto se puede cachear)
   useEffect(() => {
-    const cargarAuditoria = async () => {
-      setLoading(true);
-
-      const { data: auditoriaData, error } = await supabase
-        .from('auditoria')
-        .select('*')
-        .order('created_at', { ascending: false })
-        .limit(1000); // Traemos hasta 1000, pero paginamos en pantalla
-
-      if (error) {
-        console.error('Error al cargar auditoría:', error);
-        setLoading(false);
-        return;
-      }
-
-      const { data: perfilesData } = await supabase
-        .from('perfiles')
-        .select('id, nombre_completo, email');
-
-      const mapaPerfiles: Record<string, string> = {};
-      perfilesData?.forEach((p: any) => {
-        mapaPerfiles[p.id] = p.nombre_completo || p.email || 'Usuario desconocido';
-      });
-
-      setPerfiles(mapaPerfiles);
-      setRegistros(auditoriaData || []);
-      setLoading(false);
+    const fetchPerfiles = async () => {
+      const { data } = await supabase.from('perfiles').select('id, nombre_completo, email');
+      const mapa: Record<string, string> = {};
+      data?.forEach((p: any) => { mapa[p.id] = p.nombre_completo || p.email || 'Desconocido'; });
+      setPerfiles(mapa);
     };
-
-    cargarAuditoria();
+    fetchPerfiles();
   }, []);
 
-  // Filtros
-  const registrosFiltrados = registros.filter(r => {
-    const cumpleBusqueda = busqueda.trim() === '' || 
-      r.tabla_afectada.toLowerCase().includes(busqueda.toLowerCase()) ||
-      (r.usuario_id && perfiles[r.usuario_id]?.toLowerCase().includes(busqueda.toLowerCase())) ||
-      r.registro_id.toLowerCase().includes(busqueda.toLowerCase());
+  // 🚀 FUNCIÓN DE CARGA PAGINADA
+  const fetchAuditoria = async () => {
+    setLoading(true);
     
-    const cumpleAccion = filtroAccion === '' || r.accion === filtroAccion;
-    
-    return cumpleBusqueda && cumpleAccion;
-  });
+    let query = supabase.from('auditoria').select('*', { count: 'exact' });
 
-  // 🚀 CÁLCULOS DE PAGINACIÓN
-  const totalPaginas = Math.ceil(registrosFiltrados.length / registrosPorPagina);
-  const indiceUltimo = paginaActual * registrosPorPagina;
-  const indicePrimero = indiceUltimo - registrosPorPagina;
-  const registrosPaginados = registrosFiltrados.slice(indicePrimero, indiceUltimo);
+    if (busqueda.trim() !== '') {
+      // Buscamos en tabla o en ID de registro
+      query = query.or(`tabla_afectada.ilike.%${busqueda}%,registro_id.ilike.%${busqueda}%`);
+    }
+    if (filtroAccion) {
+      query = query.eq('accion', filtroAccion);
+    }
 
-  // Resetear a la página 1 cuando se busca algo
+    const from = page * PAGE_SIZE;
+    const to = from + PAGE_SIZE - 1;
+
+    const { data, count, error } = await query
+      .order('created_at', { ascending: false })
+      .range(from, to);
+
+    if (!error && data) {
+      setRegistros(data || []);
+      if (count !== null) setTotalCount(count);
+    }
+    setLoading(false);
+  };
+
+  // Efecto con debounce para búsquedas
   useEffect(() => {
-    setPaginaActual(1);
+    const timer = setTimeout(() => { setPage(0); fetchAuditoria(); }, 500);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [busqueda, filtroAccion]);
 
-  if (loading) {
-    return (
-      <div style={{ display: 'flex', justifyContent: 'center', padding: '50px', gap: '10px', color: '#9F2241' }}>
-        <Loader2 size={32} className="animate-spin" /> Cargando bitácora de auditoría...
-      </div>
-    );
-  }
+  // Efecto para cambiar de página
+  useEffect(() => {
+    fetchAuditoria();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page]);
 
   const getAccionInfo = (accion: string) => {
     switch (accion) {
@@ -101,6 +90,8 @@ export default function Auditoria() {
       default: return { color: '#666', icon: <Database size={16} />, label: 'Desconocido' };
     }
   };
+
+  const totalPages = Math.ceil(totalCount / PAGE_SIZE);
 
   return (
     <div>
@@ -112,22 +103,8 @@ export default function Auditoria() {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '12px', marginBottom: '25px' }}>
         <div className="card" style={{ padding: '15px', textAlign: 'center', borderTop: '4px solid #9F2241', borderLeft: 'none' }}>
           <Database size={22} color="#9F2241" style={{ marginBottom: '5px' }} />
-          <div style={{ fontSize: '26px', fontWeight: 'bold', color: '#9F2241' }}>{registros.length}</div>
+          <div style={{ fontSize: '26px', fontWeight: 'bold', color: '#9F2241' }}>{totalCount.toLocaleString()}</div>
           <div style={{ fontSize: '12px', color: '#666', fontWeight: 'bold' }}>Movimientos Totales</div>
-        </div>
-        <div className="card" style={{ padding: '15px', textAlign: 'center', borderTop: '4px solid #2E7D32', borderLeft: 'none' }}>
-          <PlusCircle size={22} color="#2E7D32" style={{ marginBottom: '5px' }} />
-          <div style={{ fontSize: '26px', fontWeight: 'bold', color: '#2E7D32' }}>
-            {registros.filter(r => r.accion === 'INSERT').length}
-          </div>
-          <div style={{ fontSize: '12px', color: '#666', fontWeight: 'bold' }}>Creaciones</div>
-        </div>
-        <div className="card" style={{ padding: '15px', textAlign: 'center', borderTop: '4px solid #C62828', borderLeft: 'none' }}>
-          <Trash2 size={22} color="#C62828" style={{ marginBottom: '5px' }} />
-          <div style={{ fontSize: '26px', fontWeight: 'bold', color: '#C62828' }}>
-            {registros.filter(r => r.accion === 'DELETE').length}
-          </div>
-          <div style={{ fontSize: '12px', color: '#666', fontWeight: 'bold' }}>Eliminaciones</div>
         </div>
       </div>
 
@@ -136,7 +113,7 @@ export default function Auditoria() {
           <Search size={18} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#999' }} />
           <input
             type="text"
-            placeholder="Buscar por tabla, usuario o ID..."
+            placeholder="Buscar por tabla o ID..."
             value={busqueda}
             onChange={(e) => setBusqueda(e.target.value)}
             style={{ width: '100%', padding: '11px 11px 11px 40px', borderRadius: '6px', border: '1px solid #E0E0E0', fontSize: '14px', boxSizing: 'border-box' }}
@@ -154,16 +131,14 @@ export default function Auditoria() {
         </select>
       </div>
 
-      <p style={{ marginBottom: '15px', fontSize: '14px', color: '#666' }}>
-        Mostrando <strong>{registrosPaginados.length}</strong> de {registrosFiltrados.length} movimientos
-      </p>
-
-      {registrosFiltrados.length === 0 ? (
+      {loading ? (
+        <div style={{ display: 'flex', justifyContent: 'center', padding: '40px', color: '#9F2241' }}>
+          <Loader2 size={32} className="animate-spin" /> Consultando bitácora...
+        </div>
+      ) : registros.length === 0 ? (
         <div className="card" style={{ textAlign: 'center', padding: '40px 20px' }}>
           <CheckCircle2 size={40} color="#2E7D32" style={{ opacity: 0.5, marginBottom: '15px' }} />
-          <p style={{ color: '#666', fontSize: '15px' }}>
-            No hay movimientos registrados con estos filtros.
-          </p>
+          <p style={{ color: '#666', fontSize: '15px' }}>No hay movimientos registrados con estos filtros.</p>
         </div>
       ) : (
         <>
@@ -179,7 +154,7 @@ export default function Auditoria() {
                 </tr>
               </thead>
               <tbody>
-                {registrosPaginados.map((r, idx) => {
+                {registros.map((r, idx) => {
                   const info = getAccionInfo(r.accion);
                   return (
                     <tr key={r.id} style={{ borderBottom: '1px solid #EEE', background: idx % 2 === 0 ? '#F9F9F9' : 'white' }}>
@@ -219,25 +194,25 @@ export default function Auditoria() {
             </table>
           </div>
 
-          {/* 🚀 CONTROLES DE PAGINACIÓN */}
-          {totalPaginas > 1 && (
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '15px' }}>
+          {/* CONTROLES DE PAGINACIÓN SERVER-SIDE */}
+          {totalPages > 1 && (
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '15px', background: 'white', padding: '15px', borderRadius: '10px', border: '1px solid #E0E0E0' }}>
               <button 
-                onClick={() => setPaginaActual(prev => Math.max(prev - 1, 1))}
-                disabled={paginaActual === 1}
-                style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '8px 16px', background: paginaActual === 1 ? '#F0F0F0' : 'white', color: paginaActual === 1 ? '#999' : '#9F2241', border: '1px solid #E0E0E0', borderRadius: '6px', cursor: paginaActual === 1 ? 'not-allowed' : 'pointer', fontWeight: 'bold' }}
+                onClick={() => setPage(prev => Math.max(prev - 1, 0))}
+                disabled={page === 0}
+                style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '8px 16px', background: page === 0 ? '#F0F0F0' : 'white', color: page === 0 ? '#999' : '#9F2241', border: '1px solid #E0E0E0', borderRadius: '6px', cursor: page === 0 ? 'not-allowed' : 'pointer', fontWeight: 'bold' }}
               >
                 <ChevronLeft size={16} /> Anterior
               </button>
               
               <span style={{ fontSize: '13px', color: '#666', fontWeight: 'bold' }}>
-                Página {paginaActual} de {totalPaginas}
+                Página {page + 1} de {totalPages} (Mostrando {PAGE_SIZE} por página)
               </span>
 
               <button 
-                onClick={() => setPaginaActual(prev => Math.min(prev + 1, totalPaginas))}
-                disabled={paginaActual === totalPaginas}
-                style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '8px 16px', background: paginaActual === totalPaginas ? '#F0F0F0' : 'white', color: paginaActual === totalPaginas ? '#999' : '#9F2241', border: '1px solid #E0E0E0', borderRadius: '6px', cursor: paginaActual === totalPaginas ? 'not-allowed' : 'pointer', fontWeight: 'bold' }}
+                onClick={() => setPage(prev => Math.min(prev + 1, totalPages - 1))}
+                disabled={page === totalPages - 1}
+                style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '8px 16px', background: page === totalPages - 1 ? '#F0F0F0' : 'white', color: page === totalPages - 1 ? '#999' : '#9F2241', border: '1px solid #E0E0E0', borderRadius: '6px', cursor: page === totalPages - 1 ? 'not-allowed' : 'pointer', fontWeight: 'bold' }}
               >
                 Siguiente <ChevronRight size={16} />
               </button>
@@ -246,17 +221,13 @@ export default function Auditoria() {
         </>
       )}
 
-      {/* Modal de Detalle */}
+      {/* Modal de Detalle (Igual que tu versión anterior) */}
       {registroSeleccionado && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000, padding: '15px' }}>
           <div style={{ background: 'white', padding: '25px', borderRadius: '12px', width: '100%', maxWidth: '600px', maxHeight: '90vh', overflowY: 'auto' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', borderBottom: '2px solid #9F2241', paddingBottom: '10px' }}>
-              <h3 style={{ color: '#9F2241', fontSize: '18px', margin: 0 }}>
-                Detalle del Movimiento
-              </h3>
-              <button onClick={() => setRegistroSeleccionado(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '24px', color: '#999' }}>
-                &times;
-              </button>
+              <h3 style={{ color: '#9F2241', fontSize: '18px', margin: 0 }}>Detalle del Movimiento</h3>
+              <button onClick={() => setRegistroSeleccionado(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '24px', color: '#999' }}>&times;</button>
             </div>
 
             <div style={{ display: 'grid', gap: '15px', fontSize: '14px' }}>
@@ -266,7 +237,6 @@ export default function Auditoria() {
                   {registroSeleccionado.registro_id}
                 </p>
               </div>
-
               {registroSeleccionado.datos_anteriores && (
                 <div>
                   <strong style={{ color: '#C62828' }}>🔴 Datos Anteriores:</strong>
@@ -275,7 +245,6 @@ export default function Auditoria() {
                   </pre>
                 </div>
               )}
-
               {registroSeleccionado.datos_nuevos && (
                 <div>
                   <strong style={{ color: '#2E7D32' }}>🟢 Datos Nuevos:</strong>
