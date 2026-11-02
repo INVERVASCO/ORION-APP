@@ -38,7 +38,6 @@ export default function Login() {
       }
 
       if (data.session) {
-        // 🚀 VERIFICAMOS QUE EL USUARIO ESTÉ ACTIVO
         const { data: perfil } = await supabase
           .from('perfiles')
           .select('activo')
@@ -80,7 +79,13 @@ export default function Login() {
       <div className="login-box">
         
         <div style={{ textAlign: 'center', marginBottom: '20px', paddingBottom: '15px', borderBottom: '1px solid #E2E8F0' }}>
-          <img src="https://i.ibb.co/qLGmzCyZ/orion-logo-png.png" alt="ORION" style={{ width: '100%', maxWidth: '220px', height: 'auto' }} />
+          {/* 🚀 IMAGEN LOCAL */}
+          <img 
+            src="/orion-logo.png" 
+            alt="ORION" 
+            style={{ width: '100%', maxWidth: '220px', height: 'auto' }} 
+            onError={(e) => { e.currentTarget.src = 'https://ui-avatars.com/api/?name=ORION&background=0A1628&color=00D4FF&bold=true&size=220'; }}
+          />
         </div>
 
         <h2 style={{ color: '#0A1628', marginBottom: '20px', fontSize: '22px', fontWeight: '800' }}>
