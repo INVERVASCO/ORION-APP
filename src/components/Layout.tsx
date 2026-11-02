@@ -1,33 +1,42 @@
 import { useState, useEffect } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
-import { 
-  LayoutDashboard, Users, Vote, LogOut, Menu, X, Contact, 
-  Hash, Upload, PieChart, Shield, Target, TrendingUp, 
+import {
+  LayoutDashboard, Users, Vote, LogOut, Menu, X, Contact,
+  Hash, Upload, PieChart, Shield, Target, TrendingUp,
   ShieldAlert, AlertTriangle, CheckCircle2, Brain, DollarSign,
-  Calendar as CalendarIcon, Mic, MessageCircle, Map, MapPin, Globe 
+  Calendar as CalendarIcon, Mic, MessageCircle, Map, MapPin, Globe,
 } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
+import { ORION_CONFIG } from '../lib/config';
 
 export default function Layout() {
   const navigate = useNavigate();
   const location = useLocation();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [cerrandoSesion, setCerrandoSesion] = useState(false);
-  const [userRole, setUserRole] = useState<string>('admin');
+  const [userRole, setUserRole] = useState<string | null>(null);
+  const [roleLoading, setRoleLoading] = useState(true);
 
   useEffect(() => {
+    let cancelled = false;
     const fetchRole = async () => {
       try {
         const { data: { session } } = await supabase.auth.getSession();
-        if (session) {
-          const { data, error } = await supabase.from('perfiles').select('rol').eq('id', session.user.id).single();
-          if (data && !error) setUserRole(data.rol);
-        }
+        if (!session) return;
+        const { data, error } = await supabase
+          .from('perfiles')
+          .select('rol')
+          .eq('id', session.user.id)
+          .maybeSingle();
+        if (!cancelled && data && !error) setUserRole(data.rol);
       } catch (err) {
-        console.error("Error cargando rol:", err);
+        console.error('Error cargando rol:', err);
+      } finally {
+        if (!cancelled) setRoleLoading(false);
       }
     };
     fetchRole();
+    return () => { cancelled = true; };
   }, []);
 
   const [confirmModal, setConfirmModal] = useState<any>({
@@ -78,33 +87,53 @@ export default function Layout() {
     });
   };
 
-  const menuPermitido = menuItems.filter(item => item.roles.includes(userRole));
+  const menuPermitido = userRole ? menuItems.filter(item => item.roles.includes(userRole)) : [];
 
   return (
     <div className="app-container">
       <header className="mobile-header">
-        <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} style={{ background: 'none', border: 'none', color: 'white', cursor: 'pointer' }}>
+        <button
+          onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+          style={{ background: 'none', border: 'none', color: 'white', cursor: 'pointer' }}
+        >
           {isSidebarOpen ? <X size={28} /> : <Menu size={28} />}
         </button>
-        <img src="/dossier/orion-logo.png" alt="ORION" style={{ height: '35px', borderRadius: '8px' }} />
+        <img
+          src={ORION_CONFIG.organizacionLogo}
+          alt={ORION_CONFIG.organizacionNombre}
+          style={{ height: '35px', borderRadius: '8px' }}
+        />
         <div style={{ width: '28px' }}></div>
       </header>
 
-      {isSidebarOpen && <div onClick={() => setIsSidebarOpen(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 998 }} />}
+      {isSidebarOpen && (
+        <div
+          onClick={() => setIsSidebarOpen(false)}
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 998 }}
+        />
+      )}
 
       <aside className={`sidebar ${isSidebarOpen ? 'open' : ''}`}>
         <div className="sidebar-logo" style={{ padding: '15px', display: 'flex', justifyContent: 'center' }}>
-          {/* 🚀 LOGO LIMPIO (Se recomienda que el PNG tenga fondo transparente) */}
-          <img 
-            src="/dossier/orion-logo.png" 
-            alt="ORION" 
-            style={{ width: '100%', maxWidth: '200px', height: 'auto', borderRadius: '8px' }} 
+          <img
+            src={ORION_CONFIG.organizacionLogo}
+            alt={ORION_CONFIG.organizacionNombre}
+            style={{ width: '100%', maxWidth: '200px', height: 'auto', borderRadius: '8px' }}
           />
         </div>
 
         <nav style={{ marginTop: '10px' }}>
+          {roleLoading && (
+            <div style={{ padding: '20px', textAlign: 'center', color: '#64748B', fontSize: '12px' }}>
+              Cargando menú...
+            </div>
+          )}
           {menuPermitido.map((item) => (
-            <div key={item.name} className={`menu-item ${location.pathname === item.path ? 'active' : ''}`} onClick={() => handleNavigation(item.path)}>
+            <div
+              key={item.name}
+              className={`menu-item ${location.pathname === item.path ? 'active' : ''}`}
+              onClick={() => handleNavigation(item.path)}
+            >
               {item.icon}
               <span>{item.name}</span>
             </div>
@@ -112,14 +141,33 @@ export default function Layout() {
         </nav>
 
         <div style={{ marginTop: 'auto' }}>
-          <div style={{ padding: '10px 20px', background: 'rgba(0, 212, 255, 0.05)', borderRadius: '8px', marginBottom: '10px' }}>
+          <div style={{
+            padding: '10px 20px', background: 'rgba(0, 212, 255, 0.05)',
+            borderRadius: '8px', marginBottom: '10px',
+          }}>
             <p style={{ margin: 0, fontSize: '11px', color: '#94A3B8' }}>ROL ACTUAL:</p>
-            <p style={{ margin: 0, fontSize: '13px', color: '#00D4FF', fontWeight: 'bold', textTransform: 'uppercase' }}>{userRole}</p>
+            <p style={{
+              margin: 0, fontSize: '13px', color: '#00D4FF',
+              fontWeight: 'bold', textTransform: 'uppercase',
+            }}>
+              {userRole || 'Cargando...'}
+            </p>
           </div>
-          <div className="menu-item" onClick={() => navigate('/')} style={{ marginBottom: '10px', borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '20px' }}>
+          <div
+            className="menu-item"
+            onClick={() => navigate('/')}
+            style={{
+              marginBottom: '10px', borderTop: '1px solid rgba(255,255,255,0.1)',
+              paddingTop: '20px',
+            }}
+          >
             <Globe size={20} /> <span>Ir a la Página Web</span>
           </div>
-          <div className="menu-item" onClick={handleCerrarSesion} style={{ opacity: cerrandoSesion ? 0.5 : 1 }}>
+          <div
+            className="menu-item"
+            onClick={handleCerrarSesion}
+            style={{ opacity: cerrandoSesion ? 0.5 : 1 }}
+          >
             <LogOut size={20} /> <span>{cerrandoSesion ? 'Cerrando...' : 'Cerrar Sesión'}</span>
           </div>
         </div>
@@ -130,13 +178,38 @@ export default function Layout() {
       </main>
 
       {confirmModal.visible && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.65)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 2000, padding: '20px' }}>
-          <div style={{ background: 'white', borderRadius: '14px', padding: '28px', width: '100%', maxWidth: '440px' }}>
+        <div style={{
+          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.65)',
+          display: 'flex', justifyContent: 'center', alignItems: 'center',
+          zIndex: 2000, padding: '20px',
+        }}>
+          <div style={{
+            background: 'white', borderRadius: '14px', padding: '28px',
+            width: '100%', maxWidth: '440px',
+          }}>
             <h3 style={{ margin: '0 0 10px 0', color: '#0F172A' }}>{confirmModal.titulo}</h3>
-            <p style={{ fontSize: '14px', color: '#64748B', marginBottom: '25px' }}>{confirmModal.mensaje}</p>
+            <p style={{ fontSize: '14px', color: '#64748B', marginBottom: '25px' }}>
+              {confirmModal.mensaje}
+            </p>
             <div style={{ display: 'flex', gap: '10px' }}>
-              <button onClick={cerrarConfirm} style={{ flex: 1, padding: '13px', background: '#F1F5F9', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>Cancelar</button>
-              <button onClick={confirmModal.onConfirm} style={{ flex: 1, padding: '13px', background: '#F43F5E', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>Confirmar</button>
+              <button
+                onClick={cerrarConfirm}
+                style={{
+                  flex: 1, padding: '13px', background: '#F1F5F9', border: 'none',
+                  borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold',
+                }}
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={confirmModal.onConfirm}
+                style={{
+                  flex: 1, padding: '13px', background: '#F43F5E', color: 'white',
+                  border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold',
+                }}
+              >
+                Confirmar
+              </button>
             </div>
           </div>
         </div>
