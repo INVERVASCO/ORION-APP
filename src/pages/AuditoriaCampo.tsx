@@ -6,7 +6,6 @@ import L from 'leaflet';
 import { Loader2, AlertTriangle, X, Download, FileText, Crosshair, Wifi, Activity } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 import { calcularDistanciaMetros, obtenerDireccionReal } from '../lib/geolocalizacion';
-// @ts-ignore
 import html2pdf from 'html2pdf.js';
 
 interface EncuestaProcesada {
@@ -17,7 +16,7 @@ interface EncuestaProcesada {
   encuestador_id: string;
   barrio_colonia_id: string;
   precision_gps: number;
-  barrios_colonias: { nombre: string; latitud_centro: number; longitud_centro: number };
+  barrios_colonias: { nombre: string; latitud_centro: number; longitud_centro: number } | null;
   encuestador_nombre: string;
   barrio_nombre: string;
   barrio_lat: number;
@@ -27,6 +26,7 @@ interface EncuestaProcesada {
   motivo_alerta: string;
   fecha_dia: string;
   timestamp: number;
+  direccion_real?: string;
 }
 
 interface ReporteDiario {
@@ -82,7 +82,6 @@ function BotonMiUbicacion() {
 function ControlVuelo({ pines }: { pines: EncuestaProcesada[] }) {
   const map = useMap();
   useEffect(() => {
-    // 🚀 FIX: Validar que las coordenadas existan y sean números válidos antes de volar
     const validPines = pines.filter(p => typeof p.latitud === 'number' && typeof p.longitud === 'number' && !isNaN(p.latitud) && !isNaN(p.longitud));
     
     if (validPines.length > 0) {
@@ -119,11 +118,9 @@ export default function AuditoriaCampo() {
       const { data: perfilesData } = await supabase.from('perfiles').select('id, nombre_completo');
 
       if (encuestasData) {
-        // 🚀 FIX: Evitar que new Map truene si no hay perfiles
         const perfilesMap = new Map((perfilesData || []).map((p: any) => [p.id, p.nombre_completo]));
         
         const procesadas = encuestasData.map((e: any) => {
-          // 🚀 FIX: Normalizar por si barrios_colonias viene como arreglo
           const barrio = Array.isArray(e.barrios_colonias) ? e.barrios_colonias[0] : e.barrios_colonias;
           const lat_centro = barrio?.latitud_centro;
           const lng_centro = barrio?.longitud_centro;
@@ -184,7 +181,6 @@ export default function AuditoriaCampo() {
 
   const estadoBrigadistas = listaBrigadistas.map(nombre => {
     const encuestasBrigadista = encuestas.filter(e => e.encuestador_nombre === nombre);
-    // 🚀 FIX: Validar que haya timestamps antes de usar Math.max
     const tiempos = encuestasBrigadista.map(e => e.timestamp).filter(t => typeof t === 'number' && !isNaN(t));
     const ultimaEncuesta = tiempos.length > 0 ? Math.max(...tiempos) : 0;
     
@@ -401,7 +397,7 @@ export default function AuditoriaCampo() {
                           <td style={{ padding: '8px', border: '1px solid #E2E8F0' }}>{new Date(r.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</td>
                           <td style={{ padding: '8px', border: '1px solid #E2E8F0' }}>{r.barrio_nombre}</td>
                           <td style={{ padding: '8px', border: '1px solid #E2E8F0', maxWidth: '200px', wordWrap: 'break-word' }}>
-                            {r.direccion_real.includes(',') && !r.direccion_real.includes('-') ? r.direccion_real : '📍 Coordenadas GPS'}
+                            {r.direccion_real?.includes(',') && !r.direccion_real?.includes('-') ? r.direccion_real : '📍 Coordenadas GPS'}
                           </td>
                           <td style={{ padding: '8px', border: '1px solid #E2E8F0', color: r.es_sospechosa ? '#F43F5E' : '#10B981', fontWeight: 'bold' }}>
                             {r.es_sospechosa ? `⚠️ ${r.motivo_alerta}` : '✅ OK'}
