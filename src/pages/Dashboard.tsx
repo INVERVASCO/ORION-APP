@@ -4,11 +4,11 @@ import { useNavigate } from 'react-router-dom';
 import { 
   Users, Vote, UserCheck, Loader2, MapPin, 
   AlertTriangle, CheckCircle2, Minus, Target, Download,
-  ArrowRight, BarChart3, Brain, Zap, Sparkles
+  ArrowRight, BarChart3, Brain, Zap, Sparkles, User
 } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 import MapaSecciones from '../components/MapaSecciones';
-import { ORION_CONFIG } from '../lib/config';
+import { ORION_CONFIG, PARTIDOS_DB } from '../lib/config';
 // @ts-ignore
 import html2pdf from 'html2pdf.js';
 
@@ -22,6 +22,7 @@ export default function Dashboard() {
     totalVotos: 0, seguras: 0, disputa: 0, riesgo: 0, seccionesEnRiesgo: [],
   });
   const [datosMapa, setDatosMapa] = useState({});
+  const [partidoObjetivo, setPartidoObjetivo] = useState<string>('todos');
 
   const pdfRef = useRef<HTMLDivElement>(null);
 
@@ -59,14 +60,11 @@ export default function Dashboard() {
         const enRiesgo = [];
         const datosTemporales = {};
 
-        // 🚀 LÓGICA NEUTRAL: Leemos el partido configurado en Vercel
-        const partidosCliente = ORION_CONFIG.electoral.partidoCliente.split(',').map(s => s.trim().toLowerCase());
-        
-        const getVotosCliente = (res: any[]) => {
+        const getVotos = (res: any[]) => {
           return res.reduce((sum, r) => {
-            let votos = 0;
-            partidosCliente.forEach(p => { votos += (Number(r[p]) || 0); });
-            return sum + votos;
+            if (partidoObjetivo === 'todos') return sum + r.total_votos;
+            if (partidoObjetivo === 'oposicion') return sum + (r.total_votos - (Number(r.morena) || 0));
+            return sum + (Number(r[partidoObjetivo]) || 0);
           }, 0);
         };
 
@@ -75,16 +73,16 @@ export default function Dashboard() {
           const res2018 = resultadosData.filter((r: any) => Number(r.seccion) === numSeccion && r.anio === 2018);
           const res2024 = resultadosData.filter((r: any) => Number(r.seccion) === numSeccion && r.anio === 2024);
 
-          const votosCliente2018 = getVotosCliente(res2018);
-          const votosCliente2024 = getVotosCliente(res2024);
+          const votos2018 = getVotos(res2018);
+          const votos2024 = getVotos(res2024);
           const lista2024 = res2024.reduce((s: number, r: any) => s + (r.lista_nominal || 0), 0);
 
-          let proyeccionVotos = votosCliente2024;
-          if (votosCliente2018 > 0) {
-            const tendenciaAnual = (votosCliente2024 - votosCliente2018) / 6;
-            proyeccionVotos = Math.round(votosCliente2024 + (tendenciaAnual * 3));
+          let proyeccionVotos = votos2024;
+          if (votos2018 > 0) {
+            const tendenciaAnual = (votos2024 - votos2018) / 6;
+            proyeccionVotos = Math.round(votos2024 + (tendenciaAnual * 3));
           } else {
-            proyeccionVotos = Math.round(votosCliente2024 * 1.05);
+            proyeccionVotos = Math.round(votos2024 * 1.05);
           }
 
           const proyeccionPct = lista2024 > 0 ? (proyeccionVotos / lista2024) * 100 : 0;
@@ -113,7 +111,7 @@ export default function Dashboard() {
       setLoading(false);
     };
     fetchMetricas();
-  }, []);
+  }, [partidoObjetivo]); // 🚀 Se recalcula si el usuario cambia el partido
 
   const descargarResumenPDF = () => {
     if (!pdfRef.current) return;
@@ -121,7 +119,7 @@ export default function Dashboard() {
     html2pdf().set(opt).from(pdfRef.current).save();
   };
 
-  if (loading) return <div style={{ display: 'flex', justifyContent: 'center', padding: '50px', gap: '10px', color: '#00D4FF' }}><Loader2 size={32} className="animate-spin"/> Cargando...</div>;
+  if (loading && !datosMapa) return <div style={{ display: 'flex', justifyContent: 'center', padding: '50px', gap: '10px', color: '#00D4FF' }}><Loader2 size={32} className="animate-spin"/> Cargando...</div>;
 
   const pctCasillas = metricas.totalCasillas > 0 ? Math.round((metricas.casillasCubiertas / metricas.totalCasillas) * 100) : 0;
   const pctActivismo = metricas.totalBarrios > 0 ? Math.round((metricas.barriosConActivismo / metricas.totalBarrios) * 100) : 0;
@@ -133,9 +131,19 @@ export default function Dashboard() {
           <h1 className="header-title" style={{ marginBottom: '5px' }}>Panel de Control Ejecutivo</h1>
           <p style={{ margin: 0, color: '#64748B', fontSize: '14px' }}>Resumen en tiempo real de la operación territorial.</p>
         </div>
-        <button onClick={descargarResumenPDF} className="btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '12px 20px', fontSize: '14px' }}>
-          <Download size={18} /> Descargar Reporte
-        </button>
+        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'white', padding: '6px 12px', borderRadius: '8px', border: '1px solid #E2E8F0' }}>
+            <User size={18} color="#64748B" />
+            <select value={partidoObjetivo} onChange={(e) => setPartidoObjetivo(e.target.value)} style={{ padding: '6px', border: 'none', outline: 'none', fontSize: '14px', fontWeight: 'bold', color: '#0A1628', background: 'transparent' }}>
+              <option value="todos">Votos Totales</option>
+              <option value="oposicion">Voto Opositor</option>
+              {PARTIDOS_DB.map(p => <option key={p.key} value={p.key}>{p.nombre}</option>)}
+            </select>
+          </div>
+          <button onClick={descargarResumenPDF} className="btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '12px 20px', fontSize: '14px' }}>
+            <Download size={18} /> Descargar Reporte
+          </button>
+        </div>
       </div>
 
       <div style={{ background: 'linear-gradient(135deg, #0A1628 0%, #00D4FF 100%)', borderRadius: '16px', padding: '28px', marginBottom: '25px', color: 'white', boxShadow: '0 10px 30px rgba(0, 212, 255, 0.3)', position: 'relative', overflow: 'hidden' }}>
