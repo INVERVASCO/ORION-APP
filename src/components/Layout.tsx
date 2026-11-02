@@ -13,7 +13,7 @@ export default function Layout() {
   const location = useLocation();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [cerrandoSesion, setCerrandoSesion] = useState(false);
-  const [userRole, setUserRole] = useState<string>('admin'); // 🚀 Por defecto admin para que no se oculte el menú
+  const [userRole, setUserRole] = useState<string>('admin');
 
   useEffect(() => {
     const fetchRole = async () => {
@@ -21,9 +21,7 @@ export default function Layout() {
         const { data: { session } } = await supabase.auth.getSession();
         if (session) {
           const { data, error } = await supabase.from('perfiles').select('rol').eq('id', session.user.id).single();
-          if (data && !error) {
-            setUserRole(data.rol);
-          }
+          if (data && !error) setUserRole(data.rol);
         }
       } catch (err) {
         console.error("Error cargando rol:", err);
@@ -41,6 +39,7 @@ export default function Layout() {
   };
   const cerrarConfirm = () => setConfirmModal({ ...confirmModal, visible: false });
 
+  // 🚀 MENÚ LIMPIO Y ORDENADO (Sin duplicados)
   const menuItems = [
     { name: 'Dashboard', path: '/app', icon: <LayoutDashboard size={20} />, roles: ['admin', 'coordinador', 'brigadista', 'consulta'] },
     { name: 'Activismo', path: '/app/activismo', icon: <Users size={20} />, roles: ['admin', 'coordinador', 'brigadista'] },
@@ -88,7 +87,7 @@ export default function Layout() {
         <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} style={{ background: 'none', border: 'none', color: 'white', cursor: 'pointer' }}>
           {isSidebarOpen ? <X size={28} /> : <Menu size={28} />}
         </button>
-        <img src="/dossier/orion-logo.png" alt="ORION" style={{ height: '30px', filter: 'invert(1) hue-rotate(180deg) brightness(1.2)' }} />
+        <img src="/dossier/orion-logo.png" alt="ORION" style={{ height: '30px', mixBlendMode: 'screen' }} />
         <div style={{ width: '28px' }}></div>
       </header>
 
@@ -96,7 +95,12 @@ export default function Layout() {
 
       <aside className={`sidebar ${isSidebarOpen ? 'open' : ''}`}>
         <div className="sidebar-logo">
-          <img src="/dossier/orion-logo.png" alt="ORION" style={{ width: '180px', height: 'auto', filter: 'invert(1) hue-rotate(180deg) brightness(1.2)' }} />
+          {/* 🚀 FIX DEL LOGO: Usamos mixBlendMode para que el fondo blanco/negro se fusione sin verse feo */}
+          <img 
+            src="/dossier/orion-logo.png" 
+            alt="ORION" 
+            style={{ width: '180px', height: 'auto', mixBlendMode: 'screen' }} 
+          />
         </div>
 
         <nav>
