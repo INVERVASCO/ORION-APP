@@ -82,9 +82,12 @@ function BotonMiUbicacion() {
 function ControlVuelo({ pines }: { pines: EncuestaProcesada[] }) {
   const map = useMap();
   useEffect(() => {
-    if (pines.length > 0) {
-      const bounds = L.latLngBounds(pines.map(p => [p.latitud, p.longitud]));
-      if (pines.length <= 2) {
+    // 🚀 FIX: Validar que las coordenadas existan y sean números válidos antes de volar
+    const validPines = pines.filter(p => typeof p.latitud === 'number' && typeof p.longitud === 'number' && !isNaN(p.latitud) && !isNaN(p.longitud));
+    
+    if (validPines.length > 0) {
+      const bounds = L.latLngBounds(validPines.map(p => [p.latitud, p.longitud]));
+      if (validPines.length <= 2) {
          map.flyToBounds(bounds, { padding: [50, 50], maxZoom: 15, duration: 1.5 });
       } else {
          map.flyToBounds(bounds, { padding: [50, 50], duration: 1.5 });
@@ -116,11 +119,15 @@ export default function AuditoriaCampo() {
       const { data: perfilesData } = await supabase.from('perfiles').select('id, nombre_completo');
 
       if (encuestasData) {
-        const perfilesMap = new Map(perfilesData?.map((p: any) => [p.id, p.nombre_completo]));
+        // 🚀 FIX: Evitar que new Map truene si no hay perfiles
+        const perfilesMap = new Map((perfilesData || []).map((p: any) => [p.id, p.nombre_completo]));
         
         const procesadas = encuestasData.map((e: any) => {
-          const lat_centro = e.barrios_colonias?.latitud_centro;
-          const lng_centro = e.barrios_colonias?.longitud_centro;
+          // 🚀 FIX: Normalizar por si barrios_colonias viene como arreglo
+          const barrio = Array.isArray(e.barrios_colonias) ? e.barrios_colonias[0] : e.barrios_colonias;
+          const lat_centro = barrio?.latitud_centro;
+          const lng_centro = barrio?.longitud_centro;
+          
           let distancia = -1;
           let esSospechosa = false;
           let motivoAlerta = '';
@@ -142,7 +149,7 @@ export default function AuditoriaCampo() {
           return {
             ...e,
             encuestador_nombre: perfilesMap.get(e.encuestador_id) || 'Desconocido',
-            barrio_nombre: e.barrios_colonias?.nombre || 'Sin barrio',
+            barrio_nombre: barrio?.nombre || 'Sin barrio',
             barrio_lat: lat_centro,
             barrio_lng: lng_centro,
             distancia_metros: distancia,
@@ -177,7 +184,10 @@ export default function AuditoriaCampo() {
 
   const estadoBrigadistas = listaBrigadistas.map(nombre => {
     const encuestasBrigadista = encuestas.filter(e => e.encuestador_nombre === nombre);
-    const ultimaEncuesta = Math.max(...encuestasBrigadista.map(e => e.timestamp));
+    // 🚀 FIX: Validar que haya timestamps antes de usar Math.max
+    const tiempos = encuestasBrigadista.map(e => e.timestamp).filter(t => typeof t === 'number' && !isNaN(t));
+    const ultimaEncuesta = tiempos.length > 0 ? Math.max(...tiempos) : 0;
+    
     const ahora = Date.now();
     const estaOnline = (ahora - ultimaEncuesta) < (3 * 60 * 60 * 1000);
     return { nombre, estaOnline, ultimaEncuesta };
