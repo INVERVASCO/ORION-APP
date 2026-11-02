@@ -15,14 +15,6 @@ interface ActivistaGlobal {
   barrios_colonias: { nombre: string; tipo: string; } | null;
 }
 
-interface ConfirmModalData {
-  visible: boolean;
-  titulo: string;
-  mensaje: string;
-  tipo: 'danger' | 'success' | 'warning';
-  onConfirm: () => void;
-}
-
 export default function ActivismoGlobal() {
   const [activistas, setActivistas] = useState<ActivistaGlobal[]>([]);
   const [filtrados, setFiltrados] = useState<ActivistaGlobal[]>([]);
@@ -32,8 +24,8 @@ export default function ActivismoGlobal() {
   const [toastVisible, setToastVisible] = useState(false);
   const [toastMensaje, setToastMensaje] = useState('');
 
-  const [confirmModal, setConfirmModal] = useState<ConfirmModalData>({
-    visible: false, titulo: '', mensaje: '', tipo: 'warning', onConfirm: () => {},
+  const [confirmModal, setConfirmModal] = useState({
+    visible: false, titulo: '', mensaje: '', tipo: 'warning' as any, onConfirm: () => {},
   });
 
   const mostrarConfirm = (titulo: string, mensaje: string, tipo: 'danger' | 'success' | 'warning', onConfirm: () => void) => {
@@ -47,20 +39,17 @@ export default function ActivismoGlobal() {
       const { data, error } = await supabase
         .from('activismo')
         .select(`
-          id,
-          tipo_cargo,
-          periodo,
-          barrio_colonia_id,
+          id, tipo_cargo, periodo, barrio_colonia_id,
           personas(nombre_completo, telefono, ocupacion),
           barrios_colonias(nombre, tipo)
         `)
         .order('tipo_cargo');
 
       if (!error && data) {
-        // 🚀 FIX CRÍTICO: Normalizamos los datos por si Supabase devuelve un arreglo
+        // 🚀 DEFENSA EXTREMA
         const procesados = data.map((a: any) => {
-          const persona = Array.isArray(a.personas) ? a.personas[0] : a.personas;
-          const barrio = Array.isArray(a.barrios_colonias) ? a.barrios_colonias[0] : a.barrios_colonias;
+          const persona = Array.isArray(a.personas) ? (a.personas[0] || null) : (a.personas || null);
+          const barrio = Array.isArray(a.barrios_colonias) ? (a.barrios_colonias[0] || null) : (a.barrios_colonias || null);
           return { ...a, personas: persona, barrios_colonias: barrio };
         });
         setActivistas(procesados as any);
@@ -76,14 +65,12 @@ export default function ActivismoGlobal() {
     if (busqueda.trim() !== '') {
       const q = busqueda.toLowerCase();
       result = result.filter(a =>
-        String(a.personas?.nombre_completo || '').toLowerCase().includes(q) ||
-        String(a.personas?.telefono || '').includes(q) ||
-        String(a.barrios_colonias?.nombre || '').toLowerCase().includes(q)
+        String(a?.personas?.nombre_completo || '').toLowerCase().includes(q) ||
+        String(a?.personas?.telefono || '').includes(q) ||
+        String(a?.barrios_colonias?.nombre || '').toLowerCase().includes(q)
       );
     }
-    if (filtroCargo) {
-      result = result.filter(a => a.tipo_cargo === filtroCargo);
-    }
+    if (filtroCargo) result = result.filter(a => a.tipo_cargo === filtroCargo);
     setFiltrados(result);
   }, [busqueda, filtroCargo, activistas]);
 
@@ -113,23 +100,15 @@ export default function ActivismoGlobal() {
   }
 
   const cargos = ['Presidente', 'Secretario', 'Vocal'];
-  const colorCargo: Record<string, string> = {
-    'Presidente': '#9F2241',
-    'Secretario': '#6F1A2D',
-    'Vocal': '#B85671'
-  };
-
+  const colorCargo: Record<string, string> = { 'Presidente': '#9F2241', 'Secretario': '#6F1A2D', 'Vocal': '#B85671' };
   const conteoPorCargo: Record<string, number> = {};
   cargos.forEach(c => { conteoPorCargo[c] = activistas.filter(a => a.tipo_cargo === c).length; });
-
   const barriosCubiertos = new Set(activistas.map(a => a.barrio_colonia_id)).size;
 
   return (
     <div>
       <h1 className="header-title">Activismo Municipal</h1>
-      <p style={{ marginBottom: '25px', color: '#666', fontSize: '14px' }}>
-        Vista global de toda la estructura de activismo.
-      </p>
+      <p style={{ marginBottom: '25px', color: '#666', fontSize: '14px' }}>Vista global de toda la estructura de activismo.</p>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: '10px', marginBottom: '20px' }}>
         {cargos.map(cargo => (
@@ -178,49 +157,34 @@ export default function ActivismoGlobal() {
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '12px' }}>
           {filtrados.map(a => (
-            <div key={a.id} style={{
-              background: 'white', borderRadius: '10px', padding: '15px',
-              boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
-              borderLeft: `4px solid ${colorCargo[a.tipo_cargo] || '#9F2241'}`,
-              display: 'flex', flexDirection: 'column', gap: '8px'
-            }}>
+            <div key={a.id} style={{ background: 'white', borderRadius: '10px', padding: '15px', boxShadow: '0 2px 8px rgba(0,0,0,0.06)', borderLeft: `4px solid ${colorCargo[a.tipo_cargo] || '#9F2241'}`, display: 'flex', flexDirection: 'column', gap: '8px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: 1, minWidth: 0 }}>
-                  <div style={{
-                    background: colorCargo[a.tipo_cargo] || '#9F2241', color: 'white',
-                    width: '36px', height: '36px', borderRadius: '50%',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    fontWeight: 'bold', fontSize: '15px', flexShrink: 0
-                  }}>
-                    {String(a.personas?.nombre_completo || 'S').charAt(0).toUpperCase()}
+                  <div style={{ background: colorCargo[a.tipo_cargo] || '#9F2241', color: 'white', width: '36px', height: '36px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', fontSize: '15px', flexShrink: 0 }}>
+                    {String(a?.personas?.nombre_completo || 'S').charAt(0).toUpperCase()}
                   </div>
                   <div style={{ minWidth: 0, flex: 1 }}>
                     <h3 style={{ margin: 0, fontSize: '14px', wordBreak: 'break-word', color: '#333' }}>
-                      {a.personas?.nombre_completo || 'Sin nombre'}
+                      {a?.personas?.nombre_completo || 'Sin nombre'}
                     </h3>
-                    <span style={{
-                      display: 'inline-block', marginTop: '3px', padding: '2px 8px',
-                      background: colorCargo[a.tipo_cargo] || '#9F2241',
-                      color: 'white', borderRadius: '10px', fontSize: '11px', fontWeight: 'bold'
-                    }}>
+                    <span style={{ display: 'inline-block', marginTop: '3px', padding: '2px 8px', background: colorCargo[a.tipo_cargo] || '#9F2241', color: 'white', borderRadius: '10px', fontSize: '11px', fontWeight: 'bold' }}>
                       {a.tipo_cargo}
                     </span>
                   </div>
                 </div>
               </div>
 
-              {a.barrios_colonias?.nombre && (
+              {a?.barrios_colonias?.nombre && (
                 <div style={{ fontSize: '13px', color: '#555', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <MapPin size={13} color="#9F2241" />
-                  <strong>{a.barrios_colonias.nombre}</strong>
+                  <MapPin size={13} color="#9F2241" /> <strong>{a.barrios_colonias.nombre}</strong>
                 </div>
               )}
-              {a.personas?.telefono && (
+              {a?.personas?.telefono && (
                 <div style={{ fontSize: '13px', color: '#555', display: 'flex', alignItems: 'center', gap: '6px' }}>
                   <Phone size={13} color="#9F2241" /> {a.personas.telefono}
                 </div>
               )}
-              {a.personas?.ocupacion && (
+              {a?.personas?.ocupacion && (
                 <div style={{ fontSize: '13px', color: '#555', display: 'flex', alignItems: 'center', gap: '6px' }}>
                   <Briefcase size={13} color="#9F2241" /> {a.personas.ocupacion}
                 </div>
@@ -250,9 +214,7 @@ export default function ActivismoGlobal() {
                 </div>
                 <h3 style={{ margin: 0, fontSize: '17px', color: '#333', wordBreak: 'break-word', lineHeight: '1.3' }}>{confirmModal.titulo}</h3>
               </div>
-              <button onClick={cerrarConfirm} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px', marginLeft: '8px' }}>
-                <X size={20} color="#999" />
-              </button>
+              <button onClick={cerrarConfirm} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px', marginLeft: '8px' }}><X size={20} color="#999" /></button>
             </div>
             <p style={{ fontSize: '14px', color: '#555', lineHeight: '1.6', marginBottom: '25px' }}>{confirmModal.mensaje}</p>
             <div style={{ display: 'flex', gap: '10px' }}>
