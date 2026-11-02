@@ -54,18 +54,6 @@ const Storage = {
       });
     } catch {}
   },
-  async removeItem(key: string): Promise<void> {
-    try {
-      const db = await openDB();
-      return new Promise((resolve, reject) => {
-        const tx = db.transaction(STORES.cache, 'readwrite');
-        const store = tx.objectStore(STORES.cache);
-        const request = store.delete(key);
-        request.onsuccess = () => resolve();
-        request.onerror = () => reject(request.error);
-      });
-    } catch {}
-  },
 };
 
 // ============================================================
@@ -106,52 +94,7 @@ const generateUUID = (): string => {
 };
 
 // ============================================================
-// 4) CACHE CON TTL
-// ============================================================
-const CACHE_PREFIX = 'orion_cache_';
-const TTL_POR_TABLA: Record<string, number> = {
-  encuestas: 24 * 60 * 60 * 1000,
-  personas: 24 * 60 * 60 * 1000,
-  default: 12 * 60 * 60 * 1000,
-};
-
-const Cache = {
-  async get(cacheKey: string, table: string = 'default') {
-    const raw = await Storage.getItem(CACHE_PREFIX + cacheKey);
-    if (!raw) return null;
-    try {
-      const parsed = JSON.parse(raw);
-      if (parsed.expiresAt && Date.now() > parsed.expiresAt) {
-        await Storage.removeItem(CACHE_PREFIX + cacheKey);
-        return null;
-      }
-      return parsed;
-    } catch { return null; }
-  },
-  async set(cacheKey: string, data: any, table: string = 'default', ttlMs: number | null = null) {
-    const ttl = ttlMs ?? TTL_POR_TABLA[table] ?? TTL_POR_TABLA.default;
-    const payload = { data, updatedAt: Date.now(), expiresAt: Date.now() + ttl };
-    await Storage.setItem(CACHE_PREFIX + cacheKey, JSON.stringify(payload));
-  },
-  async clear(cacheKey: string) {
-    await Storage.removeItem(CACHE_PREFIX + cacheKey);
-  },
-  async clearAll() {
-    try {
-      const db = await openDB();
-      return new Promise<void>((resolve, reject) => {
-        const tx = db.transaction(STORES.cache, 'readwrite');
-        const store = tx.objectStore(STORES.cache);
-        const request = store.clear();
-        request.onsuccess = () => resolve();
-        request.onerror = () => reject(request.error);
-      });
-    } catch {}
-  },
-};
-
-// ============================================================
-// 5) COLA DE OPERACIONES
+// 4) COLA DE OPERACIONES (BLINDADA)
 // ============================================================
 const MAX_INTENTOS = 5;
 
@@ -168,48 +111,67 @@ const Queue = {
       });
     } catch { return []; }
   },
-  async saveAll(queue: any[]): Promise<void> {
-    try {
-      const db = await openDB();
-      return new Promise((resolve, reject) => {
-        const tx = db.transaction(STORES.queue, 'readwrite');
-        const store = tx.objectStore(STORES.queue);
-        const clearReq = store.clear();
-        clearReq.onsuccess = () => {
-          queue.forEach((item) => store.put(item));
-          tx.oncomplete = () => resolve();
-          tx.onerror = () => reject(tx.error);
-        };
-        clearReq.onerror = () => reject(clearReq.error);
-      });
-    } catch {}
+
+  // 🚀 FIX: Agregar directamente sin leer toda la cola (evita colisiones)
+  async add(op: any): Promise<any> {
+    const item = { 
+      id: generateUUID(), 
+      timestamp: Date.now(), 
+      attempts: 0, 
+      status: 'PENDING', 
+      error: null, 
+      ...op 
+    };
+    
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(STORES.queue, 'readwrite');
+      const store = tx.objectStore(STORES.queue);
+      const request = store.add(item);
+      request.onsuccess = () => resolve(item);
+      request.onerror = () => reject(request.error);
+    });
   },
-  async add(op: any) {
-    const queue = await Queue.getAll();
-    const item = { id: generateUUID(), timestamp: Date.now(), attempts: 0, status: 'PENDING', error: null, ...op };
-    queue.push(item);
-    await Queue.saveAll(queue);
-    return item;
-  },
+
   async remove(id: string) {
-    const queue = await Queue.getAll();
-    await Queue.saveAll(queue.filter((q: any) => q.id !== id));
+    const db = await openDB();
+    return new Promise<void>((resolve, reject) => {
+      const tx = db.transaction(STORES.queue, 'readwrite');
+      const store = tx.objectStore(STORES.queue);
+      const request = store.delete(id);
+      request.onsuccess = () => resolve();
+      request.onerror = () => reject(request.error);
+    });
   },
+
   async update(id: string, patch: any) {
-    const queue = await Queue.getAll();
-    await Queue.saveAll(queue.map((q: any) => (q.id === id ? { ...q, ...patch } : q)));
+    const db = await openDB();
+    return new Promise<void>((resolve, reject) => {
+      const tx = db.transaction(STORES.queue, 'readwrite');
+      const store = tx.objectStore(STORES.queue);
+      const getReq = store.get(id);
+      getReq.onsuccess = () => {
+        if (getReq.result) {
+          const updated = { ...getReq.result, ...patch };
+          const putReq = store.put(updated);
+          putReq.onsuccess = () => resolve();
+          putReq.onerror = () => reject(putReq.error);
+        } else {
+          resolve();
+        }
+      };
+      getReq.onerror = () => reject(getReq.error);
+    });
   },
-  async clear() {
-    await Queue.saveAll([]);
-  },
+
   async size(): Promise<number> {
-    const queue = await Queue.getAll();
+    const queue = await this.getAll();
     return queue.length;
   },
 };
 
 // ============================================================
-// 6) MOTOR DE SINCRONIZACIÓN CON BATCHING E IDEMPOTENCIA
+// 5) MOTOR DE SINCRONIZACIÓN
 // ============================================================
 let engineStarted = false;
 let engineInterval: any = null;
@@ -231,7 +193,6 @@ const publicarEstado = () => {
 
 const limpiarPayload = (payload: any) => {
   if (!payload || typeof payload !== 'object') return payload;
-  // Eliminamos las relaciones anidadas para que Supabase no marque error
   const { _localId, barrios_colonias, personas, secciones_electorales, casillas, perfiles, ...limpio } = payload;
   return limpio;
 };
@@ -242,8 +203,6 @@ const ejecutarOperacion = async (op: any) => {
   const { type, table, payload, recordId } = op;
   
   if (type === 'INSERT') {
-    // 🚀 BLINDAJE: Usamos UPSERT con onConflict en 'id'.
-    // Si el ID ya existe en la base de datos, Supabase lo ignora (no se duplica).
     const { error } = await supabase
       .from(table)
       .upsert([limpiarPayload(payload)], { onConflict: 'id' });
@@ -273,7 +232,8 @@ export const syncNow = async () => {
   publicarEstado();
 
   const queue = await Queue.getAll();
-  const pendientes = queue.filter((q: any) => q.status === 'PENDING' || q.status === 'FAILED');
+  // Solo procesamos PENDING. Los DEAD se ignoran.
+  const pendientes = queue.filter((q: any) => q.status === 'PENDING');
 
   let exitos = 0;
   let fallidos = 0;
@@ -288,9 +248,10 @@ export const syncNow = async () => {
       } catch (err: any) {
         fallidos++;
         const attempts = (op.attempts || 0) + 1;
+        // 🚀 FIX: Si supera el máximo, pasa a DEAD y ya no se reintenta.
         await Queue.update(op.id, {
           attempts,
-          status: attempts >= MAX_INTENTOS ? 'FAILED' : 'PENDING',
+          status: attempts >= MAX_INTENTOS ? 'DEAD' : 'PENDING',
           error: err?.message || String(err),
         });
       }
@@ -303,7 +264,7 @@ export const syncNow = async () => {
   estadoMotor.queueSize = await Queue.size();
   estadoMotor.syncing = false;
   estadoMotor.lastSyncAt = new Date();
-  estadoMotor.lastError = fallidos > 0 ? `${fallidos} operación(es) fallida(s)` : null;
+  estadoMotor.lastError = fallidos > 0 ? `${fallidos} op(s) fallida(s)` : null;
   publicarEstado();
   return { ok: true, exitos, fallidos };
 };
@@ -332,25 +293,29 @@ const iniciarMotorSync = () => {
 };
 
 // ============================================================
-// 7) API OFFLINE-AWARE
+// 6) API OFFLINE-AWARE
 // ============================================================
 export const offlineInsert = async (table: string, payload: any) => {
   const localId = generateUUID();
   const payloadFinal = {
     ...payload,
-    id: payload.id || localId, // Aseguramos que SIEMPRE haya un ID único
+    id: payload.id || localId,
     _localId: localId,
   };
+  
   const op = await Queue.add({
     type: 'INSERT',
     table,
     payload: payloadFinal,
     localId,
   });
+  
   estadoMotor.queueSize = await Queue.size();
   publicarEstado();
+  
   const online = await Network.isConnected();
   if (online) setTimeout(() => syncNow(), 50);
+  
   return { ok: true, queued: !online, id: localId, queueId: op.id };
 };
 
@@ -364,7 +329,7 @@ export const offlineUpdate = async (table: string, recordId: string, payload: an
 };
 
 // ============================================================
-// 8) HOOKS DE REACT
+// 7) HOOKS DE REACT
 // ============================================================
 export const useSyncStatus = () => {
   const [estado, setEstado] = useState({ ...estadoMotor });
