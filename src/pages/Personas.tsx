@@ -109,7 +109,7 @@ export default function Personas() {
     });
   };
 
-    const handleCrearPersona = async (e: React.FormEvent) => {
+  const handleCrearPersona = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!personaNueva) return;
 
@@ -121,7 +121,6 @@ export default function Personas() {
 
     setGuardando(true);
 
-    // ✅ 1. PAYLOAD LIMPIO (Solo columnas reales de la tabla 'personas')
     const payloadLimpio = {
       nombre_completo: personaNueva.nombre_completo,
       telefono: personaNueva.telefono || null,
@@ -136,7 +135,6 @@ export default function Personas() {
       created_at: new Date().toISOString()
     };
 
-    // ✅ 2. OBJETO PARA LA INTERFAZ (Incluye el nombre del barrio)
     const barrioEncontrado = barrios.find(b => b.id === personaNueva.barrio_colonia_id);
     const nuevaPersonaUI = {
       ...payloadLimpio,
@@ -144,7 +142,6 @@ export default function Personas() {
       barrios_colonias: barrioEncontrado ? { nombre: barrioEncontrado.nombre } : null
     };
 
-    // ✅ 3. MODO OFFLINE (Enviamos el payload limpio)
     const res = await offlineInsert('personas', payloadLimpio);
 
     if (res.ok) {
@@ -156,6 +153,7 @@ export default function Personas() {
     }
     setGuardando(false);
   };
+
   const handleGuardarEdicion = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!personaEditar) return;
@@ -227,7 +225,14 @@ export default function Personas() {
       p.direccion || '', p.preferencia_voto || '', p.barrios_colonias?.nombre || ''
     ]);
 
-    const escapar = (val: string) => `"${(val || '').replace(/"/g, '""')}"`;
+    const escapar = (val: string) => {
+      let limpio = (val || '').replace(/"/g, '""');
+      if (/^[=+\-@]/.test(limpio)) {
+        limpio = "'" + limpio;
+      }
+      return `"${limpio}"`;
+    };
+
     const csv = [
       encabezados.map(escapar).join(','),
       ...filas.map(fila => fila.map(escapar).join(','))
@@ -240,14 +245,14 @@ export default function Personas() {
     link.download = `personas_tula_${new Date().toISOString().split('T')[0]}.csv`;
     link.click();
     URL.revokeObjectURL(url);
-    setToastMensaje(`Se exportaron ${personasFiltradas.length} registros`);
+    setToastMensaje(`Se exportaron ${personasFiltradas.length} registros de forma segura`);
     setToastVisible(true);
   };
 
   if (loading) {
     return (
       <div style={{ display: 'flex', justifyContent: 'center', padding: '50px', gap: '10px', color: '#00D4FF' }}>
-        <Loader2 size={32} /> Cargando personas...
+        <Loader2 size={32} className="animate-spin" /> Cargando personas...
       </div>
     );
   }
