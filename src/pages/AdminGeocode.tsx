@@ -1,7 +1,19 @@
-// @ts-nocheck
 import { useState } from 'react';
 import { supabase } from '../lib/supabaseClient';
-import { MapPin, Loader2, CheckCircle2, AlertTriangle, Play } from 'lucide-react';
+import { MapPin, Loader2, Play } from 'lucide-react';
+
+interface BarrioFaltante {
+  id: string;
+  nombre: string;
+}
+
+interface PhotonResponse {
+  features: Array<{
+    geometry: {
+      coordinates: [number, number]; // [lng, lat]
+    };
+  }>;
+}
 
 export default function AdminGeocode() {
   const [procesando, setProcesando] = useState(false);
@@ -39,21 +51,18 @@ export default function AdminGeocode() {
     let actualizados = 0;
 
     // 2. Iterar sobre cada barrio
-    for (const barrio of barrios) {
-      // Agregamos ", Tula de Allende, Hidalgo" para asegurar que no busque en otro estado
+    for (const barrio of barrios as BarrioFaltante[]) {
       const query = encodeURIComponent(`${barrio.nombre}, Tula de Allende, Hidalgo, Mexico`);
       
       try {
         agregarLog(`Buscando: ${barrio.nombre}...`);
         
-        // Llamada a la API de Photon (Búsqueda directa, no inversa)
         const res = await fetch(`https://photon.komoot.io/api/?q=${query}&limit=1`);
-        const data = await res.json();
+        const data: PhotonResponse = await res.json();
 
         if (data.features && data.features.length > 0) {
           const [lng, lat] = data.features[0].geometry.coordinates;
           
-          // 3. Actualizar en Supabase
           const { error: updateError } = await supabase
             .from('barrios_colonias')
             .update({ latitud_centro: lat, longitud_centro: lng })
@@ -72,7 +81,6 @@ export default function AdminGeocode() {
         agregarLog(`❌ Error de red en ${barrio.nombre}: ${err.message}`);
       }
 
-      // Pausa de 1 segundo entre peticiones para que la API no nos bloquee
       await new Promise(r => setTimeout(r, 1000));
     }
 
@@ -105,7 +113,6 @@ export default function AdminGeocode() {
           </p>
         )}
 
-        {/* Consola de Logs */}
         <div style={{ 
           marginTop: '20px', background: '#0F172A', color: '#10B981', 
           padding: '15px', borderRadius: '8px', fontFamily: 'monospace', 
