@@ -8,7 +8,6 @@ import {
 import { supabase } from '../lib/supabaseClient';
 import MapaSecciones from '../components/MapaSecciones';
 import { ORION_CONFIG, PARTIDOS_DB } from '../lib/config';
-// @ts-ignore (Ignoramos solo esta línea porque no hay tipos oficiales, ya lo declaramos en vite-env.d.ts)
 import html2pdf from 'html2pdf.js';
 
 interface SeccionRiesgo {
@@ -52,85 +51,92 @@ export default function Dashboard() {
     const fetchMetricas = async () => {
       setLoading(true);
       
-      const [personasRes, casillasRes, funcRes, barriosRes, activismoRes, seccionesRes, resultadosRes] = await Promise.all([
-        supabase.from('personas').select('*', { count: 'exact', head: true }),
-        supabase.from('casillas').select('*', { count: 'exact', head: true }),
-        supabase.from('funcionarios_casilla').select('casilla_id'),
-        supabase.from('barrios_colonias').select('*', { count: 'exact', head: true }),
-        supabase.from('activismo').select('barrio_colonia_id'),
-        supabase.from('secciones_electorales').select('id, numero_seccion, barrio_colonia_id'),
-        supabase.from('resultados_casilla').select('*').eq('tipo_eleccion', 'Presidencial')
-      ]);
+      try {
+        const [personasRes, casillasRes, funcRes, barriosRes, activismoRes, seccionesRes, resultadosRes] = await Promise.all([
+          supabase.from('personas').select('*', { count: 'exact', head: true }),
+          supabase.from('casillas').select('*', { count: 'exact', head: true }),
+          supabase.from('funcionarios_casilla').select('casilla_id'),
+          supabase.from('barrios_colonias').select('*', { count: 'exact', head: true }),
+          supabase.from('activismo').select('barrio_colonia_id'),
+          supabase.from('secciones_electorales').select('id, numero_seccion, barrio_colonia_id'),
+          supabase.from('resultados_casilla').select('*').eq('tipo_eleccion', 'Presidencial')
+        ]);
 
-      const totalPersonas = personasRes.count || 0;
-      const totalCasillas = casillasRes.count || 0;
-      const totalBarrios = barriosRes.count || 0;
-      
-      const funcData = funcRes.data || [];
-      const casillasCubiertas = new Set(funcData.map((f: any) => f.casilla_id)).size;
-      const totalFuncionarios = funcData.length;
+        const totalPersonas = personasRes?.count || 0;
+        const totalCasillas = casillasRes?.count || 0;
+        const totalBarrios = barriosRes?.count || 0;
+        
+        const funcData = funcRes?.data || [];
+        const casillasCubiertas = new Set(funcData.map((f: any) => f.casilla_id)).size;
+        const totalFuncionarios = funcData.length;
 
-      const activismoData = activismoRes.data || [];
-      const barriosConActivismo = new Set(activismoData.map((a: any) => a.barrio_colonia_id)).size;
+        const activismoData = activismoRes?.data || [];
+        const barriosConActivismo = new Set(activismoData.map((a: any) => a.barrio_colonia_id)).size;
 
-      const seccionesData = seccionesRes.data || [];
-      const resultadosData = resultadosRes.data || [];
+        const seccionesData = seccionesRes?.data || [];
+        const resultadosData = resultadosRes?.data || [];
 
-      if (seccionesData.length > 0 && resultadosData.length > 0) {
-        let totalVotosProyectados = 0;
-        let seguras = 0, disputa = 0, riesgo = 0;
-        const enRiesgo: SeccionRiesgo[] = [];
-        const datosTemporales: Record<number, { pct: number, riesgo: 'alto' | 'medio' | 'bajo' }> = {};
+        if (seccionesData.length > 0 && resultadosData.length > 0) {
+          let totalVotosProyectados = 0;
+          let seguras = 0, disputa = 0, riesgo = 0;
+          const enRiesgo: SeccionRiesgo[] = [];
+          const datosTemporales: Record<number, { pct: number, riesgo: 'alto' | 'medio' | 'bajo' }> = {};
 
-        const getVotos = (res: any[]) => {
-          return res.reduce((sum, r) => {
-            if (partidoObjetivo === 'todos') return sum + r.total_votos;
-            if (partidoObjetivo === 'oposicion') return sum + (r.total_votos - (Number(r.morena) || 0));
-            return sum + (Number(r[partidoObjetivo]) || 0);
-          }, 0);
-        };
+          const getVotos = (res: any[]) => {
+            return res.reduce((sum, r) => {
+              if (partidoObjetivo === 'todos') return sum + (Number(r.total_votos) || 0);
+              if (partidoObjetivo === 'oposicion') return sum + ((Number(r.total_votos) || 0) - (Number(r.morena) || 0));
+              return sum + (Number(r[partidoObjetivo]) || 0);
+            }, 0);
+          };
 
-        seccionesData.forEach((sec: any) => {
-          const numSeccion = Number(sec.numero_seccion);
-          const res2018 = resultadosData.filter((r: any) => Number(r.seccion) === numSeccion && r.anio === 2018);
-          const res2024 = resultadosData.filter((r: any) => Number(r.seccion) === numSeccion && r.anio === 2024);
+          seccionesData.forEach((sec: any) => {
+            if (!sec || !sec.numero_seccion) return;
 
-          const votos2018 = getVotos(res2018);
-          const votos2024 = getVotos(res2024);
-          const lista2024 = res2024.reduce((s: number, r: any) => s + (r.lista_nominal || 0), 0);
+            const numSeccion = Number(sec.numero_seccion);
+            const res2018 = resultadosData.filter((r: any) => Number(r?.seccion) === numSeccion && r?.anio === 2018);
+            const res2024 = resultadosData.filter((r: any) => Number(r?.seccion) === numSeccion && r?.anio === 2024);
 
-          let proyeccionVotos = votos2024;
-          if (votos2018 > 0) {
-            const tendenciaAnual = (votos2024 - votos2018) / 6;
-            proyeccionVotos = Math.round(votos2024 + (tendenciaAnual * 3));
-          } else {
-            proyeccionVotos = Math.round(votos2024 * 1.05);
-          }
+            const votos2018 = getVotos(res2018);
+            const votos2024 = getVotos(res2024);
+            const lista2024 = res2024.reduce((s: number, r: any) => s + (Number(r?.lista_nominal) || 0), 0);
 
-          const proyeccionPct = lista2024 > 0 ? (proyeccionVotos / lista2024) * 100 : 0;
-          totalVotosProyectados += proyeccionVotos;
+            let proyeccionVotos = votos2024;
+            if (votos2018 > 0) {
+              const tendenciaAnual = (votos2024 - votos2018) / 6;
+              proyeccionVotos = Math.round(votos2024 + (tendenciaAnual * 3));
+            } else {
+              proyeccionVotos = Math.round(votos2024 * 1.05);
+            }
 
-          let nivelRiesgo: 'alto' | 'medio' | 'bajo' = 'bajo';
-          if (proyeccionPct >= ORION_CONFIG.electoral.umbralSegura) { seguras++; nivelRiesgo = 'bajo'; }
-          else if (proyeccionPct < ORION_CONFIG.electoral.umbralRiesgo) { 
-            riesgo++; nivelRiesgo = 'alto'; 
-            enRiesgo.push({ seccion: numSeccion, pct: proyeccionPct, votos: proyeccionVotos }); 
-          }
-          else { disputa++; nivelRiesgo = 'medio'; }
+            const proyeccionPct = lista2024 > 0 ? (proyeccionVotos / lista2024) * 100 : 0;
+            totalVotosProyectados += proyeccionVotos;
 
-          datosTemporales[numSeccion] = { pct: proyeccionPct, riesgo: nivelRiesgo };
+            let nivelRiesgo: 'alto' | 'medio' | 'bajo' = 'bajo';
+            if (proyeccionPct >= ORION_CONFIG.electoral.umbralSegura) { seguras++; nivelRiesgo = 'bajo'; }
+            else if (proyeccionPct < ORION_CONFIG.electoral.umbralRiesgo) { 
+              riesgo++; nivelRiesgo = 'alto'; 
+              enRiesgo.push({ seccion: numSeccion, pct: proyeccionPct, votos: proyeccionVotos }); 
+            }
+            else { disputa++; nivelRiesgo = 'medio'; }
+
+            datosTemporales[numSeccion] = { pct: proyeccionPct, riesgo: nivelRiesgo };
+          });
+
+          enRiesgo.sort((a, b) => b.votos - a.votos);
+          setPronostico({ totalVotos: totalVotosProyectados, seguras, disputa, riesgo, seccionesEnRiesgo: enRiesgo.slice(0, 5) });
+          setDatosMapa(datosTemporales);
+        }
+
+        setMetricas({
+          totalPersonas, totalCasillas, casillasCubiertas,
+          totalBarrios, barriosConActivismo, totalFuncionarios
         });
-
-        enRiesgo.sort((a, b) => b.votos - a.votos);
-        setPronostico({ totalVotos: totalVotosProyectados, seguras, disputa, riesgo, seccionesEnRiesgo: enRiesgo.slice(0, 5) });
-        setDatosMapa(datosTemporales);
+      } catch (error) {
+        console.error("🚨 Error crítico cargando Dashboard:", error);
+      } finally {
+        setLoading(false);
       }
-
-      setMetricas({
-        totalPersonas, totalCasillas, casillasCubiertas,
-        totalBarrios, barriosConActivismo, totalFuncionarios
-      });
-      setLoading(false);
     };
     fetchMetricas();
   }, [partidoObjetivo]);
@@ -141,7 +147,7 @@ export default function Dashboard() {
     html2pdf().set(opt).from(pdfRef.current).save();
   };
 
-  if (loading && Object.keys(datosMapa).length === 0) return <div style={{ display: 'flex', justifyContent: 'center', padding: '50px', gap: '10px', color: '#00D4FF' }}><Loader2 size={32} className="animate-spin"/> Cargando...</div>;
+  if (loading && Object.keys(datosMapa).length === 0) return <div style={{ display: 'flex', justifyContent: 'center', padding: '50px', gap: '10px', color: '#00D4FF' }}><Loader2 size={32} className="animate-spin"/> Cargando panel...</div>;
 
   const pctCasillas = metricas.totalCasillas > 0 ? Math.round((metricas.casillasCubiertas / metricas.totalCasillas) * 100) : 0;
   const pctActivismo = metricas.totalBarrios > 0 ? Math.round((metricas.barriosConActivismo / metricas.totalBarrios) * 100) : 0;
