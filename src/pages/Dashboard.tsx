@@ -1,9 +1,8 @@
-// @ts-nocheck
 import { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
-  Users, Vote, UserCheck, TrendingUp, Loader2, Award, MapPin, 
-  AlertTriangle, CheckCircle2, Minus, Target, Download, FileText,
+  Users, Vote, UserCheck, Loader2, MapPin, 
+  AlertTriangle, CheckCircle2, Minus, Target, Download,
   ArrowRight, BarChart3, Brain, Zap, Sparkles
 } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
@@ -11,49 +10,91 @@ import MapaSecciones from '../components/MapaSecciones';
 // @ts-ignore
 import html2pdf from 'html2pdf.js';
 
+interface Metrica {
+  totalPersonas: number;
+  totalCasillas: number;
+  casillasCubiertas: number;
+  totalBarrios: number;
+  barriosConActivismo: number;
+  totalFuncionarios: number;
+}
+
+interface SeccionRiesgo {
+  seccion: number;
+  pct: number;
+  votos: number;
+}
+
+interface Pronostico {
+  totalVotos: number;
+  seguras: number;
+  disputa: number;
+  riesgo: number;
+  seccionesEnRiesgo: SeccionRiesgo[];
+}
+
+interface DatosMapa {
+  [seccion: number]: {
+    pct: number;
+    riesgo: 'alto' | 'medio' | 'bajo';
+  };
+}
+
 export default function Dashboard() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
-  const [metricas, setMetricas] = useState({
+  const [metricas, setMetricas] = useState<Metrica>({
     totalPersonas: 0, totalCasillas: 0, casillasCubiertas: 0, totalBarrios: 0, barriosConActivismo: 0, totalFuncionarios: 0,
   });
-  const [pronostico, setPronostico] = useState({
+  const [pronostico, setPronostico] = useState<Pronostico>({
     totalVotos: 0, seguras: 0, disputa: 0, riesgo: 0, seccionesEnRiesgo: [],
   });
-  const [datosMapa, setDatosMapa] = useState({});
+  const [datosMapa, setDatosMapa] = useState<DatosMapa>({});
 
   const pdfRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const fetchMetricas = async () => {
       setLoading(true);
-      const { count: totalPersonas } = await supabase.from('personas').select('*', { count: 'exact', head: true });
-      const { count: totalCasillas } = await supabase.from('casillas').select('*', { count: 'exact', head: true });
-      const { data: funcData } = await supabase.from('funcionarios_casilla').select('casilla_id');
-      const casillasCubiertas = funcData ? new Set(funcData.map(f => f.casilla_id)).size : 0;
-      const { count: totalBarrios } = await supabase.from('barrios_colonias').select('*', { count: 'exact', head: true });
-      const { data: activismoData } = await supabase.from('activismo').select('barrio_colonia_id');
-      const barriosConActivismo = activismoData ? new Set(activismoData.map(a => a.barrio_colonia_id)).size : 0;
+      
+      const [personasRes, casillasRes, funcRes, barriosRes, activismoRes, seccionesRes, resultadosRes] = await Promise.all([
+        supabase.from('personas').select('*', { count: 'exact', head: true }),
+        supabase.from('casillas').select('*', { count: 'exact', head: true }),
+        supabase.from('funcionarios_casilla').select('casilla_id'),
+        supabase.from('barrios_colonias').select('*', { count: 'exact', head: true }),
+        supabase.from('activismo').select('barrio_colonia_id'),
+        supabase.from('secciones_electorales').select('id, numero_seccion, barrio_colonia_id'),
+        supabase.from('resultados_casilla').select('anio, seccion, morena, total_votos, lista_nominal').eq('tipo_eleccion', 'Presidencial')
+      ]);
 
-      const { data: personasData } = await supabase.from('personas').select('barrio_colonia_id, barrios_colonias(nombre)').not('barrio_colonia_id', 'is', null);
+      const totalPersonas = personasRes.count || 0;
+      const totalCasillas = casillasRes.count || 0;
+      const totalBarrios = barriosRes.count || 0;
+      
+      const funcData = funcRes.data || [];
+      const casillasCubiertas = new Set(funcData.map((f: any) => f.casilla_id)).size;
+      const totalFuncionarios = funcData.length;
 
-      const { data: seccionesData } = await supabase.from('secciones_electorales').select('id, numero_seccion, barrio_colonia_id');
-      const { data: resultadosData } = await supabase.from('resultados_casilla').select('anio, seccion, morena, total_votos, lista_nominal').eq('tipo_eleccion', 'Presidencial');
+      const activismoData = activismoRes.data || [];
+      const barriosConActivismo = new Set(activismoData.map((a: any) => a.barrio_colonia_id)).size;
 
-      if (seccionesData && resultadosData) {
+      const seccionesData = seccionesRes.data || [];
+      const resultadosData = resultadosRes.data || [];
+
+      if (seccionesData.length > 0 && resultadosData.length > 0) {
         let totalVotosProyectados = 0;
         let seguras = 0, disputa = 0, riesgo = 0;
-        const enRiesgo = [];
-        const datosTemporales = {};
+        const enRiesgo: SeccionRiesgo[] = [];
+        const datosTemporales: DatosMapa = {};
 
-        seccionesData.forEach(sec => {
+        seccionesData.forEach((sec: any) => {
           const numSeccion = Number(sec.numero_seccion);
-          const res2018 = resultadosData.filter(r => Number(r.seccion) === numSeccion && r.anio === 2018);
-          const res2024 = resultadosData.filter(r => Number(r.seccion) === numSeccion && r.anio === 2024);
+          const res2018 = resultadosData.filter((r: any) => Number(r.seccion) === numSeccion && r.anio === 2018);
+          const res2024 = resultadosData.filter((r: any) => Number(r.seccion) === numSeccion && r.anio === 2024);
 
-          const votos2018 = res2018.reduce((s, r) => s + r.morena, 0);
-          const votos2024 = res2024.reduce((s, r) => s + r.morena, 0);
-          const lista2024 = res2024.reduce((s, r) => s + r.lista_nominal, 0);
+          const votos2018 = res2018.reduce((s: number, r: any) => s + (r.morena || 0), 0);
+          const votos2024 = res2024.reduce((s: number, r: any) => s + (r.morena || 0), 0);
+          const lista2024 = res2024.reduce((s: number, r: any) => s + (r.lista_nominal || 0), 0);
 
           let proyeccionVotos = votos2024;
           if (votos2018 > 0) {
@@ -66,22 +107,29 @@ export default function Dashboard() {
           const proyeccionPct = lista2024 > 0 ? (proyeccionVotos / lista2024) * 100 : 0;
           totalVotosProyectados += proyeccionVotos;
 
-          let nivelRiesgo = 'bajo';
+          let nivelRiesgo: 'alto' | 'medio' | 'bajo' = 'bajo';
           if (proyeccionPct >= 45) { seguras++; nivelRiesgo = 'bajo'; }
-          else if (proyeccionPct < 35) { riesgo++; nivelRiesgo = 'alto'; enRiesgo.push({ seccion: numSeccion, pct: proyeccionPct, votos: proyeccionVotos }); }
+          else if (proyeccionPct < 35) { 
+            riesgo++; nivelRiesgo = 'alto'; 
+            enRiesgo.push({ seccion: numSeccion, pct: proyeccionPct, votos: proyeccionVotos }); 
+          }
           else { disputa++; nivelRiesgo = 'medio'; }
 
           datosTemporales[numSeccion] = { pct: proyeccionPct, riesgo: nivelRiesgo };
         });
 
         enRiesgo.sort((a, b) => b.votos - a.votos);
-        setPronostico({ totalVotos: totalVotosProyectados, seguras, disputa, riesgo, seccionesEnRiesgo: enRiesgo.slice(0, 5) });
+        setPronostico({ 
+          totalVotos: totalVotosProyectados, 
+          seguras, disputa, riesgo, 
+          seccionesEnRiesgo: enRiesgo.slice(0, 5) 
+        });
         setDatosMapa(datosTemporales);
       }
 
       setMetricas({
-        totalPersonas: totalPersonas || 0, totalCasillas: totalCasillas || 0, casillasCubiertas,
-        totalBarrios: totalBarrios || 0, barriosConActivismo, totalFuncionarios: funcData?.length || 0,
+        totalPersonas, totalCasillas, casillasCubiertas,
+        totalBarrios, barriosConActivismo, totalFuncionarios
       });
       setLoading(false);
     };
@@ -90,7 +138,13 @@ export default function Dashboard() {
 
   const descargarResumenPDF = () => {
     if (!pdfRef.current) return;
-    const opt = { margin: [8, 8, 8, 8], filename: `Resumen_Ejecutivo_ORION.pdf`, image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2, useCORS: true }, jsPDF: { unit: 'mm', format: 'letter', orientation: 'portrait' } };
+    const opt = { 
+      margin: [8, 8, 8, 8], 
+      filename: `Resumen_Ejecutivo_ORION.pdf`, 
+      image: { type: 'jpeg', quality: 0.98 }, 
+      html2canvas: { scale: 2, useCORS: true }, 
+      jsPDF: { unit: 'mm', format: 'letter', orientation: 'portrait' } 
+    };
     html2pdf().set(opt).from(pdfRef.current).save();
   };
 
@@ -151,18 +205,22 @@ export default function Dashboard() {
       </h3>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '12px', marginBottom: '30px' }}>
         <div className="card" style={{ padding: '18px', textAlign: 'center' }}>
+          <Target size={24} color="#00D4FF" style={{ marginBottom: '6px' }} />
           <div style={{ fontSize: '32px', fontWeight: 'bold', color: '#0A1628' }}>{pronostico.totalVotos.toLocaleString()}</div>
           <div style={{ fontSize: '12px', color: '#64748B', fontWeight: 'bold' }}>Votos Proyectados</div>
         </div>
         <div className="card" style={{ padding: '18px', textAlign: 'center' }}>
+          <CheckCircle2 size={24} color="#10B981" style={{ marginBottom: '6px' }} />
           <div style={{ fontSize: '32px', fontWeight: 'bold', color: '#10B981' }}>{pronostico.seguras}</div>
           <div style={{ fontSize: '12px', color: '#64748B', fontWeight: 'bold' }}>Secciones Seguras</div>
         </div>
         <div className="card" style={{ padding: '18px', textAlign: 'center' }}>
+          <Minus size={24} color="#F59E0B" style={{ marginBottom: '6px' }} />
           <div style={{ fontSize: '32px', fontWeight: 'bold', color: '#F59E0B' }}>{pronostico.disputa}</div>
           <div style={{ fontSize: '12px', color: '#64748B', fontWeight: 'bold' }}>En Disputa</div>
         </div>
         <div className="card" style={{ padding: '18px', textAlign: 'center' }}>
+          <AlertTriangle size={24} color="#F43F5E" style={{ marginBottom: '6px' }} />
           <div style={{ fontSize: '32px', fontWeight: 'bold', color: '#F43F5E' }}>{pronostico.riesgo}</div>
           <div style={{ fontSize: '12px', color: '#64748B', fontWeight: 'bold' }}>En Riesgo</div>
         </div>
