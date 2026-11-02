@@ -4,6 +4,7 @@
 
 const env = import.meta.env;
 
+// Catálogo de entidades políticas (partidos o coaliciones)
 export const PARTIDOS_DB = [
   { key: 'morena', nombre: 'MORENA', color: '#9F2241' },
   { key: 'pan', nombre: 'PAN', color: '#0066CC' },
@@ -29,10 +30,6 @@ export const ORION_CONFIG = {
 
   electoral: {
     activo: env.VITE_ELECTORAL_ACTIVO !== 'false',
-    // 🚀 CLAVE PARA LA NEUTRALIDAD: Qué partido o partidos representan al cliente
-    // Puede ser uno solo: 'pan', o una coalición: 'pan,pri,prd'
-    partidoCliente: env.VITE_PARTIDO_CLIENTE || 'ninguno', 
-    movimientoOpositor: env.VITE_MOVIMIENTO_OPOSITOR || '',
     anioBase: Number(env.VITE_ANIO_BASE || 2024),
     anioProyeccion: Number(env.VITE_ANIO_PROYECCION || 2027),
     umbralSegura: Number(env.VITE_UMBRAL_SEGURA || 45),
@@ -48,5 +45,4 @@ export const ORION_CONFIG = {
   },
 };
 
-// Helper para saber si es un cliente con campaña electoral
 export const isCampanaElectoral = () => ORION_CONFIG.electoral.activo;
