@@ -16,21 +16,37 @@ export default function Layout() {
   const [cerrandoSesion, setCerrandoSesion] = useState(false);
   const [userRole, setUserRole] = useState<string | null>(null);
   const [roleLoading, setRoleLoading] = useState(true);
+  const [fetchError, setFetchError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     const fetchRole = async () => {
       try {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (!session) return;
+        // Usamos getUser() en lugar de getSession() para asegurar que el token es válido
+        const { data: { user }, error: authError } = await supabase.auth.getUser();
+        
+        if (authError || !user) {
+          throw new Error('No hay sesión activa');
+        }
+
         const { data, error } = await supabase
           .from('perfiles')
           .select('rol')
-          .eq('id', session.user.id)
-          .maybeSingle();
-        if (!cancelled && data && !error) setUserRole(data.rol);
-      } catch (err) {
+          .eq('id', user.id)
+          .single();
+
+        if (error) throw error;
+        
+        if (!cancelled) {
+          if (data) {
+            setUserRole(data.rol);
+          } else {
+            throw new Error('Perfil no encontrado en la base de datos');
+          }
+        }
+      } catch (err: any) {
         console.error('Error cargando rol:', err);
+        if (!cancelled) setFetchError(err.message || 'Error al cargar permisos');
       } finally {
         if (!cancelled) setRoleLoading(false);
       }
@@ -128,7 +144,16 @@ export default function Layout() {
               Cargando menú...
             </div>
           )}
-          {menuPermitido.map((item) => (
+          
+          {!roleLoading && fetchError && (
+            <div style={{ padding: '15px', background: 'rgba(244, 63, 94, 0.1)', borderRadius: '8px', margin: '0 10px' }}>
+              <p style={{ color: '#F43F5E', fontSize: '11px', margin: '0 0 10px 0', lineHeight: '1.4' }}>
+                ⚠️ Error de permisos: {fetchError}. Contacta a soporte o revisa tu perfil en Supabase.
+              </p>
+            </div>
+          )}
+
+          {!roleLoading && !fetchError && menuPermitido.map((item) => (
             <div
               key={item.name}
               className={`menu-item ${location.pathname === item.path ? 'active' : ''}`}
@@ -150,7 +175,7 @@ export default function Layout() {
               margin: 0, fontSize: '13px', color: '#00D4FF',
               fontWeight: 'bold', textTransform: 'uppercase',
             }}>
-              {userRole || 'Cargando...'}
+              {roleLoading ? 'CARGANDO...' : userRole || 'SIN PERMISOS'}
             </p>
           </div>
           <div
