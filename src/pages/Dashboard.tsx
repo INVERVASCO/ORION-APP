@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 import MapaSecciones from '../components/MapaSecciones';
+import { ORION_CONFIG } from '../lib/config';
 // @ts-ignore
 import html2pdf from 'html2pdf.js';
 
@@ -35,7 +36,7 @@ export default function Dashboard() {
         supabase.from('barrios_colonias').select('*', { count: 'exact', head: true }),
         supabase.from('activismo').select('barrio_colonia_id'),
         supabase.from('secciones_electorales').select('id, numero_seccion, barrio_colonia_id'),
-        supabase.from('resultados_casilla').select('anio, seccion, morena, total_votos, lista_nominal').eq('tipo_eleccion', 'Presidencial')
+        supabase.from('resultados_casilla').select('*').eq('tipo_eleccion', 'Presidencial')
       ]);
 
       const totalPersonas = personasRes.count || 0;
@@ -58,29 +59,40 @@ export default function Dashboard() {
         const enRiesgo = [];
         const datosTemporales = {};
 
+        // 🚀 LÓGICA NEUTRAL: Leemos el partido configurado en Vercel
+        const partidosCliente = ORION_CONFIG.electoral.partidoCliente.split(',').map(s => s.trim().toLowerCase());
+        
+        const getVotosCliente = (res: any[]) => {
+          return res.reduce((sum, r) => {
+            let votos = 0;
+            partidosCliente.forEach(p => { votos += (Number(r[p]) || 0); });
+            return sum + votos;
+          }, 0);
+        };
+
         seccionesData.forEach((sec: any) => {
           const numSeccion = Number(sec.numero_seccion);
           const res2018 = resultadosData.filter((r: any) => Number(r.seccion) === numSeccion && r.anio === 2018);
           const res2024 = resultadosData.filter((r: any) => Number(r.seccion) === numSeccion && r.anio === 2024);
 
-          const votos2018 = res2018.reduce((s: number, r: any) => s + (r.morena || 0), 0);
-          const votos2024 = res2024.reduce((s: number, r: any) => s + (r.morena || 0), 0);
+          const votosCliente2018 = getVotosCliente(res2018);
+          const votosCliente2024 = getVotosCliente(res2024);
           const lista2024 = res2024.reduce((s: number, r: any) => s + (r.lista_nominal || 0), 0);
 
-          let proyeccionVotos = votos2024;
-          if (votos2018 > 0) {
-            const tendenciaAnual = (votos2024 - votos2018) / 6;
-            proyeccionVotos = Math.round(votos2024 + (tendenciaAnual * 3));
+          let proyeccionVotos = votosCliente2024;
+          if (votosCliente2018 > 0) {
+            const tendenciaAnual = (votosCliente2024 - votosCliente2018) / 6;
+            proyeccionVotos = Math.round(votosCliente2024 + (tendenciaAnual * 3));
           } else {
-            proyeccionVotos = Math.round(votos2024 * 1.05);
+            proyeccionVotos = Math.round(votosCliente2024 * 1.05);
           }
 
           const proyeccionPct = lista2024 > 0 ? (proyeccionVotos / lista2024) * 100 : 0;
           totalVotosProyectados += proyeccionVotos;
 
           let nivelRiesgo = 'bajo';
-          if (proyeccionPct >= 45) { seguras++; nivelRiesgo = 'bajo'; }
-          else if (proyeccionPct < 35) { 
+          if (proyeccionPct >= ORION_CONFIG.electoral.umbralSegura) { seguras++; nivelRiesgo = 'bajo'; }
+          else if (proyeccionPct < ORION_CONFIG.electoral.umbralRiesgo) { 
             riesgo++; nivelRiesgo = 'alto'; 
             enRiesgo.push({ seccion: numSeccion, pct: proyeccionPct, votos: proyeccionVotos }); 
           }
@@ -90,11 +102,7 @@ export default function Dashboard() {
         });
 
         enRiesgo.sort((a, b) => b.votos - a.votos);
-        setPronostico({ 
-          totalVotos: totalVotosProyectados, 
-          seguras, disputa, riesgo, 
-          seccionesEnRiesgo: enRiesgo.slice(0, 5) 
-        });
+        setPronostico({ totalVotos: totalVotosProyectados, seguras, disputa, riesgo, seccionesEnRiesgo: enRiesgo.slice(0, 5) });
         setDatosMapa(datosTemporales);
       }
 
@@ -154,7 +162,7 @@ export default function Dashboard() {
         <div style={{ background: '#FFE4E6', borderLeft: '5px solid #F43F5E', borderRadius: '10px', padding: '20px', marginBottom: '25px', display: 'flex', alignItems: 'flex-start', gap: '15px' }}>
           <AlertTriangle size={32} color="#F43F5E" style={{ flexShrink: 0, marginTop: '2px' }} />
           <div style={{ flex: 1 }}>
-            <h3 style={{ margin: '0 0 8px 0', color: '#F43F5E', fontSize: '18px' }}>⚠️ Alerta Electoral 2027</h3>
+            <h3 style={{ margin: '0 0 8px 0', color: '#F43F5E', fontSize: '18px' }}>⚠️ Alerta Electoral {ORION_CONFIG.electoral.anioProyeccion}</h3>
             <p style={{ margin: '0 0 12px 0', fontSize: '14px', color: '#4C0519', lineHeight: '1.5' }}>
               El sistema ha detectado <strong>{pronostico.riesgo} secciones en riesgo</strong> y <strong>{pronostico.disputa} en disputa</strong>. Se requiere acción inmediata.
             </p>
@@ -166,7 +174,7 @@ export default function Dashboard() {
       )}
 
       <h3 style={{ color: '#0A1628', fontSize: '16px', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-        <Target size={20} color="#00D4FF" /> Pronóstico Electoral 2027
+        <Target size={20} color="#00D4FF" /> Pronóstico Electoral {ORION_CONFIG.electoral.anioProyeccion}
       </h3>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '12px', marginBottom: '30px' }}>
         <div className="card" style={{ padding: '18px', textAlign: 'center' }}>
@@ -195,15 +203,11 @@ export default function Dashboard() {
         <MapPin size={20} color="#00D4FF" /> Mapa Electoral y Prioridades
       </h3>
       
-      {/* 🚀 LAYOUT RESPONSIVE: Mapa grande en PC, apilado en Celular */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '20px', marginBottom: '30px', alignItems: 'stretch' }}>
-        
-        {/* Contenedor del Mapa (Ocupa más espacio en PC) */}
         <div style={{ height: '100%', minHeight: '400px', gridColumn: 'span 1', flex: 2 }}>
           <MapaSecciones datos={datosMapa} />
         </div>
 
-        {/* Panel de Prioridades */}
         <div style={{ background: 'white', borderRadius: '12px', padding: '20px', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)', borderTop: '4px solid #F43F5E', height: '100%', minHeight: '400px', maxHeight: '600px', overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '15px' }}>
             <AlertTriangle size={22} color="#F43F5E" />
@@ -262,15 +266,14 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* PDF Oculto */}
       <div style={{ display: 'none' }}>
         <div ref={pdfRef} style={{ padding: '40px', background: 'white', width: '800px', fontFamily: 'Arial, sans-serif' }}>
           <div style={{ textAlign: 'center', marginBottom: '30px', borderBottom: '4px solid #0A1628', paddingBottom: '25px' }}>
-            <img src="/dossier/orion-logo.png" alt="ORION" style={{ height: '80px', margin: '0 auto' }} />
-            <h2 style={{ color: '#00D4FF', fontSize: '24px', margin: '10px 0 10px 0', fontWeight: 'bold' }}>ORION CAMPAIGN INTELLIGENCE</h2>
+            <img src={ORION_CONFIG.organizacionLogo} alt="ORION" style={{ height: '80px', margin: '0 auto' }} />
+            <h2 style={{ color: '#00D4FF', fontSize: '24px', margin: '10px 0 10px 0', fontWeight: 'bold' }}>{ORION_CONFIG.organizacionNombre.toUpperCase()}</h2>
             <h3 style={{ color: '#0A1628', fontSize: '18px', margin: 0 }}>Reporte Ejecutivo General</h3>
           </div>
-          <h3 style={{ color: '#0A1628' }}>Pronóstico Electoral 2027</h3>
+          <h3 style={{ color: '#0A1628' }}>Pronóstico Electoral {ORION_CONFIG.electoral.anioProyeccion}</h3>
           <p>Votos Proyectados: <strong>{pronostico.totalVotos.toLocaleString()}</strong></p>
           <p>Secciones Seguras: {pronostico.seguras} | En Disputa: {pronostico.disputa} | En Riesgo: {pronostico.riesgo}</p>
         </div>
