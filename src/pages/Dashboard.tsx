@@ -21,7 +21,6 @@ export default function Dashboard() {
     totalVotos: 0, seguras: 0, disputa: 0, riesgo: 0, seccionesEnRiesgo: [],
   });
   const [datosMapa, setDatosMapa] = useState({});
-  const [topBarrios, setTopBarrios] = useState([]);
 
   const pdfRef = useRef<HTMLDivElement>(null);
 
@@ -33,26 +32,10 @@ export default function Dashboard() {
       const { data: funcData } = await supabase.from('funcionarios_casilla').select('casilla_id');
       const casillasCubiertas = funcData ? new Set(funcData.map(f => f.casilla_id)).size : 0;
       const { count: totalBarrios } = await supabase.from('barrios_colonias').select('*', { count: 'exact', head: true });
-      
       const { data: activismoData } = await supabase.from('activismo').select('barrio_colonia_id');
       const barriosConActivismo = activismoData ? new Set(activismoData.map(a => a.barrio_colonia_id)).size : 0;
 
       const { data: personasData } = await supabase.from('personas').select('barrio_colonia_id, barrios_colonias(nombre)').not('barrio_colonia_id', 'is', null);
-      
-      if (personasData) {
-        const conteo = {};
-        personasData.forEach((p) => {
-          const id = p.barrio_colonia_id;
-          const nombre = p.barrios_colonias?.nombre || 'Sin nombre';
-          if (!conteo[id]) conteo[id] = { nombre, total: 0 };
-          conteo[id].total++;
-        });
-        const top = Object.entries(conteo)
-          .map(([id, v]) => ({ barrio_colonia_id: id, nombre: v.nombre, total: v.total }))
-          .sort((a, b) => b.total - a.total)
-          .slice(0, 5);
-        setTopBarrios(top);
-      }
 
       const { data: seccionesData } = await supabase.from('secciones_electorales').select('id, numero_seccion, barrio_colonia_id');
       const { data: resultadosData } = await supabase.from('resultados_casilla').select('anio, seccion, morena, total_votos, lista_nominal').eq('tipo_eleccion', 'Presidencial');
@@ -111,7 +94,7 @@ export default function Dashboard() {
     html2pdf().set(opt).from(pdfRef.current).save();
   };
 
-  if (loading) return <div style={{ display: 'flex', justifyContent: 'center', padding: '50px', gap: '10px', color: '#00D4FF' }}><Loader2 size={32} className="animate-spin"/> Cargando métricas...</div>;
+  if (loading) return <div style={{ display: 'flex', justifyContent: 'center', padding: '50px', gap: '10px', color: '#00D4FF' }}><Loader2 size={32} className="animate-spin"/> Cargando...</div>;
 
   const pctCasillas = metricas.totalCasillas > 0 ? Math.round((metricas.casillasCubiertas / metricas.totalCasillas) * 100) : 0;
   const pctActivismo = metricas.totalBarrios > 0 ? Math.round((metricas.barriosConActivismo / metricas.totalBarrios) * 100) : 0;
@@ -128,7 +111,6 @@ export default function Dashboard() {
         </button>
       </div>
 
-      {/* Banner IA Premium Restaurado */}
       <div style={{ background: 'linear-gradient(135deg, #0A1628 0%, #00D4FF 100%)', borderRadius: '16px', padding: '28px', marginBottom: '25px', color: 'white', boxShadow: '0 10px 30px rgba(0, 212, 255, 0.3)', position: 'relative', overflow: 'hidden' }}>
         <div style={{ position: 'absolute', top: '-50px', right: '-50px', width: '200px', height: '200px', borderRadius: '50%', background: 'rgba(255,255,255,0.08)' }} />
         <div style={{ display: 'flex', alignItems: 'center', gap: '20px', flexWrap: 'wrap', position: 'relative', zIndex: 1 }}>
@@ -169,22 +151,18 @@ export default function Dashboard() {
       </h3>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '12px', marginBottom: '30px' }}>
         <div className="card" style={{ padding: '18px', textAlign: 'center' }}>
-          <Target size={24} color="#00D4FF" style={{ marginBottom: '6px' }} />
           <div style={{ fontSize: '32px', fontWeight: 'bold', color: '#0A1628' }}>{pronostico.totalVotos.toLocaleString()}</div>
           <div style={{ fontSize: '12px', color: '#64748B', fontWeight: 'bold' }}>Votos Proyectados</div>
         </div>
         <div className="card" style={{ padding: '18px', textAlign: 'center' }}>
-          <CheckCircle2 size={24} color="#10B981" style={{ marginBottom: '6px' }} />
           <div style={{ fontSize: '32px', fontWeight: 'bold', color: '#10B981' }}>{pronostico.seguras}</div>
           <div style={{ fontSize: '12px', color: '#64748B', fontWeight: 'bold' }}>Secciones Seguras</div>
         </div>
         <div className="card" style={{ padding: '18px', textAlign: 'center' }}>
-          <Minus size={24} color="#F59E0B" style={{ marginBottom: '6px' }} />
           <div style={{ fontSize: '32px', fontWeight: 'bold', color: '#F59E0B' }}>{pronostico.disputa}</div>
           <div style={{ fontSize: '12px', color: '#64748B', fontWeight: 'bold' }}>En Disputa</div>
         </div>
         <div className="card" style={{ padding: '18px', textAlign: 'center' }}>
-          <AlertTriangle size={24} color="#F43F5E" style={{ marginBottom: '6px' }} />
           <div style={{ fontSize: '32px', fontWeight: 'bold', color: '#F43F5E' }}>{pronostico.riesgo}</div>
           <div style={{ fontSize: '12px', color: '#64748B', fontWeight: 'bold' }}>En Riesgo</div>
         </div>
