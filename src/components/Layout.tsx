@@ -8,14 +8,6 @@ import {
 } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 
-interface ConfirmModalData {
-  visible: boolean;
-  titulo: string;
-  mensaje: string;
-  tipo: 'danger' | 'success' | 'warning';
-  onConfirm: () => void;
-}
-
 export default function Layout() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -38,11 +30,11 @@ export default function Layout() {
     fetchRole();
   }, []);
 
-  const [confirmModal, setConfirmModal] = useState<ConfirmModalData>({
+  const [confirmModal, setConfirmModal] = useState<any>({
     visible: false, titulo: '', mensaje: '', tipo: 'warning', onConfirm: () => {},
   });
 
-  const mostrarConfirm = (titulo: string, mensaje: string, tipo: 'danger' | 'success' | 'warning', onConfirm: () => void) => {
+  const mostrarConfirm = (titulo: string, mensaje: string, tipo: string, onConfirm: () => void) => {
     setConfirmModal({ visible: true, titulo, mensaje, tipo, onConfirm });
   };
   const cerrarConfirm = () => setConfirmModal({ ...confirmModal, visible: false });
@@ -94,22 +86,23 @@ export default function Layout() {
         <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} style={{ background: 'none', border: 'none', color: 'white', cursor: 'pointer' }}>
           {isSidebarOpen ? <X size={28} /> : <Menu size={28} />}
         </button>
-        <img src="/dossier/orion-logo.png" alt="ORION" style={{ height: '30px', mixBlendMode: 'screen' }} />
+        <img src="/dossier/orion-logo.png" alt="ORION" style={{ height: '35px', borderRadius: '8px' }} />
         <div style={{ width: '28px' }}></div>
       </header>
 
       {isSidebarOpen && <div onClick={() => setIsSidebarOpen(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 998 }} />}
 
       <aside className={`sidebar ${isSidebarOpen ? 'open' : ''}`}>
-        <div className="sidebar-logo">
+        <div className="sidebar-logo" style={{ padding: '15px', display: 'flex', justifyContent: 'center' }}>
+          {/* 🚀 LOGO LIMPIO (Se recomienda que el PNG tenga fondo transparente) */}
           <img 
             src="/dossier/orion-logo.png" 
             alt="ORION" 
-            style={{ width: '180px', height: 'auto', mixBlendMode: 'screen' }} 
+            style={{ width: '100%', maxWidth: '200px', height: 'auto', borderRadius: '8px' }} 
           />
         </div>
 
-        <nav>
+        <nav style={{ marginTop: '10px' }}>
           {menuPermitido.map((item) => (
             <div key={item.name} className={`menu-item ${location.pathname === item.path ? 'active' : ''}`} onClick={() => handleNavigation(item.path)}>
               {item.icon}
@@ -138,20 +131,12 @@ export default function Layout() {
 
       {confirmModal.visible && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.65)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 2000, padding: '20px' }}>
-          <div style={{ background: 'white', borderRadius: '14px', padding: '28px', width: '100%', maxWidth: '440px', boxShadow: '0 20px 50px rgba(0,0,0,0.3)', borderTop: `5px solid ${confirmModal.tipo === 'danger' ? '#F43F5E' : confirmModal.tipo === 'success' ? '#10B981' : '#F59E0B'}` }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '15px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1, minWidth: 0 }}>
-                <div style={{ background: confirmModal.tipo === 'danger' ? '#FFE4E6' : confirmModal.tipo === 'success' ? '#D1FAE5' : '#FEF3C7', color: confirmModal.tipo === 'danger' ? '#F43F5E' : confirmModal.tipo === 'success' ? '#10B981' : '#F59E0B', width: '46px', height: '46px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                  {confirmModal.tipo === 'success' ? <CheckCircle2 size={26} /> : <AlertTriangle size={26} />}
-                </div>
-                <h3 style={{ margin: 0, fontSize: '17px', color: '#0F172A', wordBreak: 'break-word', lineHeight: '1.3' }}>{confirmModal.titulo}</h3>
-              </div>
-              <button onClick={cerrarConfirm} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px', marginLeft: '8px' }}><X size={20} color="#64748B" /></button>
-            </div>
-            <p style={{ fontSize: '14px', color: '#64748B', lineHeight: '1.6', marginBottom: '25px' }}>{confirmModal.mensaje}</p>
+          <div style={{ background: 'white', borderRadius: '14px', padding: '28px', width: '100%', maxWidth: '440px' }}>
+            <h3 style={{ margin: '0 0 10px 0', color: '#0F172A' }}>{confirmModal.titulo}</h3>
+            <p style={{ fontSize: '14px', color: '#64748B', marginBottom: '25px' }}>{confirmModal.mensaje}</p>
             <div style={{ display: 'flex', gap: '10px' }}>
-              <button onClick={cerrarConfirm} style={{ flex: 1, padding: '13px', background: '#F1F5F9', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '14px', color: '#64748B' }}>Cancelar</button>
-              <button onClick={confirmModal.onConfirm} style={{ flex: 1, padding: '13px', background: confirmModal.tipo === 'danger' ? '#F43F5E' : confirmModal.tipo === 'success' ? '#10B981' : '#F59E0B', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '14px' }}>Sí, confirmar</button>
+              <button onClick={cerrarConfirm} style={{ flex: 1, padding: '13px', background: '#F1F5F9', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>Cancelar</button>
+              <button onClick={confirmModal.onConfirm} style={{ flex: 1, padding: '13px', background: '#F43F5E', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>Confirmar</button>
             </div>
           </div>
         </div>
