@@ -38,7 +38,6 @@ function parsearArchivo(contenido: string) {
   const lineas = contenido.split('\n').filter(l => l.trim() !== '');
   if (lineas.length < 2) return { error: 'El archivo está vacío o no tiene filas de datos' };
 
-  // 1. Detectar separador analizando MÚLTIPLES líneas (no solo el header)
   const muestras = lineas.slice(0, Math.min(5, lineas.length));
   let tabs = 0, semis = 0, comas = 0;
   muestras.forEach(l => {
@@ -54,16 +53,12 @@ function parsearArchivo(contenido: string) {
   const parseLinea = (linea: string) =>
     linea.split(separador).map(v => v.trim().replace(/^"|"$/g, '').trim());
 
-  // 2. Parsear header
   let encabezados = parseLinea(lineas[0]).filter(h => h !== '');
 
-  // 3. Caso especial: header todo en una sola celda con tabs internos
   if (encabezados.length === 1 && encabezados[0].includes('\t')) {
     encabezados = encabezados[0].split('\t').map(v => v.trim()).filter(h => h !== '');
-    // NO cambiamos el separador aquí
   }
 
-  // 4. Mapear columnas
   const indices: Record<string, number> = {};
   encabezados.forEach((h, i) => {
     const hn = h.toLowerCase().trim();
@@ -80,7 +75,6 @@ function parsearArchivo(contenido: string) {
     return { error: `No se detectó la columna "Nombre". Encabezados leídos: ${encabezados.join(' | ')}` };
   }
 
-  // 5. Parsear filas de datos
   const filas: any[] = [];
   for (let i = 1; i < lineas.length; i++) {
     const valores = parseLinea(lineas[i]);
@@ -148,6 +142,10 @@ export default function Importar() {
   const [barrios, setBarrios] = useState<Barrio[]>([]);
   const [loading, setLoading] = useState(false);
   const [publicando, setPublicando] = useState(false);
+  
+  // 🚀 ESTADO PARA LA BARRA DE PROGRESO
+  const [progreso, setProgreso] = useState({ actual: 0, total: 0, mensaje: '' });
+  
   const [toastVisible, setToastVisible] = useState(false);
   const [toastMensaje, setToastMensaje] = useState('');
   const [tabVista, setTabVista] = useState<'todas' | 'validas' | 'errores'>('todas');
@@ -176,11 +174,13 @@ export default function Importar() {
     fetchData();
   }, []);
 
+  // 🚀 CARGA MASIVA CON LOTES (CHUNKING)
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     setLoading(true);
+    setProgreso({ actual: 0, total: 100, mensaje: 'Leyendo archivo...' });
     let parsed: any = null;
 
     try {
@@ -194,6 +194,7 @@ export default function Importar() {
       setToastMensaje('Error al leer el archivo: ' + err.message);
       setToastVisible(true);
       setLoading(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
       return;
     }
 
@@ -206,6 +207,8 @@ export default function Importar() {
     }
 
     const { encabezados, filas } = parsed;
+    const totalFilas = filas.length;
+    setProgreso({ actual: 0, total: totalFilas, mensaje: 'Procesando registros...' });
 
     const filasConBarrio = filas.map((f: any) => {
       const { barrio_texto, ...resto } = f;
@@ -221,74 +224,72 @@ export default function Importar() {
       return { ...resto, barrio_colonia_id, estado: 'pendiente', errores: null };
     });
 
-    const { error } = await supabase.from('personas_staging').insert(filasConBarrio);
+    // 🚀 ENVÍO POR LOTES DE 1,000
+    const CHUNK_SIZE = 1000;
+    let insertados = 0;
 
-    if (error) {
-      setToastMensaje('Error al subir: ' + error.message);
-      setToastVisible(true);
-    } else {
-      setToastMensaje(`✅ ${filasConBarrio.length} registros cargados. Columnas: ${encabezados.join(', ')}`);
+    for (let i = 0; i < filasConBarrio.length; i += CHUNK_SIZE) {
+      const lote = filasConBarrio.slice(i, i + CHUNK_SIZE);
+      
+      const { error } = await supabase.from('personas_staging').insert(lote);
+
+      if (error) {
+        setToastMensaje(`Error en lote ${i / CHUNK_SIZE + 1}: ` + error.message);
+        setToastVisible(true);
+        break; // Detenemos si falla un lote
+      }
+
+      insertados += lote.length;
+      setProgreso({ actual: insertados, total: totalFilas, mensaje: `Guardando lote de 1,000 registros...` });
+      
+      // 🚀 Dejar respirar al navegador (evita que la pantalla se congele)
+      await new Promise(r => setTimeout(r, 50));
+    }
+
+    if (insertados > 0) {
+      setToastMensaje(`✅ ${insertados} registros cargados. Columnas: ${encabezados.join(', ')}`);
       setToastVisible(true);
       const { data } = await supabase.from('personas_staging').select('*').order('created_at', { ascending: false });
       if (data) setStaging(data as any);
     }
+
+    setProgreso({ actual: 0, total: 0, mensaje: '' });
     setLoading(false);
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
-  // ===== VALIDACIÓN COMPLETA =====
   const validarTodo = async () => {
     setLoading(true);
     const actualizados = staging.map(s => {
       const errores: string[] = [];
-
-      // 1. Nombre
       if (!s.nombre_completo || s.nombre_completo === 'Sin nombre' || s.nombre_completo.trim() === '') {
         errores.push('Falta el nombre completo');
       }
-
-      // 2. Teléfono
       if (s.telefono && s.telefono.trim() !== '') {
         const soloDigitos = s.telefono.replace(/\D/g, '');
         if (soloDigitos.length !== 10) {
-          errores.push(`Teléfono inválido: "${s.telefono}" (se esperaban 10 dígitos, llegaron ${soloDigitos.length})`);
+          errores.push(`Teléfono inválido: "${s.telefono}" (se esperaban 10 dígitos)`);
         }
       }
-
-      // 3. Correo — validación paso por paso
       if (s.correo_electronico && s.correo_electronico.trim() !== '') {
         const email = s.correo_electronico.trim();
         const partes = email.split('@');
-
-        if (partes.length !== 2) {
-          errores.push(`Correo inválido: "${email}" — debe tener exactamente un símbolo @`);
-        } else {
-          const [usuario, dominio] = partes;
-          if (!usuario || usuario.length < 1) {
-            errores.push(`Correo inválido: "${email}" — falta el usuario antes del @`);
-          } else if (!dominio || dominio.length < 1) {
-            errores.push(`Correo inválido: "${email}" — falta el dominio después del @`);
-          } else if (!dominio.includes('.')) {
-            errores.push(`Correo inválido: "${email}" — falta la extensión del dominio (.com, .mx, etc.)`);
-          } else {
-            const partesDominio = dominio.split('.');
-            const tld = partesDominio[partesDominio.length - 1];
-            if (tld.length < 2 || !/^[a-zA-Z]+$/.test(tld)) {
-              errores.push(`Correo inválido: "${email}" — la extensión del dominio es incorrecta`);
-            }
-          }
+        if (partes.length !== 2 || !partes[1].includes('.')) {
+          errores.push(`Correo inválido: "${email}"`);
         }
       }
-
-      return {
-        ...s,
-        estado: errores.length === 0 ? 'validado' : 'error',
-        errores: errores.length > 0 ? errores : null,
-      };
+      return { ...s, estado: errores.length === 0 ? 'validado' : 'error', errores: errores.length > 0 ? errores : null };
     });
 
-    for (const registro of actualizados) {
-      await supabase.from('personas_staging').update({ estado: registro.estado, errores: registro.errores }).eq('id', registro.id);
+    // Validar también por lotes
+    const CHUNK_SIZE = 500;
+    for (let i = 0; i < actualizados.length; i += CHUNK_SIZE) {
+      const lote = actualizados.slice(i, i + CHUNK_SIZE);
+      for (const registro of lote) {
+        await supabase.from('personas_staging').update({ estado: registro.estado, errores: registro.errores }).eq('id', registro.id);
+      }
+      setProgreso({ actual: i + lote.length, total: actualizados.length, mensaje: 'Validando registros...' });
+      await new Promise(r => setTimeout(r, 20));
     }
 
     setStaging(actualizados);
@@ -296,6 +297,7 @@ export default function Importar() {
     const totalValidados = actualizados.filter(a => a.estado === 'validado').length;
     setToastMensaje(`Validación: ${totalValidados} válidos, ${totalErrores} con errores`);
     setToastVisible(true);
+    setProgreso({ actual: 0, total: 0, mensaje: '' });
     setLoading(false);
   };
 
@@ -314,47 +316,38 @@ export default function Importar() {
       async () => {
         cerrarConfirm();
         setPublicando(true);
+        setProgreso({ actual: 0, total: validos.length, mensaje: 'Publicando...' });
 
         let exitosos = 0;
         let fallidos = 0;
-        const erroresPublicacion: string[] = [];
         const idsExitosos: string[] = [];
+        const CHUNK_SIZE = 500;
 
-        for (const v of validos) {
-          try {
-            if (v.telefono) {
-              const { data: existente } = await supabase.from('personas').select('id').eq('telefono', v.telefono).maybeSingle();
-              if (existente) {
-                idsExitosos.push(v.id);
-                exitosos++;
-                continue;
-              }
-            }
+        for (let i = 0; i < validos.length; i += CHUNK_SIZE) {
+          const lote = validos.slice(i, i + CHUNK_SIZE);
+          const payload = lote.map(v => ({
+            nombre_completo: v.nombre_completo,
+            telefono: v.telefono,
+            ocupacion: v.ocupacion,
+            correo_electronico: v.correo_electronico,
+            direccion: v.direccion,
+            preferencia_voto: v.preferencia_voto,
+            barrio_colonia_id: v.barrio_colonia_id,
+            consentimiento_aceptado: true,
+            fecha_consentimiento: new Date().toISOString(),
+            origen_captura: 'Importación masiva',
+          }));
 
-            const { error: insertError } = await supabase.from('personas').insert([{
-              nombre_completo: v.nombre_completo,
-              telefono: v.telefono,
-              ocupacion: v.ocupacion,
-              correo_electronico: v.correo_electronico,
-              direccion: v.direccion,
-              preferencia_voto: v.preferencia_voto,
-              barrio_colonia_id: v.barrio_colonia_id,
-              consentimiento_aceptado: true,
-              fecha_consentimiento: new Date().toISOString(),
-              origen_captura: 'Importación masiva',
-            }]);
-
-            if (insertError) {
-              fallidos++;
-              erroresPublicacion.push(`${v.nombre_completo}: ${insertError.message}`);
-            } else {
-              idsExitosos.push(v.id);
-              exitosos++;
-            }
-          } catch (err: any) {
-            fallidos++;
-            erroresPublicacion.push(`${v.nombre_completo}: ${err.message}`);
+          const { error } = await supabase.from('personas').insert(payload);
+          
+          if (error) {
+            fallidos += lote.length;
+          } else {
+            exitosos += lote.length;
+            idsExitosos.push(...lote.map(v => v.id));
           }
+          setProgreso({ actual: i + lote.length, total: validos.length, mensaje: 'Publicando al sistema online...' });
+          await new Promise(r => setTimeout(r, 50));
         }
 
         if (idsExitosos.length > 0) {
@@ -363,51 +356,40 @@ export default function Importar() {
         }
 
         if (fallidos > 0) {
-          setToastMensaje(`Publicados ${exitosos}, fallaron ${fallidos}. Revisa la consola.`);
-          console.error('Errores:', erroresPublicacion);
+          setToastMensaje(`Publicados ${exitosos}, fallaron ${fallidos}.`);
         } else {
           setToastMensaje(`¡${exitosos} registros publicados con éxito!`);
         }
         setToastVisible(true);
         setPublicando(false);
+        setProgreso({ actual: 0, total: 0, mensaje: '' });
       }
     );
   };
 
   const eliminarStaging = (id: string, nombre: string) => {
-    mostrarConfirm('¿Eliminar este registro?', `Se eliminará "${nombre}" del arenero. Esta acción no se puede deshacer.`, 'danger', async () => {
+    mostrarConfirm('¿Eliminar este registro?', `Se eliminará "${nombre}" del arenero.`, 'danger', async () => {
       cerrarConfirm();
       await supabase.from('personas_staging').delete().eq('id', id);
       setStaging(staging.filter(s => s.id !== id));
-      setToastMensaje('Registro eliminado del arenero');
-      setToastVisible(true);
+      setToastMensaje('Registro eliminado'); setToastVisible(true);
     });
   };
 
   const limpiarArenero = () => {
     if (staging.length === 0) return;
-    mostrarConfirm('¿Limpiar todo el arenero?', `Se eliminarán TODOS los ${staging.length} registros. Esta acción no se puede deshacer.`, 'danger', async () => {
+    mostrarConfirm('¿Limpiar todo el arenero?', `Se eliminarán TODOS los ${staging.length} registros.`, 'danger', async () => {
       cerrarConfirm();
       await supabase.from('personas_staging').delete().neq('id', '00000000-0000-0000-0000-000000000000');
       setStaging([]);
-      setToastMensaje('Arenero limpiado por completo');
-      setToastVisible(true);
+      setToastMensaje('Arenero limpiado'); setToastVisible(true);
     });
   };
 
-  // ===== DESCARGAR PLANTILLA XLSX CON DROPDOWNS =====
   const descargarPlantillaXLSX = async () => {
     try {
       const workbook = new ExcelJS.Workbook();
-      workbook.creator = 'INTEL TERRITORIAL TULA';
-      workbook.created = new Date();
-
-      // Hoja principal
-      const sheet = workbook.addWorksheet('Personas', {
-        views: [{ state: 'frozen', ySplit: 1 }],
-      });
-
-      // Columnas
+      const sheet = workbook.addWorksheet('Personas', { views: [{ state: 'frozen', ySplit: 1 }] });
       sheet.columns = [
         { header: 'Nombre', key: 'nombre', width: 30 },
         { header: 'Teléfono', key: 'telefono', width: 15 },
@@ -417,74 +399,25 @@ export default function Importar() {
         { header: 'Preferencia Voto', key: 'voto', width: 22 },
         { header: 'Barrio/Colonia', key: 'barrio', width: 28 },
       ];
-
-      // Estilo del encabezado
       const headerRow = sheet.getRow(1);
-      headerRow.height = 28;
-      headerRow.font = { bold: true, color: { argb: 'FFFFFFFF' }, size: 12 };
+      headerRow.font = { bold: true, color: { argb: 'FFFFFFFF' } };
       headerRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF9F2241' } };
-      headerRow.alignment = { vertical: 'middle', horizontal: 'center' };
-      headerRow.eachCell((cell) => {
-        cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
-      });
 
-      // Hoja de listas (oculta) para validaciones
       const listSheet = workbook.addWorksheet('Listas');
-      
-      // Lista de preferencias
-      const preferencias = ['MORENA', 'PAN', 'PRI', 'Indeciso', 'Otro'];
-      preferencias.forEach((p, i) => {
-        listSheet.getCell(`A${i + 1}`).value = p;
-      });
-
-      // Lista de barrios
-      barrios.forEach((b, i) => {
-        listSheet.getCell(`B${i + 1}`).value = b.nombre;
-      });
-
+      ['UNIDOS X TULA', 'MORENA', 'PAN', 'PRI', 'Indeciso', 'Otro'].forEach((p, i) => { listSheet.getCell(`A${i + 1}`).value = p; });
+      barrios.forEach((b, i) => { listSheet.getCell(`B${i + 1}`).value = b.nombre; });
       listSheet.state = 'veryHidden';
 
-      // Aplicar validaciones a 1000 filas (o las que necesites)
-      const MAX_FILAS = 1000;
-      for (let i = 2; i <= MAX_FILAS; i++) {
-        // Preferencia de voto (columna F)
-        sheet.getCell(`F${i}`).dataValidation = {
-          type: 'list',
-          allowBlank: true,
-          formulae: [`Listas!$A$1:$A$${preferencias.length}`],
-          showErrorMessage: true,
-          errorTitle: 'Preferencia inválida',
-          error: 'Por favor selecciona una opción de la lista desplegable',
-          showInputMessage: true,
-          promptTitle: 'Preferencia de voto',
-          prompt: 'Selecciona una opción de la lista',
-        };
-
-        // Barrio/Colonia (columna G)
-        if (barrios.length > 0) {
-          sheet.getCell(`G${i}`).dataValidation = {
-            type: 'list',
-            allowBlank: true,
-            formulae: [`Listas!$B$1:$B$${barrios.length}`],
-            showErrorMessage: true,
-            errorTitle: 'Barrio inválido',
-            error: 'Selecciona un barrio de la lista',
-            showInputMessage: true,
-            promptTitle: 'Barrio / Colonia',
-            prompt: 'Selecciona un barrio de la lista',
-          };
-        }
+      for (let i = 2; i <= 1000; i++) {
+        sheet.getCell(`F${i}`).dataValidation = { type: 'list', allowBlank: true, formulae: [`Listas!$A$1:$A$6`] };
+        if (barrios.length > 0) sheet.getCell(`G${i}`).dataValidation = { type: 'list', allowBlank: true, formulae: [`Listas!$B$1:$B$${barrios.length}`] };
       }
 
-      // Generar buffer y descargar
       const buffer = await workbook.xlsx.writeBuffer();
       const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
       saveAs(blob, `plantilla_personas_${new Date().toISOString().split('T')[0]}.xlsx`);
-
-      setToastMensaje(`Plantilla descargada con ${barrios.length} barrios disponibles`);
-      setToastVisible(true);
+      setToastMensaje('Plantilla descargada'); setToastVisible(true);
     } catch (err: any) {
-      console.error(err);
       alert('Error al generar la plantilla: ' + err.message);
     }
   };
@@ -503,8 +436,21 @@ export default function Importar() {
     <div>
       <h1 className="header-title">Arenero de Importación</h1>
       <p style={{ marginBottom: '20px', color: '#666', fontSize: '14px' }}>
-        Sube un archivo CSV o Excel (.xlsx), previsualiza, valida y publica al sistema productivo.
+        Sube un archivo CSV o Excel (.xlsx). El sistema procesa en lotes para evitar bloqueos.
       </p>
+
+      {/* 🚀 BARRA DE PROGRESO MASIVA */}
+      {progreso.total > 0 && (
+        <div className="card" style={{ background: '#0A1628', color: 'white', marginBottom: '20px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px', fontSize: '14px' }}>
+            <span>{progreso.mensaje}</span>
+            <strong>{progreso.actual} / {progreso.total}</strong>
+          </div>
+          <div style={{ height: '10px', background: 'rgba(255,255,255,0.1)', borderRadius: '5px', overflow: 'hidden' }}>
+            <div style={{ width: `${(progreso.actual / progreso.total) * 100}%`, height: '100%', background: '#00D4FF', transition: 'width 0.3s' }} />
+          </div>
+        </div>
+      )}
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '12px', marginBottom: '25px' }}>
         <div className="card" style={{ padding: '15px', textAlign: 'center', borderTop: '4px solid #9F2241', borderLeft: 'none' }}>
@@ -565,56 +511,39 @@ export default function Importar() {
 
       {loading ? (
         <div style={{ display: 'flex', justifyContent: 'center', padding: '40px', gap: '10px', color: '#9F2241' }}>
-          <Loader2 size={28} /> Procesando...
+          <Loader2 size={28} className="animate-spin" /> Procesando...
         </div>
       ) : filtrados.length === 0 ? (
         <div className="card" style={{ textAlign: 'center', padding: '50px 20px' }}>
           <Database size={48} color="#9F2241" style={{ opacity: 0.4, marginBottom: '15px' }} />
           <h3 style={{ color: '#9F2241', marginBottom: '10px' }}>El arenero está vacío</h3>
-          <p style={{ color: '#666', fontSize: '14px', marginBottom: '15px' }}>
-            Descarga la plantilla de Excel (con listas desplegables) y llénala con los datos.
-          </p>
+          <p style={{ color: '#666', fontSize: '14px', marginBottom: '15px' }}>Descarga la plantilla de Excel y llénala con los datos.</p>
         </div>
       ) : (
         <div style={{ display: 'grid', gap: '10px' }}>
           {filtrados.map(s => {
-            const barrioVinculado = s.barrio_colonia_id
-              ? barrios.find(b => b.id === s.barrio_colonia_id)?.nombre
-              : null;
+            const barrioVinculado = s.barrio_colonia_id ? barrios.find(b => b.id === s.barrio_colonia_id)?.nombre : null;
             return (
-              <div key={s.id} style={{
-                background: 'white', padding: '14px', borderRadius: '8px',
-                boxShadow: '0 2px 6px rgba(0,0,0,0.05)',
-                borderLeft: `4px solid ${s.estado === 'validado' ? '#2E7D32' : s.estado === 'error' ? '#C62828' : '#F9A825'}`,
-                display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '10px', flexWrap: 'wrap'
-              }}>
+              <div key={s.id} style={{ background: 'white', padding: '14px', borderRadius: '8px', boxShadow: '0 2px 6px rgba(0,0,0,0.05)', borderLeft: `4px solid ${s.estado === 'validado' ? '#2E7D32' : s.estado === 'error' ? '#C62828' : '#F9A825'}`, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '10px', flexWrap: 'wrap' }}>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                     <strong style={{ fontSize: '14px' }}>{s.nombre_completo}</strong>
-                    <span style={{
-                      fontSize: '10px', padding: '2px 8px', borderRadius: '10px', fontWeight: 'bold',
-                      background: s.estado === 'validado' ? '#E8F5E9' : s.estado === 'error' ? '#FFEBEE' : '#FFF8E1',
-                      color: s.estado === 'validado' ? '#2E7D32' : s.estado === 'error' ? '#C62828' : '#F9A825'
-                    }}>
+                    <span style={{ fontSize: '10px', padding: '2px 8px', borderRadius: '10px', fontWeight: 'bold', background: s.estado === 'validado' ? '#E8F5E9' : s.estado === 'error' ? '#FFEBEE' : '#FFF8E1', color: s.estado === 'validado' ? '#2E7D32' : s.estado === 'error' ? '#C62828' : '#F9A825' }}>
                       {s.estado}
                     </span>
                   </div>
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '4px 16px', marginTop: '8px', fontSize: '12px', color: '#555' }}>
-                    {s.telefono && <div><strong style={{ color: '#9F2241' }}>📞</strong> {s.telefono}</div>}
-                    {s.correo_electronico && <div><strong style={{ color: '#9F2241' }}>✉️</strong> {s.correo_electronico}</div>}
-                    {s.ocupacion && <div><strong style={{ color: '#9F2241' }}>💼</strong> {s.ocupacion}</div>}
-                    {s.preferencia_voto && <div><strong style={{ color: '#9F2241' }}>🗳️</strong> {s.preferencia_voto}</div>}
-                    {s.direccion && <div style={{ gridColumn: '1 / -1' }}><strong style={{ color: '#9F2241' }}>🏠</strong> {s.direccion}</div>}
-                    {barrioVinculado && <div><strong style={{ color: '#9F2241' }}>📍</strong> {barrioVinculado}</div>}
+                    {s.telefono && <div><strong>📞</strong> {s.telefono}</div>}
+                    {s.correo_electronico && <div><strong>✉️</strong> {s.correo_electronico}</div>}
+                    {barrioVinculado && <div><strong>📍</strong> {barrioVinculado}</div>}
                   </div>
                   {s.errores && Array.isArray(s.errores) && s.errores.length > 0 && (
-                    <div style={{ fontSize: '12px', color: '#C62828', marginTop: '10px', lineHeight: '1.5', padding: '8px 10px', background: '#FFEBEE', borderRadius: '6px', borderLeft: '3px solid #C62828' }}>
+                    <div style={{ fontSize: '12px', color: '#C62828', marginTop: '10px', padding: '8px', background: '#FFEBEE', borderRadius: '6px' }}>
                       {s.errores.map((err: string, i: number) => <div key={i}>⚠️ {err}</div>)}
                     </div>
                   )}
                 </div>
-                <button onClick={() => eliminarStaging(s.id, s.nombre_completo)}
-                  style={{ background: 'none', border: 'none', color: '#C62828', cursor: 'pointer', padding: '6px' }}>
+                <button onClick={() => eliminarStaging(s.id, s.nombre_completo)} style={{ background: 'none', border: 'none', color: '#C62828', cursor: 'pointer', padding: '6px' }}>
                   <Trash2 size={16} />
                 </button>
               </div>
@@ -624,24 +553,13 @@ export default function Importar() {
       )}
 
       {totalValidados > 0 && (
-        <div style={{
-          position: 'sticky', bottom: '20px', marginTop: '30px',
-          background: 'white', padding: '15px 20px', borderRadius: '12px',
-          boxShadow: '0 8px 25px rgba(0,0,0,0.15)',
-          display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '15px', flexWrap: 'wrap',
-          border: '2px solid #2E7D32'
-        }}>
+        <div style={{ position: 'sticky', bottom: '20px', marginTop: '30px', background: 'white', padding: '15px 20px', borderRadius: '12px', boxShadow: '0 8px 25px rgba(0,0,0,0.15)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '15px', flexWrap: 'wrap', border: '2px solid #2E7D32' }}>
           <div>
-            <p style={{ margin: 0, fontWeight: 'bold', color: '#2E7D32', fontSize: '15px' }}>
-              ✓ {totalValidados} registro{totalValidados !== 1 ? 's' : ''} listo{totalValidados !== 1 ? 's' : ''} para publicar
-            </p>
-            <p style={{ margin: '4px 0 0', fontSize: '12px', color: '#666' }}>
-              Al publicar, se moverán al directorio de personas y se eliminarán del arenero.
-            </p>
+            <p style={{ margin: 0, fontWeight: 'bold', color: '#2E7D32', fontSize: '15px' }}>✓ {totalValidados} registro(s) listo(s) para publicar</p>
+            <p style={{ margin: '4px 0 0', fontSize: '12px', color: '#666' }}>Se moverán al directorio y se eliminarán del arenero.</p>
           </div>
-          <button onClick={publicar} disabled={publicando} className="btn-primary"
-            style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '14px 28px', fontSize: '15px' }}>
-            {publicando ? <><Loader2 size={18} /> Publicando...</> : <><ArrowRight size={18} /> Pasar a ONLINE</>}
+          <button onClick={publicar} disabled={publicando} className="btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '14px 28px', fontSize: '15px' }}>
+            {publicando ? <><Loader2 size={18} className="animate-spin" /> Publicando...</> : <><ArrowRight size={18} /> Pasar a ONLINE</>}
           </button>
         </div>
       )}
