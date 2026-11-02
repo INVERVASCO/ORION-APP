@@ -32,7 +32,8 @@ export interface ContextoCampana {
   fechaActual: string;
 }
 
-export async function recolectarContextoCampana(): Promise<ContextoCampana> {
+// 🚀 Recibe el partido objetivo como parámetro (por defecto 'todos' para participación general)
+export async function recolectarContextoCampana(partidoObjetivo: string = 'todos'): Promise<ContextoCampana> {
   const hoy = new Date();
   const hace30Dias = new Date(hoy.getTime() - 30 * 24 * 60 * 60 * 1000);
   const fechaISO = hoy.toISOString().split('T')[0];
@@ -88,14 +89,12 @@ export async function recolectarContextoCampana(): Promise<ContextoCampana> {
   const topBarrios = [...barriosConDatos].sort((a, b) => b.capturas - a.capturas).slice(0, 5);
   const barriosDesatendidos = [...barriosConDatos].filter((b) => b.capturas < 5 && b.activistas < 2).sort((a, b) => a.capturas - b.capturas).slice(0, 5);
 
-  // 🚀 LÓGICA NEUTRAL: Sumamos los votos del partido configurado
-  const partidosCliente = ORION_CONFIG.electoral.partidoCliente.split(',').map(s => s.trim().toLowerCase());
-  
-  const getVotosCliente = (res: any[]) => {
+  // 🚀 LÓGICA DINÁMICA
+  const getVotos = (res: any[]) => {
     return res.reduce((sum, r) => {
-      let votos = 0;
-      partidosCliente.forEach(p => { votos += (Number(r[p]) || 0); });
-      return sum + votos;
+      if (partidoObjetivo === 'todos') return sum + r.total_votos;
+      if (partidoObjetivo === 'oposicion') return sum + (r.total_votos - (Number(r.morena) || 0));
+      return sum + (Number(r[partidoObjetivo]) || 0);
     }, 0);
   };
 
@@ -109,16 +108,16 @@ export async function recolectarContextoCampana(): Promise<ContextoCampana> {
     const res2018 = resultados.filter((r: any) => r.seccion === sec.numero_seccion && r.anio === 2018);
     const res2024 = resultados.filter((r: any) => r.seccion === sec.numero_seccion && r.anio === 2024);
 
-    const votosCliente2018 = getVotosCliente(res2018);
-    const votosCliente2024 = getVotosCliente(res2024);
+    const votos2018 = getVotos(res2018);
+    const votos2024 = getVotos(res2024);
     const lista2024 = res2024.reduce((s: number, r: any) => s + (r.lista_nominal || 0), 0);
 
-    let proyeccionVotos = votosCliente2024;
-    if (votosCliente2018 > 0) {
-      const tendenciaAnual = (votosCliente2024 - votosCliente2018) / 6;
-      proyeccionVotos = Math.round(votosCliente2024 + tendenciaAnual * 3);
+    let proyeccionVotos = votos2024;
+    if (votos2018 > 0) {
+      const tendenciaAnual = (votos2024 - votos2018) / 6;
+      proyeccionVotos = Math.round(votos2024 + tendenciaAnual * 3);
     } else {
-      proyeccionVotos = Math.round(votosCliente2024 * 1.05);
+      proyeccionVotos = Math.round(votos2024 * 1.05);
     }
 
     const activistasSec = activistasPorBarrio[sec.barrio_colonia_id] || 0;
@@ -131,7 +130,6 @@ export async function recolectarContextoCampana(): Promise<ContextoCampana> {
     const pctProyeccion = lista2024 > 0 ? (proyeccionVotos / lista2024) * 100 : 0;
     votosProyectados += proyeccionVotos;
 
-    // Umbrales configurables en config.ts
     if (pctProyeccion >= ORION_CONFIG.electoral.umbralSegura) seguras++;
     else if (pctProyeccion < ORION_CONFIG.electoral.umbralRiesgo) {
       riesgo++;
