@@ -1,14 +1,39 @@
-// @ts-nocheck
 import { useEffect, useState } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, useMap, Polyline } from 'react-leaflet';
 import MarkerClusterGroup from 'react-leaflet-cluster';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
-import { Loader2, AlertTriangle, User, X, Download, FileText, Crosshair, Wifi, Activity } from 'lucide-react';
+import { Loader2, AlertTriangle, X, Download, FileText, Crosshair, Wifi, Activity } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 import { calcularDistanciaMetros, obtenerDireccionReal } from '../lib/geolocalizacion';
 // @ts-ignore
 import html2pdf from 'html2pdf.js';
+
+interface EncuestaProcesada {
+  id: string;
+  latitud: number;
+  longitud: number;
+  created_at: string;
+  encuestador_id: string;
+  barrio_colonia_id: string;
+  precision_gps: number;
+  barrios_colonias: { nombre: string; latitud_centro: number; longitud_centro: number };
+  encuestador_nombre: string;
+  barrio_nombre: string;
+  barrio_lat: number;
+  barrio_lng: number;
+  distancia_metros: number;
+  es_sospechosa: boolean;
+  motivo_alerta: string;
+  fecha_dia: string;
+  timestamp: number;
+}
+
+interface ReporteDiario {
+  encuestador: string;
+  fecha: string;
+  registros: EncuestaProcesada[];
+}
 
 const stringToColor = (str: string) => {
   let hash = 0;
@@ -54,7 +79,7 @@ function BotonMiUbicacion() {
   );
 }
 
-function ControlVuelo({ pines }: { pines: any[] }) {
+function ControlVuelo({ pines }: { pines: EncuestaProcesada[] }) {
   const map = useMap();
   useEffect(() => {
     if (pines.length > 0) {
@@ -70,13 +95,13 @@ function ControlVuelo({ pines }: { pines: any[] }) {
 }
 
 export default function AuditoriaCampo() {
-  const [encuestas, setEncuestas] = useState<any[]>([]);
+  const [encuestas, setEncuestas] = useState<EncuestaProcesada[]>([]);
   const [loading, setLoading] = useState(true);
   const [filtroFecha, setFiltroFecha] = useState<'hoy' | 'ayer' | 'todos'>('hoy');
   const [filtroBrigadista, setFiltroBrigadista] = useState<string>('todos');
   
   const [modalReporte, setModalReporte] = useState(false);
-  const [reporteActual, setReporteActual] = useState<{ encuestador: string, fecha: string, registros: any[] } | null>(null);
+  const [reporteActual, setReporteActual] = useState<ReporteDiario | null>(null);
   const [cargandoDirecciones, setCargandoDirecciones] = useState(false);
 
   useEffect(() => {
@@ -91,7 +116,7 @@ export default function AuditoriaCampo() {
       const { data: perfilesData } = await supabase.from('perfiles').select('id, nombre_completo');
 
       if (encuestasData) {
-        const perfilesMap = new Map(perfilesData?.map(p => [p.id, p.nombre_completo]));
+        const perfilesMap = new Map(perfilesData?.map((p: any) => [p.id, p.nombre_completo]));
         
         const procesadas = encuestasData.map((e: any) => {
           const lat_centro = e.barrios_colonias?.latitud_centro;
@@ -125,7 +150,7 @@ export default function AuditoriaCampo() {
             motivo_alerta: motivoAlerta,
             fecha_dia: new Date(e.created_at).toLocaleDateString('es-MX'),
             timestamp: new Date(e.created_at).getTime()
-          };
+          } as EncuestaProcesada;
         });
 
         setEncuestas(procesadas);
@@ -158,7 +183,7 @@ export default function AuditoriaCampo() {
     return { nombre, estaOnline, ultimaEncuesta };
   }).sort((a, b) => b.ultimaEncuesta - a.ultimaEncuesta);
 
-  const reportesDiarios = encuestasFiltradas.reduce((acc: any, curr) => {
+  const reportesDiarios = encuestasFiltradas.reduce((acc: Record<string, ReporteDiario>, curr) => {
     const key = `${curr.encuestador_nombre}-${curr.fecha_dia}`;
     if (!acc[key]) {
       acc[key] = { encuestador: curr.encuestador_nombre, fecha: curr.fecha_dia, registros: [] };
@@ -167,11 +192,11 @@ export default function AuditoriaCampo() {
     return acc;
   }, {});
 
-  const abrirReporte = async (reporte: any) => {
+  const abrirReporte = async (reporte: ReporteDiario) => {
     setModalReporte(true);
     setCargandoDirecciones(true);
     const registrosConDireccion = await Promise.all(
-      reporte.registros.map(async (r: any) => {
+      reporte.registros.map(async (r) => {
         const direccion = await obtenerDireccionReal(r.latitud, r.longitud);
         return { ...r, direccion_real: direccion };
       })
@@ -271,8 +296,8 @@ export default function AuditoriaCampo() {
           <div style={{ flex: 1, overflowY: 'auto', padding: '15px' }}>
             {Object.values(reportesDiarios).length === 0 ? (
               <p style={{ color: '#64748B', fontSize: '13px', textAlign: 'center', marginTop: '20px' }}>No hay encuestas en este periodo.</p>
-            ) : Object.values(reportesDiarios).map((rep: any, idx) => {
-              const alertas = rep.registros.filter((r:any) => r.es_sospechosa).length;
+            ) : Object.values(reportesDiarios).map((rep, idx) => {
+              const alertas = rep.registros.filter((r) => r.es_sospechosa).length;
               const colorBrigadista = stringToColor(rep.encuestador);
               return (
                 <div key={idx} style={{ padding: '12px', background: '#0F172A', borderRadius: '8px', marginBottom: '10px', border: '1px solid #334155' }}>
