@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react';
 import { 
   User, Phone, Plus, Trash2, X, Loader2, Briefcase, 
-  AlertTriangle, CheckCircle2 
+  AlertTriangle, CheckCircle2, Shield
 } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 import Toast from './Toast';
 import { obtenerOCrearPersona } from '../lib/personaHelper';
+import AvisoPrivacidad from './AvisoPrivacidad';
 
 interface Activista {
   id: string;
@@ -34,6 +35,10 @@ export default function ActivismoSection({ barrioId }: Props) {
   const [toastVisible, setToastVisible] = useState(false);
   const [toastMensaje, setToastMensaje] = useState('');
   
+  // Estados para el Aviso de Privacidad
+  const [avisoVisible, setAvisoVisible] = useState(false);
+  const [aceptoAviso, setAceptoAviso] = useState(false);
+
   const [nuevo, setNuevo] = useState({
     nombre_completo: '',
     telefono: '',
@@ -42,7 +47,6 @@ export default function ActivismoSection({ barrioId }: Props) {
     periodo: new Date().getFullYear() + '-' + (new Date().getFullYear() + 3)
   });
 
-  // Modal de confirmación flotante
   const [confirmModal, setConfirmModal] = useState<ConfirmModalData>({
     visible: false, titulo: '', mensaje: '', tipo: 'warning', onConfirm: () => {},
   });
@@ -52,7 +56,6 @@ export default function ActivismoSection({ barrioId }: Props) {
   };
   const cerrarConfirm = () => setConfirmModal({ ...confirmModal, visible: false });
 
-  // Cargar activistas del barrio
   useEffect(() => {
     const fetchActivistas = async () => {
       if (!barrioId) return;
@@ -69,19 +72,31 @@ export default function ActivismoSection({ barrioId }: Props) {
     fetchActivistas();
   }, [barrioId]);
 
-  // Guardar activista (crea o reutiliza persona + registro de activismo)
+  // Resetear checkbox al abrir/cerrar modal
+  useEffect(() => {
+    if (modalAbierto) setAceptoAviso(false);
+  }, [modalAbierto]);
+
   const handleGuardar = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!barrioId) return;
+
+    if (!aceptoAviso) {
+      setToastMensaje('Debes confirmar el Aviso de Privacidad (LFPDPPP).');
+      setToastVisible(true);
+      return;
+    }
+
     setGuardando(true);
 
-    // 1. Buscar o crear la persona
+    // 1. Buscar o crear la persona (AHORA CON CONSENTIMIENTO)
     const resultado = await obtenerOCrearPersona({
       nombre_completo: nuevo.nombre_completo,
       telefono: nuevo.telefono || null,
       ocupacion: nuevo.ocupacion || null,
       barrio_colonia_id: barrioId,
       origen_captura: 'Brigada',
+      consentimiento_aceptado: true, // <--- FIX CRÍTICO
     });
 
     if (!resultado) {
@@ -127,7 +142,6 @@ export default function ActivismoSection({ barrioId }: Props) {
     setGuardando(false);
   };
 
-  // Eliminar activista con modal flotante
   const handleEliminar = (id: string, nombre: string) => {
     mostrarConfirm(
       '¿Eliminar a este integrante?',
@@ -166,7 +180,6 @@ export default function ActivismoSection({ barrioId }: Props) {
         </button>
       </div>
 
-      {/* Resumen por cargo */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: '10px', marginBottom: '25px' }}>
         {cargos.map(cargo => {
           const count = activistas.filter(a => a.tipo_cargo === cargo).length;
@@ -183,7 +196,6 @@ export default function ActivismoSection({ barrioId }: Props) {
         })}
       </div>
 
-      {/* Lista de activistas por cargo */}
       {cargos.map(cargo => {
         const integrantes = activistas.filter(a => a.tipo_cargo === cargo);
         if (integrantes.length === 0) return null;
@@ -237,13 +249,10 @@ export default function ActivismoSection({ barrioId }: Props) {
           <p style={{ color: '#666', fontSize: '15px' }}>
             Aún no hay integrantes del activismo capturados para este barrio/colonia.
           </p>
-          <p style={{ color: '#999', fontSize: '13px', marginTop: '8px' }}>
-            Presiona "Agregar Integrante" para comenzar.
-          </p>
         </div>
       )}
 
-      {/* Modal de captura */}
+      {/* MODAL DE CAPTURA */}
       {modalAbierto && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000, padding: '15px' }}>
           <div style={{ background: 'white', padding: '25px', borderRadius: '12px', width: '100%', maxWidth: '500px', maxHeight: '90vh', overflowY: 'auto' }}>
@@ -287,13 +296,29 @@ export default function ActivismoSection({ barrioId }: Props) {
                 <input type="text" placeholder="Ej. 2025-2028" value={nuevo.periodo}
                   onChange={(e) => setNuevo({...nuevo, periodo: e.target.value})} style={inputStyle} />
               </div>
-              <div style={{ fontSize: '12px', color: '#666', padding: '10px', background: '#FFF8E1', borderRadius: '6px', borderLeft: '3px solid #F9A825' }}>
-                Al guardar, se registra el consentimiento del titular para el tratamiento de sus datos personales (LFPDPPP).
+
+              {/* CHECKBOX DE PRIVACIDAD OBLIGATORIO */}
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', padding: '12px', background: '#FEF3C7', borderRadius: '6px', borderLeft: '3px solid #F59E0B' }}>
+                <input 
+                  type="checkbox" 
+                  id="acepto-aviso-activismo" 
+                  checked={aceptoAviso} 
+                  onChange={(e) => setAceptoAviso(e.target.checked)} 
+                  style={{ width: '18px', height: '18px', cursor: 'pointer', marginTop: '2px', flexShrink: 0 }} 
+                />
+                <label htmlFor="acepto-aviso-activismo" style={{ fontSize: '12px', color: '#475569', cursor: 'pointer', lineHeight: '1.5' }}>
+                  Confirmo que el titular ha leído y aceptado el{' '}
+                  <button type="button" onClick={() => setAvisoVisible(true)} style={{ background: 'none', border: 'none', color: '#00D4FF', cursor: 'pointer', textDecoration: 'underline', fontSize: '12px', fontWeight: 'bold', padding: 0 }}>
+                    Aviso de Privacidad
+                  </button>
+                  {' '}conforme a la LFPDPPP.
+                </label>
               </div>
+
               <div style={{ display: 'flex', gap: '10px', marginTop: '5px' }}>
                 <button type="button" onClick={() => setModalAbierto(false)} style={btnSecundario}>Cancelar</button>
-                <button type="submit" className="btn-primary" style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }} disabled={guardando}>
-                  {guardando ? <><Loader2 size={16} /> Guardando...</> : 'Guardar'}
+                <button type="submit" className="btn-primary" style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }} disabled={guardando || !aceptoAviso}>
+                  {guardando ? <><Loader2 size={16} /> Guardando...</> : <><Shield size={16} /> Guardar</>}
                 </button>
               </div>
             </form>
@@ -301,7 +326,7 @@ export default function ActivismoSection({ barrioId }: Props) {
         </div>
       )}
 
-      {/* MODAL DE CONFIRMACIÓN FLOTANTE */}
+      {/* MODAL DE CONFIRMACIÓN */}
       {confirmModal.visible && (
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.65)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 2000, padding: '20px' }}>
           <div style={{ background: 'white', borderRadius: '14px', padding: '28px', width: '100%', maxWidth: '440px', boxShadow: '0 20px 50px rgba(0,0,0,0.3)', borderTop: `5px solid ${confirmModal.tipo === 'danger' ? '#C62828' : confirmModal.tipo === 'success' ? '#2E7D32' : '#F9A825'}` }}>
@@ -325,7 +350,13 @@ export default function ActivismoSection({ barrioId }: Props) {
         </div>
       )}
 
-      {/* Toast de éxito */}
+      <AvisoPrivacidad 
+        visible={avisoVisible} 
+        onClose={() => setAvisoVisible(false)} 
+        onAceptar={() => setAceptoAviso(true)}
+        mostrarBotonAceptar={true}
+      />
+
       <Toast mensaje={toastMensaje} visible={toastVisible} onClose={() => setToastVisible(false)} />
     </div>
   );
