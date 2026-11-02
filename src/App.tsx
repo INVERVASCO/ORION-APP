@@ -16,63 +16,57 @@ import Login from './pages/Login';
 import RecuperarPassword from './pages/RecuperarPassword';
 import CambiarPassword from './pages/CambiarPassword';
 
-// Páginas privadas (Lazy)
-const Dashboard = lazy(() => import('./pages/Dashboard'));
-const Analisis = lazy(() => import('./pages/Analisis'));
-const Pronostico = lazy(() => import('./pages/Pronostico'));
-const CentroInteligenciaElectoral = lazy(() => import('./pages/CentroInteligenciaElectoral'));
-const Municipio = lazy(() => import('./pages/Municipio'));
-const BarrioDetalle = lazy(() => import('./pages/BarrioDetalle'));
-const Personas = lazy(() => import('./pages/Personas'));
-const Secciones = lazy(() => import('./pages/Secciones'));
-const ActivismoGlobal = lazy(() => import('./pages/ActivismoGlobal'));
-const ElectoralGlobal = lazy(() => import('./pages/ElectoralGlobal'));
-const Problematicas = lazy(() => import('./pages/Problematicas'));
-const Gastos = lazy(() => import('./pages/Gastos'));
-const Eventos = lazy(() => import('./pages/Eventos'));
-const Promesas = lazy(() => import('./pages/Promesas'));
-const Encuestas = lazy(() => import('./pages/Encuestas'));
-const MonitoreoRedes = lazy(() => import('./pages/MonitoreoRedes'));
-const Reportes = lazy(() => import('./pages/Reportes'));
-const Importar = lazy(() => import('./pages/Importar'));
-const Usuarios = lazy(() => import('./pages/Usuarios'));
-const Auditoria = lazy(() => import('./pages/Auditoria'));
-const AuditoriaCampo = lazy(() => import('./pages/AuditoriaCampo'));
-const AdminGeocode = lazy(() => import('./pages/AdminGeocode'));
+// 🚀 LA MAGIA: Función que recarga si falla el archivo (Chunk Error)
+const lazyWithRetry = (componentImport: () => Promise<any>) =>
+  lazy(async () => {
+    const pageHasAlreadyBeenForceRefreshed = JSON.parse(
+      window.sessionStorage.getItem('page-has-been-force-refreshed') || 'false'
+    );
+
+    try {
+      const component = await componentImport();
+      window.sessionStorage.setItem('page-has-been-force-refreshed', 'false');
+      return component;
+    } catch (error) {
+      if (!pageHasAlreadyBeenForceRefreshed) {
+        // Si el archivo no se encuentra, guardamos la bandera y recargamos la página
+        window.sessionStorage.setItem('page-has-been-force-refreshed', 'true');
+        return window.location.reload();
+      }
+      // Si ya recargamos y sigue fallando, lanzamos el error real
+      throw error;
+    }
+  });
+
+// Páginas privadas (Lazy con Reintento)
+const Dashboard = lazyWithRetry(() => import('./pages/Dashboard'));
+const Analisis = lazyWithRetry(() => import('./pages/Analisis'));
+const Pronostico = lazyWithRetry(() => import('./pages/Pronostico'));
+const CentroInteligenciaElectoral = lazyWithRetry(() => import('./pages/CentroInteligenciaElectoral'));
+const Municipio = lazyWithRetry(() => import('./pages/Municipio'));
+const BarrioDetalle = lazyWithRetry(() => import('./pages/BarrioDetalle'));
+const Personas = lazyWithRetry(() => import('./pages/Personas'));
+const Secciones = lazyWithRetry(() => import('./pages/Secciones'));
+const ActivismoGlobal = lazyWithRetry(() => import('./pages/ActivismoGlobal'));
+const ElectoralGlobal = lazyWithRetry(() => import('./pages/ElectoralGlobal'));
+const Problematicas = lazyWithRetry(() => import('./pages/Problematicas'));
+const Gastos = lazyWithRetry(() => import('./pages/Gastos'));
+const Eventos = lazyWithRetry(() => import('./pages/Eventos'));
+const Promesas = lazyWithRetry(() => import('./pages/Promesas'));
+const Encuestas = lazyWithRetry(() => import('./pages/Encuestas'));
+const MonitoreoRedes = lazyWithRetry(() => import('./pages/MonitoreoRedes'));
+const Reportes = lazyWithRetry(() => import('./pages/Reportes'));
+const Importar = lazyWithRetry(() => import('./pages/Importar'));
+const Usuarios = lazyWithRetry(() => import('./pages/Usuarios'));
+const Auditoria = lazyWithRetry(() => import('./pages/Auditoria'));
+const AuditoriaCampo = lazyWithRetry(() => import('./pages/AuditoriaCampo'));
+const AdminGeocode = lazyWithRetry(() => import('./pages/AdminGeocode'));
 
 const PageLoader = () => (
   <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '60vh', color: '#00D4FF', gap: '10px' }}>
     <OrionAnimatedLogo />
   </div>
 );
-
-// 🚀 COMPONENTE DE ERROR PERSONALIZADO
-const ErrorFallback = ({ error, resetError }: { error: Error, resetError: () => void }) => {
-  // Si el error es por un archivo que no se encontró (ChunkLoadError)
-  const isChunkLoadFailed = error?.message?.includes('Failed to fetch dynamically imported module') || error?.message?.includes('Importing a module script failed');
-
-  return (
-    <div style={{ padding: '50px', textAlign: 'center', background: '#0A1628', minHeight: '100vh', color: 'white', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center' }}>
-      <h1 style={{ color: '#F43F5E', fontSize: '28px', marginBottom: '10px' }}>
-        {isChunkLoadFailed ? 'Nueva versión disponible' : 'Algo salió mal'}
-      </h1>
-      <p style={{ color: '#94A3B8', marginTop: '10px', maxWidth: '500px', marginBottom: '25px', lineHeight: '1.6' }}>
-        {isChunkLoadFailed 
-          ? 'Hemos actualizado el sistema para mejorar tu experiencia. Por favor, recarga la página para cargar la versión más reciente.'
-          : 'Ocurrió un error inesperado. El equipo técnico ha sido notificado automáticamente por Sentry.'}
-      </p>
-      <button 
-        onClick={() => {
-          resetError(); // Resetea el estado del ErrorBoundary
-          window.location.reload(); // Recarga la página
-        }} 
-        style={{ padding: '14px 28px', background: '#00D4FF', color: '#0A1628', border: 'none', borderRadius: '8px', fontWeight: 'bold', fontSize: '16px', cursor: 'pointer', boxShadow: '0 4px 15px rgba(0,212,255,0.4)' }}
-      >
-        Recargar Sistema
-      </button>
-    </div>
-  );
-};
 
 function App() {
   const [session, setSession] = useState<Session | null>(null);
@@ -140,7 +134,17 @@ function App() {
   }
 
   return (
-    <Sentry.ErrorBoundary fallback={ErrorFallback}>
+    <Sentry.ErrorBoundary fallback={
+      <div style={{ padding: '50px', textAlign: 'center', background: '#0A1628', minHeight: '100vh', color: 'white', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center' }}>
+        <h1 style={{ color: '#F43F5E', fontSize: '28px', marginBottom: '10px' }}>Algo salió mal</h1>
+        <p style={{ color: '#94A3B8', marginTop: '10px', maxWidth: '500px', marginBottom: '25px', lineHeight: '1.6' }}>
+          Ocurrió un error inesperado. El equipo técnico ha sido notificado automáticamente.
+        </p>
+        <button onClick={() => window.location.reload()} style={{ padding: '14px 28px', background: '#00D4FF', color: '#0A1628', border: 'none', borderRadius: '8px', fontWeight: 'bold', fontSize: '16px', cursor: 'pointer' }}>
+          Recargar Sistema
+        </button>
+      </div>
+    }>
       <SyncProvider>
         <BrowserRouter>
           <Suspense fallback={<PageLoader />}>
