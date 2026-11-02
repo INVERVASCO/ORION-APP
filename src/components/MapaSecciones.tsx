@@ -12,27 +12,26 @@ interface MapaSeccionesProps {
 }
 
 const MapaSecciones: React.FC<MapaSeccionesProps> = ({ datos }) => {
-  // 🚀 CLAVE: Usamos un hash basado en el contenido real, no solo en la cantidad de keys
   const geoJsonKey = JSON.stringify(datos);
 
   const getEstiloSeccion = (seccion: number) => {
     const seccionNum = Number(seccion);
     const info = datos[seccionNum];
-    let color = '#9CA3AF'; // Gris por defecto
+    let color = '#475569'; // Gris oscuro por defecto
 
     if (info) {
-      if (info.riesgo === 'alto') color = '#EF4444'; // Rojo
+      if (info.riesgo === 'alto') color = '#F43F5E'; // Rojo
       else if (info.riesgo === 'medio') color = '#F59E0B'; // Amarillo
       else if (info.riesgo === 'bajo') color = '#10B981'; // Verde
     }
 
     return {
       fillColor: color,
-      weight: 1.5,
-      opacity: 1,
-      color: 'white',
+      weight: 1,
+      opacity: 0.8,
+      color: '#1E293B', // Borde oscuro
       dashArray: '3',
-      fillOpacity: 0.7,
+      fillOpacity: 0.6,
     };
   };
 
@@ -43,17 +42,17 @@ const MapaSecciones: React.FC<MapaSeccionesProps> = ({ datos }) => {
     layer.on({
       mouseover: (e: any) => {
         const l = e.target;
-        l.setStyle({ weight: 3, color: '#00D4FF', fillOpacity: 0.9 });
+        l.setStyle({ weight: 2, color: '#00D4FF', fillOpacity: 0.9 });
       },
       mouseout: (e: any) => {
         const l = e.target;
-        l.setStyle({ weight: 1.5, color: 'white', fillOpacity: 0.7 });
+        l.setStyle({ weight: 1, color: '#1E293B', fillOpacity: 0.6 });
       }
     });
 
     layer.bindPopup(`
       <div style="font-family: sans-serif; font-size: 14px; min-width: 200px;">
-        <strong style="color: #0D9488; font-size: 16px;">Sección ${seccionNum}</strong><br/>
+        <strong style="color: #00D4FF; font-size: 16px;">Sección ${seccionNum}</strong><br/>
         <hr style="margin: 6px 0; border: 0; border-top: 1px solid #eee;" />
         ${info ? `
           <div style="margin-bottom: 4px;"><b>Proyección:</b> ${info.pct.toFixed(1)}%</div>
@@ -62,7 +61,7 @@ const MapaSecciones: React.FC<MapaSeccionesProps> = ({ datos }) => {
           </span></div>
           <div style="display: flex; flex-direction: column; gap: 6px;">
             <a href="/app/secciones?seccion=${seccionNum}" 
-              style="text-align: center; padding: 6px; background: #00D4FF; color: white; border-radius: 4px; text-decoration: none; font-weight: bold; font-size: 11px;">
+              style="text-align: center; padding: 6px; background: #00D4FF; color: #0A1628; border-radius: 4px; text-decoration: none; font-weight: bold; font-size: 11px;">
               Ver Detalle Completo →
             </a>
           </div>
@@ -72,29 +71,42 @@ const MapaSecciones: React.FC<MapaSeccionesProps> = ({ datos }) => {
   };
 
   return (
-    <div style={{ position: 'relative', width: '100%', height: '100%', minHeight: '400px' }}>
-      <div style={{ height: '100%', width: '100%', minHeight: '400px', borderRadius: '12px', overflow: 'hidden', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' }}>
-        <MapContainer center={[20.05, -98.36]} zoom={12} style={{ height: '100%', width: '100%', minHeight: '400px' }}>
-          <TileLayer
-            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-          />
-          <GeoJSON 
-            key={geoJsonKey}
-            data={geoData as any}
-            style={(feature) => getEstiloSeccion(feature?.properties.seccion)}
-            onEachFeature={onEachSeccion}
-          />
-        </MapContainer>
-      </div>
+    <div style={{ position: 'relative', width: '100%', height: '100%', borderRadius: '12px', overflow: 'hidden' }}>
+      {/* 🚀 FILTRO PARA VOLVER EL MAPA OSCURO */}
+      <style>{`
+        .leaflet-layer {
+          filter: invert(100%) hue-rotate(180deg) brightness(95%) contrast(90%);
+        }
+        .leaflet-marker-icon, .leaflet-popup {
+          filter: invert(0%) hue-rotate(0deg) brightness(100%) contrast(100%) !important;
+        }
+      `}</style>
+
+      <MapContainer 
+        center={[20.05, -98.36]} 
+        zoom={11} 
+        style={{ height: '100%', width: '100%', background: '#0F172A' }}
+      >
+        <TileLayer
+          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+        />
+        <GeoJSON 
+          key={geoJsonKey}
+          data={geoData as any}
+          style={(feature) => getEstiloSeccion(feature?.properties.seccion)}
+          onEachFeature={onEachSeccion}
+        />
+      </MapContainer>
 
       <div style={{
-        position: 'absolute', bottom: '10px', right: '10px',
-        background: 'rgba(255, 255, 255, 0.95)', padding: '10px 14px',
-        borderRadius: '10px', boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-        fontSize: '11px', zIndex: 1000, minWidth: '140px'
+        position: 'absolute', bottom: '15px', right: '15px',
+        background: 'rgba(15, 23, 42, 0.9)', padding: '10px 14px',
+        borderRadius: '10px', boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
+        fontSize: '11px', zIndex: 1000, minWidth: '140px', color: 'white',
+        border: '1px solid #334155'
       }}>
-        <div style={{ fontWeight: 'bold', marginBottom: '6px', color: '#333', fontSize: '12px' }}>
+        <div style={{ fontWeight: 'bold', marginBottom: '8px', color: '#00D4FF', fontSize: '12px' }}>
           🗳️ Estado Electoral
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
@@ -103,11 +115,11 @@ const MapaSecciones: React.FC<MapaSeccionesProps> = ({ datos }) => {
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
           <span style={{ display: 'inline-block', width: '12px', height: '12px', background: '#F59E0B', borderRadius: '3px' }}></span>
-          <span><b>Disputa</b> (30-44%)</span>
+          <span><b>Disputa</b> (35-44%)</span>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
-          <span style={{ display: 'inline-block', width: '12px', height: '12px', background: '#EF4444', borderRadius: '3px' }}></span>
-          <span><b>Riesgo</b> (&lt;30%)</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <span style={{ display: 'inline-block', width: '12px', height: '12px', background: '#F43F5E', borderRadius: '3px' }}></span>
+          <span><b>Riesgo</b> (&lt;35%)</span>
         </div>
       </div>
     </div>
