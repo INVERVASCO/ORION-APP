@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
@@ -9,19 +8,42 @@ import {
 import { supabase } from '../lib/supabaseClient';
 import MapaSecciones from '../components/MapaSecciones';
 import { ORION_CONFIG, PARTIDOS_DB } from '../lib/config';
-// @ts-ignore
+// @ts-ignore (Ignoramos solo esta línea porque no hay tipos oficiales, ya lo declaramos en vite-env.d.ts)
 import html2pdf from 'html2pdf.js';
+
+interface SeccionRiesgo {
+  seccion: number;
+  pct: number;
+  votos: number;
+}
+
+interface Metricas {
+  totalPersonas: number;
+  totalCasillas: number;
+  casillasCubiertas: number;
+  totalBarrios: number;
+  barriosConActivismo: number;
+  totalFuncionarios: number;
+}
+
+interface Pronostico {
+  totalVotos: number;
+  seguras: number;
+  disputa: number;
+  riesgo: number;
+  seccionesEnRiesgo: SeccionRiesgo[];
+}
 
 export default function Dashboard() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
-  const [metricas, setMetricas] = useState({
+  const [metricas, setMetricas] = useState<Metricas>({
     totalPersonas: 0, totalCasillas: 0, casillasCubiertas: 0, totalBarrios: 0, barriosConActivismo: 0, totalFuncionarios: 0,
   });
-  const [pronostico, setPronostico] = useState({
+  const [pronostico, setPronostico] = useState<Pronostico>({
     totalVotos: 0, seguras: 0, disputa: 0, riesgo: 0, seccionesEnRiesgo: [],
   });
-  const [datosMapa, setDatosMapa] = useState({});
+  const [datosMapa, setDatosMapa] = useState<Record<number, { pct: number, riesgo: 'alto' | 'medio' | 'bajo' }>>({});
   const [partidoObjetivo, setPartidoObjetivo] = useState<string>('todos');
 
   const pdfRef = useRef<HTMLDivElement>(null);
@@ -57,8 +79,8 @@ export default function Dashboard() {
       if (seccionesData.length > 0 && resultadosData.length > 0) {
         let totalVotosProyectados = 0;
         let seguras = 0, disputa = 0, riesgo = 0;
-        const enRiesgo = [];
-        const datosTemporales = {};
+        const enRiesgo: SeccionRiesgo[] = [];
+        const datosTemporales: Record<number, { pct: number, riesgo: 'alto' | 'medio' | 'bajo' }> = {};
 
         const getVotos = (res: any[]) => {
           return res.reduce((sum, r) => {
@@ -88,7 +110,7 @@ export default function Dashboard() {
           const proyeccionPct = lista2024 > 0 ? (proyeccionVotos / lista2024) * 100 : 0;
           totalVotosProyectados += proyeccionVotos;
 
-          let nivelRiesgo = 'bajo';
+          let nivelRiesgo: 'alto' | 'medio' | 'bajo' = 'bajo';
           if (proyeccionPct >= ORION_CONFIG.electoral.umbralSegura) { seguras++; nivelRiesgo = 'bajo'; }
           else if (proyeccionPct < ORION_CONFIG.electoral.umbralRiesgo) { 
             riesgo++; nivelRiesgo = 'alto'; 
@@ -111,7 +133,7 @@ export default function Dashboard() {
       setLoading(false);
     };
     fetchMetricas();
-  }, [partidoObjetivo]); // 🚀 Se recalcula si el usuario cambia el partido
+  }, [partidoObjetivo]);
 
   const descargarResumenPDF = () => {
     if (!pdfRef.current) return;
@@ -119,7 +141,7 @@ export default function Dashboard() {
     html2pdf().set(opt).from(pdfRef.current).save();
   };
 
-  if (loading && !datosMapa) return <div style={{ display: 'flex', justifyContent: 'center', padding: '50px', gap: '10px', color: '#00D4FF' }}><Loader2 size={32} className="animate-spin"/> Cargando...</div>;
+  if (loading && Object.keys(datosMapa).length === 0) return <div style={{ display: 'flex', justifyContent: 'center', padding: '50px', gap: '10px', color: '#00D4FF' }}><Loader2 size={32} className="animate-spin"/> Cargando...</div>;
 
   const pctCasillas = metricas.totalCasillas > 0 ? Math.round((metricas.casillasCubiertas / metricas.totalCasillas) * 100) : 0;
   const pctActivismo = metricas.totalBarrios > 0 ? Math.round((metricas.barriosConActivismo / metricas.totalBarrios) * 100) : 0;
