@@ -59,7 +59,6 @@ export default function Pronostico() {
   const [filtroSemaforo, setFiltroSemaforo] = useState<'todas' | 'segura' | 'disputa' | 'riesgo'>('todas');
   const [generandoPDF, setGenerandoPDF] = useState(false);
   
-  // 🚀 SELECTOR DE PARTIDO
   const [partidoObjetivo, setPartidoObjetivo] = useState('todos');
 
   const pdfRef = useRef<HTMLDivElement>(null);
@@ -97,7 +96,6 @@ export default function Pronostico() {
         const res2018 = secResultados.filter(r => r.anio === 2018);
         const res2024 = secResultados.filter(r => r.anio === 2024);
 
-        // 🚀 CÁLCULO DINÁMICO
         const getVotos = (res: any[]) => {
           return res.reduce((sum, r) => {
             if (partidoObjetivo === 'todos') return sum + r.total_votos;
@@ -138,7 +136,6 @@ export default function Pronostico() {
           proyeccionPct = (proyeccionVotos / totalVotos2024) * 100;
         }
 
-        // 🚦 SEMÁFORO NEUTRAL (Ajusta los rangos según la realidad del cliente)
         let semaforo: 'segura' | 'disputa' | 'riesgo' = 'disputa';
         if (proyeccionPct >= 45) semaforo = 'segura';
         else if (proyeccionPct < 25) semaforo = 'riesgo';
@@ -187,7 +184,7 @@ export default function Pronostico() {
     };
 
     cargarDatos();
-  }, [partidoObjetivo]); // 🚀 Se recalcula cuando cambia el partido
+  }, [partidoObjetivo]);
 
   const descargarPDFSeccion = () => {
     if (!pdfRef.current || !seccionSeleccionada) return;
@@ -235,7 +232,6 @@ export default function Pronostico() {
           </p>
         </div>
         
-        {/* 🚀 SELECTOR DE PARTIDO */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'white', padding: '6px 12px', borderRadius: '8px', border: '1px solid #E2E8F0' }}>
           <User size={18} color="#64748B" />
           <select 
@@ -450,7 +446,8 @@ export default function Pronostico() {
             <>
               <div style={{ borderBottom: '4px solid #0A1628', paddingBottom: '15px', marginBottom: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div>
-                  <img src="https://i.ibb.co/mr0jxmKQ/orion-stars-png.png" alt="ORION" style={{ height: '60px' }} />
+                  {/* 🚀 LOGO LOCAL */}
+                  <img src="/dossier/orion-logo.png" alt="ORION" style={{ height: '60px' }} />
                   <p style={{ margin: '4px 0 0 0', fontSize: '12px', color: '#64748B', letterSpacing: '2px' }}>
                     INTELIGENCIA ELECTORAL
                   </p>
