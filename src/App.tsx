@@ -1,5 +1,6 @@
 import { useEffect, useState, lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import * as Sentry from '@sentry/react';
 import { supabase } from './lib/supabaseClient';
 import type { Session } from '@supabase/supabase-js';
 
@@ -7,16 +8,15 @@ import { SyncProvider } from './lib/syncManager';
 import OrionAnimatedLogo from './components/OrionAnimatedLogo';
 import Layout from './components/Layout';
 import ProtectedRoute from './components/ProtectedRoute';
-import ErrorBoundary from './components/ErrorBoundary';
 
-// Páginas públicas (eager — ligeras)
+// Páginas públicas (eager)
 import LandingPage from './pages/LandingPage';
 import DossierPage from './pages/DossierPage';
 import Login from './pages/Login';
 import RecuperarPassword from './pages/RecuperarPassword';
 import CambiarPassword from './pages/CambiarPassword';
 
-// Páginas privadas (lazy — bajo demanda)
+// Páginas privadas (lazy)
 const Dashboard = lazy(() => import('./pages/Dashboard'));
 const Analisis = lazy(() => import('./pages/Analisis'));
 const Pronostico = lazy(() => import('./pages/Pronostico'));
@@ -136,8 +136,17 @@ function App() {
     );
   }
 
+  // 🚀 AQUÍ ESTÁ LA MAGIA DE SENTRY ENVOLVIENDO TODO
   return (
-    <ErrorBoundary>
+    <Sentry.ErrorBoundary fallback={
+      <div style={{ padding: '50px', textAlign: 'center', background: '#0A1628', minHeight: '100vh', color: 'white' }}>
+        <h1 style={{ color: '#F43F5E', fontSize: '24px' }}>Algo salió mal</h1>
+        <p style={{ color: '#94A3B8', marginTop: '10px' }}>El equipo técnico ha sido notificado automáticamente por Sentry.</p>
+        <button onClick={() => window.location.reload()} style={{ marginTop: '20px', padding: '10px 20px', background: '#00D4FF', color: '#0A1628', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer' }}>
+          Recargar Página
+        </button>
+      </div>
+    }>
       <SyncProvider>
         <BrowserRouter>
           <Suspense fallback={<PageLoader />}>
@@ -179,7 +188,7 @@ function App() {
           </Suspense>
         </BrowserRouter>
       </SyncProvider>
-    </ErrorBoundary>
+    </Sentry.ErrorBoundary>
   );
 }
 
