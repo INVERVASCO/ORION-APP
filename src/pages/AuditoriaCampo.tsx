@@ -10,7 +10,6 @@ import { calcularDistanciaMetros, obtenerDireccionReal } from '../lib/geolocaliz
 // @ts-ignore
 import html2pdf from 'html2pdf.js';
 
-// 🎨 Función para asignar un color único a cada brigadista
 const stringToColor = (str: string) => {
   let hash = 0;
   for (let i = 0; i < str.length; i++) hash = str.charCodeAt(i) + ((hash << 5) - hash);
@@ -18,7 +17,6 @@ const stringToColor = (str: string) => {
   return '#' + '00000'.substring(0, 6 - c.length) + c;
 };
 
-// 🎨 Puntos pequeños estilo Uber
 const crearIconoPunto = (color: string) => {
   return L.divIcon({
     className: 'custom-div-icon',
@@ -32,7 +30,6 @@ const crearIconoPunto = (color: string) => {
 const iconoAlerta = crearIconoPunto('#F43F5E');
 const iconoAzul = crearIconoPunto('#00D4FF');
 
-// 🧭 Botón de Mi Ubicación
 function BotonMiUbicacion() {
   const map = useMap();
   const [ubicando, setUbicando] = useState(false);
@@ -50,22 +47,13 @@ function BotonMiUbicacion() {
 
   return (
     <div style={{ position: 'absolute', bottom: '20px', right: '20px', zIndex: 1000 }}>
-      <button
-        onClick={centrarEnMi}
-        style={{
-          background: 'white', border: 'none', borderRadius: '50%', width: '45px', height: '45px',
-          display: 'flex', justifyContent: 'center', alignItems: 'center', cursor: 'pointer',
-          boxShadow: '0 4px 12px rgba(0,0,0,0.15)', transition: 'all 0.2s'
-        }}
-        title="Mi ubicación"
-      >
+      <button onClick={centrarEnMi} style={{ background: 'white', border: 'none', borderRadius: '50%', width: '45px', height: '45px', display: 'flex', justifyContent: 'center', alignItems: 'center', cursor: 'pointer', boxShadow: '0 4px 12px rgba(0,0,0,0.15)', transition: 'all 0.2s' }} title="Mi ubicación">
         <Crosshair size={22} color={ubicando ? '#00D4FF' : '#333'} className={ubicando ? 'animate-spin' : ''} />
       </button>
     </div>
   );
 }
 
-// ✈️ Control de Vuelo
 function ControlVuelo({ pines }: { pines: any[] }) {
   const map = useMap();
   useEffect(() => {
@@ -167,7 +155,6 @@ export default function AuditoriaCampo() {
     const ultimaEncuesta = Math.max(...encuestasBrigadista.map(e => e.timestamp));
     const ahora = Date.now();
     const estaOnline = (ahora - ultimaEncuesta) < (3 * 60 * 60 * 1000);
-    
     return { nombre, estaOnline, ultimaEncuesta };
   }).sort((a, b) => b.ultimaEncuesta - a.ultimaEncuesta);
 
@@ -208,18 +195,11 @@ export default function AuditoriaCampo() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 40px)', background: '#0F172A', borderRadius: '12px', overflow: 'hidden', color: 'white' }}>
       
-      {/* 🛠️ FILTRO CSS PARA MODO OSCURO REAL (SIN API KEY) */}
       <style>{`
-        .leaflet-layer {
-          filter: invert(100%) hue-rotate(180deg) brightness(95%) contrast(90%);
-        }
-        /* Evitar que los pines y popups se inviertan */
-        .leaflet-marker-icon, .leaflet-popup {
-          filter: invert(0%) hue-rotate(0deg) brightness(100%) contrast(100%) !important;
-        }
+        .leaflet-layer { filter: invert(100%) hue-rotate(180deg) brightness(95%) contrast(90%); }
+        .leaflet-marker-icon, .leaflet-popup { filter: invert(0%) hue-rotate(0deg) brightness(100%) contrast(100%) !important; }
       `}</style>
 
-      {/* 🔝 HEADER OSCURO */}
       <div style={{ padding: '15px 20px', background: '#1E293B', borderBottom: '1px solid #334155', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
           <Activity size={28} color="#00D4FF" />
@@ -230,10 +210,7 @@ export default function AuditoriaCampo() {
         </div>
 
         <div style={{ display: 'flex', gap: '15px', alignItems: 'center' }}>
-          <select 
-            value={filtroBrigadista} onChange={(e) => setFiltroBrigadista(e.target.value)}
-            style={{ padding: '8px 12px', borderRadius: '6px', border: '1px solid #475569', background: '#0F172A', color: 'white', fontSize: '13px', outline: 'none' }}
-          >
+          <select value={filtroBrigadista} onChange={(e) => setFiltroBrigadista(e.target.value)} style={{ padding: '8px 12px', borderRadius: '6px', border: '1px solid #475569', background: '#0F172A', color: 'white', fontSize: '13px', outline: 'none' }}>
             <option value="todos">Todos los brigadistas</option>
             {listaBrigadistas.map(b => <option key={b} value={b}>{b}</option>)}
           </select>
@@ -246,16 +223,10 @@ export default function AuditoriaCampo() {
         </div>
       </div>
 
-      {/* 🗺️ MAPA Y REPORTES */}
       <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
-        
-        {/* MAPA GIGANTE */}
         <div style={{ flex: 3, position: 'relative' }}>
           <MapContainer center={[20.05, -98.36]} zoom={12} style={{ height: '100%', width: '100%', background: '#0F172A' }}>
-            
-            {/* 🚀 MAPA BASE GRATUITO DE OSM (El CSS lo vuelve oscuro) */}
             <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-            
             <ControlVuelo pines={encuestasFiltradas} />
             <BotonMiUbicacion />
 
@@ -291,7 +262,6 @@ export default function AuditoriaCampo() {
           </MapContainer>
         </div>
 
-        {/* PANEL LATERAL DE REPORTES */}
         <div style={{ flex: 1, minWidth: '320px', background: '#1E293B', borderLeft: '1px solid #334155', display: 'flex', flexDirection: 'column' }}>
           <div style={{ padding: '15px', borderBottom: '1px solid #334155', background: '#0F172A' }}>
             <h3 style={{ margin: 0, fontSize: '15px', color: '#00D4FF', display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -304,7 +274,6 @@ export default function AuditoriaCampo() {
             ) : Object.values(reportesDiarios).map((rep: any, idx) => {
               const alertas = rep.registros.filter((r:any) => r.es_sospechosa).length;
               const colorBrigadista = stringToColor(rep.encuestador);
-              
               return (
                 <div key={idx} style={{ padding: '12px', background: '#0F172A', borderRadius: '8px', marginBottom: '10px', border: '1px solid #334155' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 'bold', color: 'white', fontSize: '14px' }}>
@@ -330,7 +299,6 @@ export default function AuditoriaCampo() {
         </div>
       </div>
 
-      {/* 🚦 SEMÁFORO DE BRIGADISTAS CON AVATARES */}
       <div style={{ height: '100px', background: '#1E293B', borderTop: '2px solid #00D4FF', display: 'flex', alignItems: 'center', padding: '0 20px', overflowX: 'auto', gap: '15px' }}>
         <div style={{ display: 'flex', flexDirection: 'column', marginRight: '20px', borderRight: '1px solid #334155', paddingRight: '20px' }}>
           <span style={{ fontSize: '12px', color: '#94A3B8', fontWeight: 'bold' }}>ESTATUS DE RED</span>
@@ -342,15 +310,10 @@ export default function AuditoriaCampo() {
         {estadoBrigadistas.map((brigadista, idx) => {
           const color = stringToColor(brigadista.nombre);
           const avatarUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(brigadista.nombre)}&background=${color.replace('#', '')}&color=fff&bold=true`;
-
           return (
             <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '12px', background: '#0F172A', padding: '8px 15px', borderRadius: '12px', border: '1px solid #334155', boxShadow: '0 4px 6px rgba(0,0,0,0.2)' }}>
               <div style={{ position: 'relative' }}>
-                <img 
-                  src={avatarUrl} 
-                  alt={brigadista.nombre} 
-                  style={{ width: '40px', height: '40px', borderRadius: '50%', border: `2px solid ${brigadista.estaOnline ? '#10B981' : '#475569'}` }} 
-                />
+                <img src={avatarUrl} alt={brigadista.nombre} style={{ width: '40px', height: '40px', borderRadius: '50%', border: `2px solid ${brigadista.estaOnline ? '#10B981' : '#475569'}` }} />
                 <div style={{ position: 'absolute', bottom: 0, right: 0, width: '12px', height: '12px', borderRadius: '50%', background: brigadista.estaOnline ? '#10B981' : '#64748B', border: '2px solid #0F172A' }}></div>
               </div>
               <div>
@@ -364,7 +327,6 @@ export default function AuditoriaCampo() {
         })}
       </div>
 
-      {/* MODAL DEL PDF */}
       {modalReporte && reporteActual && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 2000, padding: '20px' }}>
           <div style={{ background: 'white', borderRadius: '14px', padding: '25px', width: '100%', maxWidth: '800px', maxHeight: '90vh', overflowY: 'auto', color: '#333' }}>
