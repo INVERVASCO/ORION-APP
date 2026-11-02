@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { useEffect, useState } from 'react';
 import { 
   Search, User, Phone, Briefcase, MapPin, Download, Edit3, Trash2, 
@@ -69,8 +68,12 @@ export default function Personas() {
       const { data: barriosData } = await supabase.from('barrios_colonias').select('id, nombre').order('nombre');
 
       if (personasData) {
-        setPersonas(personasData as any);
-        setPersonasFiltradas(personasData as any);
+        const procesadas = personasData.map((p: any) => ({
+          ...p,
+          barrios_colonias: Array.isArray(p.barrios_colonias) ? p.barrios_colonias[0] : p.barrios_colonias
+        }));
+        setPersonas(procesadas as any);
+        setPersonasFiltradas(procesadas as any);
       }
       if (barriosData) setBarrios(barriosData);
       setLoading(false);
@@ -136,7 +139,7 @@ export default function Personas() {
     };
 
     const barrioEncontrado = barrios.find(b => b.id === personaNueva.barrio_colonia_id);
-    const nuevaPersonaUI = {
+    const nuevaPersonaUI: Persona = {
       ...payloadLimpio,
       id: `temp-${Date.now()}`,
       barrios_colonias: barrioEncontrado ? { nombre: barrioEncontrado.nombre } : null
