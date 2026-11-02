@@ -1,10 +1,20 @@
 /// <reference types="vite/client" />
 
-// Declaramos librerías sin tipos oficiales para evitar usar @ts-ignore
+interface ImportMetaEnv {
+  readonly VITE_SUPABASE_URL: string;
+  readonly VITE_SUPABASE_ANON_KEY: string;
+  readonly VITE_SENTRY_DSN: string;
+  readonly VITE_ORG_NOMBRE: string;
+  // ... otras variables
+}
+
+interface ImportMeta {
+  readonly env: ImportMetaEnv;
+}
+
+// Declaramos librerías sin tipos oficiales
 declare module 'html2pdf.js';
 declare module 'react-leaflet-cluster';
-
-// Declaramos el JSON de las secciones
 declare module '*.json' {
   const value: any;
   export default value;
