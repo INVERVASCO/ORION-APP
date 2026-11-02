@@ -3,22 +3,13 @@ import { useEffect, useState, useRef } from 'react';
 import html2pdf from 'html2pdf.js';
 import { 
   Loader2, TrendingUp, TrendingDown, Minus, Target, 
-  AlertTriangle, CheckCircle2, BarChart3, Users, UserCheck, FileText, Filter, Download, User
+  AlertTriangle, CheckCircle2, BarChart3, Users, UserCheck, Download, User
 } from 'lucide-react';
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ReferenceLine
 } from 'recharts';
 import { supabase } from '../lib/supabaseClient';
 import { ORION_CONFIG, PARTIDOS_DB } from '../lib/config';
-
-interface Resultado {
-  anio: number;
-  tipo_eleccion: string;
-  seccion: number;
-  total_votos: number;
-  lista_nominal: number;
-  [key: string]: any; // Permite acceder a r.morena, r.pan, etc.
-}
 
 interface PronosticoData {
   seccion: number;
@@ -44,8 +35,8 @@ export default function Pronostico() {
   const [filtroSemaforo, setFiltroSemaforo] = useState<'todas' | 'segura' | 'disputa' | 'riesgo'>('todas');
   const [generandoPDF, setGenerandoPDF] = useState(false);
   
-  // 🚀 INICIA CON EL PARTIDO CONFIGURADO EN VERCEL
-  const [partidoObjetivo, setPartidoObjetivo] = useState<string>(ORION_CONFIG.electoral.partidoCliente.split(',')[0] || 'todos');
+  // 🚀 EL USUARIO ELIGE DESDE LA INTERFAZ
+  const [partidoObjetivo, setPartidoObjetivo] = useState<string>('todos');
 
   const pdfRef = useRef<HTMLDivElement>(null);
 
@@ -73,7 +64,7 @@ export default function Pronostico() {
         const getVotos = (res: any[]) => {
           return res.reduce((sum, r) => {
             if (partidoObjetivo === 'todos') return sum + r.total_votos;
-            if (partidoObjetivo === 'oposicion') return sum + (r.total_votos - (Number(r[ORION_CONFIG.electoral.partidoCliente]) || 0));
+            if (partidoObjetivo === 'oposicion') return sum + (r.total_votos - (Number(r.morena) || 0));
             return sum + (Number(r[partidoObjetivo]) || 0);
           }, 0);
         };
@@ -110,7 +101,6 @@ export default function Pronostico() {
           proyeccionPct = (proyeccionVotos / totalVotos2024) * 100;
         }
 
-        // Semáforo usando umbrales de config.ts
         let semaforo: 'segura' | 'disputa' | 'riesgo' = 'disputa';
         if (proyeccionPct >= ORION_CONFIG.electoral.umbralSegura) semaforo = 'segura';
         else if (proyeccionPct < ORION_CONFIG.electoral.umbralRiesgo) semaforo = 'riesgo';
@@ -183,6 +173,7 @@ export default function Pronostico() {
           <User size={18} color="#64748B" />
           <select value={partidoObjetivo} onChange={(e) => setPartidoObjetivo(e.target.value)} style={{ padding: '6px', border: 'none', outline: 'none', fontSize: '14px', fontWeight: 'bold', color: '#0A1628', background: 'transparent' }}>
             <option value="todos">Votos Totales (Participación)</option>
+            <option value="oposicion">Voto Opositor (Total - MORENA)</option>
             {PARTIDOS_DB.map(p => <option key={p.key} value={p.key}>{p.nombre}</option>)}
           </select>
         </div>
