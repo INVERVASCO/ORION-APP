@@ -2,11 +2,12 @@ import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { 
   ArrowLeft, Users, Vote, Plus, MapPin, User, X, Phone, Trash2, Loader2,
-  AlertTriangle, CheckCircle2 
+  AlertTriangle, CheckCircle2, Shield 
 } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 import ActivismoSection from '../components/ActivismoSection';
 import Toast from '../components/Toast';
+import AvisoPrivacidad from '../components/AvisoPrivacidad';
 import { obtenerOCrearPersona } from '../lib/personaHelper';
 
 interface Barrio { id: string; nombre: string; tipo: string; }
@@ -39,13 +40,16 @@ export default function BarrioDetalle() {
   const [tabActiva, setTabActiva] = useState<'activismo' | 'electoral'>('activismo');
   const [loading, setLoading] = useState(true);
 
-  // Modal para agregar casilla
   const [modalCasilla, setModalCasilla] = useState(false);
   const [nuevaCasilla, setNuevaCasilla] = useState({ seccion_id: '', tipo_casilla: 'Básica', numero_casilla: '', ubicacion: '', direccion: '' });
 
-  // Modal para agregar funcionario
   const [modalFuncionario, setModalFuncionario] = useState(false);
   const [casillaSeleccionada, setCasillaSeleccionada] = useState<Casilla | null>(null);
+  
+  // Estados para el Aviso de Privacidad
+  const [avisoVisible, setAvisoVisible] = useState(false);
+  const [aceptoAviso, setAceptoAviso] = useState(false);
+
   const [nuevoFuncionario, setNuevoFuncionario] = useState({
     nombre_completo: '',
     telefono: '',
@@ -54,11 +58,9 @@ export default function BarrioDetalle() {
   });
   const [guardando, setGuardando] = useState(false);
 
-  // Toast de éxito
   const [toastVisible, setToastVisible] = useState(false);
   const [toastMensaje, setToastMensaje] = useState('');
 
-  // Modal de confirmación flotante
   const [confirmModal, setConfirmModal] = useState<ConfirmModalData>({
     visible: false, titulo: '', mensaje: '', tipo: 'warning', onConfirm: () => {},
   });
@@ -68,7 +70,6 @@ export default function BarrioDetalle() {
   };
   const cerrarConfirm = () => setConfirmModal({ ...confirmModal, visible: false });
 
-  // === Carga inicial ===
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
@@ -101,7 +102,11 @@ export default function BarrioDetalle() {
     if (barrioId) fetchData();
   }, [barrioId]);
 
-  // === Guardar Casilla ===
+  // Reset checkbox al abrir/cerrar modal
+  useEffect(() => {
+    if (modalFuncionario) setAceptoAviso(false);
+  }, [modalFuncionario]);
+
   const handleGuardarCasilla = async (e: React.FormEvent) => {
     e.preventDefault();
     const { data, error } = await supabase.from('casillas').insert([nuevaCasilla]).select();
@@ -118,15 +123,22 @@ export default function BarrioDetalle() {
     }
   };
 
-  // === Guardar Funcionario ===
   const handleGuardarFuncionario = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!casillaSeleccionada) return;
+
+    if (!aceptoAviso) {
+      setToastMensaje('Debes confirmar el Aviso de Privacidad (LFPDPPP).');
+      setToastVisible(true);
+      return;
+    }
+
     setGuardando(true);
 
     const resultado = await obtenerOCrearPersona({
       nombre_completo: nuevoFuncionario.nombre_completo,
       telefono: nuevoFuncionario.telefono || null,
+      consentimiento_aceptado: true, // <--- FIX CRÍTICO
     });
 
     if (!resultado) {
@@ -169,7 +181,6 @@ export default function BarrioDetalle() {
     setGuardando(false);
   };
 
-  // === Eliminar Funcionario con Modal ===
   const handleEliminarFuncionario = (id: string, nombre: string) => {
     mostrarConfirm(
       '¿Eliminar este funcionario?',
@@ -200,7 +211,6 @@ export default function BarrioDetalle() {
         {barrio?.nombre} <span style={{ fontSize: '14px', color: '#666', fontWeight: 'normal', textTransform: 'capitalize' }}>({barrio?.tipo})</span>
       </h1>
 
-      {/* Pestañas */}
       <div style={{ display: 'flex', gap: '5px', marginBottom: '20px', borderBottom: '2px solid #E0E0E0' }}>
         <button onClick={() => setTabActiva('activismo')} style={{
           padding: '12px 16px', background: 'none', border: 'none',
@@ -220,12 +230,10 @@ export default function BarrioDetalle() {
         </button>
       </div>
 
-      {/* ACTIVISMO */}
       {tabActiva === 'activismo' && (
         <ActivismoSection barrioId={barrioId} />
       )}
 
-      {/* ELECTORAL */}
       {tabActiva === 'electoral' && (
         <div>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '10px' }}>
@@ -400,13 +408,29 @@ export default function BarrioDetalle() {
                   <option>Suplente</option>
                 </select>
               </div>
-              <div style={{ fontSize: '12px', color: '#666', padding: '10px', background: '#FFF8E1', borderRadius: '6px', borderLeft: '3px solid #F9A825' }}>
-                Al guardar, se registra el consentimiento del titular para el tratamiento de sus datos personales (LFPDPPP).
+
+              {/* CHECKBOX DE PRIVACIDAD OBLIGATORIO */}
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', padding: '12px', background: '#FEF3C7', borderRadius: '6px', borderLeft: '3px solid #F59E0B' }}>
+                <input 
+                  type="checkbox" 
+                  id="acepto-aviso-funcionario" 
+                  checked={aceptoAviso} 
+                  onChange={(e) => setAceptoAviso(e.target.checked)} 
+                  style={{ width: '18px', height: '18px', cursor: 'pointer', marginTop: '2px', flexShrink: 0 }} 
+                />
+                <label htmlFor="acepto-aviso-funcionario" style={{ fontSize: '12px', color: '#475569', cursor: 'pointer', lineHeight: '1.5' }}>
+                  Confirmo que el titular ha leído y aceptado el{' '}
+                  <button type="button" onClick={() => setAvisoVisible(true)} style={{ background: 'none', border: 'none', color: '#00D4FF', cursor: 'pointer', textDecoration: 'underline', fontSize: '12px', fontWeight: 'bold', padding: 0 }}>
+                    Aviso de Privacidad
+                  </button>
+                  {' '}conforme a la LFPDPPP.
+                </label>
               </div>
+
               <div style={{ display: 'flex', gap: '10px', marginTop: '5px' }}>
                 <button type="button" onClick={() => setModalFuncionario(false)} style={btnSecundario}>Cancelar</button>
-                <button type="submit" className="btn-primary" style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }} disabled={guardando}>
-                  {guardando ? <><Loader2 size={16} /> Guardando...</> : 'Guardar'}
+                <button type="submit" className="btn-primary" style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }} disabled={guardando || !aceptoAviso}>
+                  {guardando ? <><Loader2 size={16} /> Guardando...</> : <><Shield size={16} /> Guardar</>}
                 </button>
               </div>
             </form>
@@ -438,13 +462,18 @@ export default function BarrioDetalle() {
         </div>
       )}
 
-      {/* Toast de éxito */}
+      <AvisoPrivacidad 
+        visible={avisoVisible} 
+        onClose={() => setAvisoVisible(false)} 
+        onAceptar={() => setAceptoAviso(true)}
+        mostrarBotonAceptar={true}
+      />
+
       <Toast mensaje={toastMensaje} visible={toastVisible} onClose={() => setToastVisible(false)} />
     </div>
   );
 }
 
-// Estilos reutilizables
 const labelStyle: React.CSSProperties = { display: 'block', marginBottom: '5px', fontWeight: 'bold', fontSize: '14px' };
 const inputStyle: React.CSSProperties = { width: '100%', padding: '11px', borderRadius: '6px', border: '1px solid #E0E0E0', fontSize: '15px', boxSizing: 'border-box' };
 const btnSecundario: React.CSSProperties = { flex: 1, padding: '12px', background: '#EEE', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' };
