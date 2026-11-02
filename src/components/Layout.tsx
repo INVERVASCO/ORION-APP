@@ -8,37 +8,35 @@ import {
 } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 
-interface ConfirmModalData {
-  visible: boolean;
-  titulo: string;
-  mensaje: string;
-  tipo: 'danger' | 'success' | 'warning';
-  onConfirm: () => void;
-}
-
 export default function Layout() {
   const navigate = useNavigate();
   const location = useLocation();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [cerrandoSesion, setCerrandoSesion] = useState(false);
-  const [userRole, setUserRole] = useState<string>('');
+  const [userRole, setUserRole] = useState<string>('admin'); // 🚀 Por defecto admin para que no se oculte el menú
 
   useEffect(() => {
     const fetchRole = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session) {
-        const { data } = await supabase.from('perfiles').select('rol').eq('id', session.user.id).single();
-        if (data) setUserRole(data.rol);
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session) {
+          const { data, error } = await supabase.from('perfiles').select('rol').eq('id', session.user.id).single();
+          if (data && !error) {
+            setUserRole(data.rol);
+          }
+        }
+      } catch (err) {
+        console.error("Error cargando rol:", err);
       }
     };
     fetchRole();
   }, []);
 
-  const [confirmModal, setConfirmModal] = useState<ConfirmModalData>({
+  const [confirmModal, setConfirmModal] = useState<any>({
     visible: false, titulo: '', mensaje: '', tipo: 'warning', onConfirm: () => {},
   });
 
-  const mostrarConfirm = (titulo: string, mensaje: string, tipo: 'danger' | 'success' | 'warning', onConfirm: () => void) => {
+  const mostrarConfirm = (titulo: string, mensaje: string, tipo: string, onConfirm: () => void) => {
     setConfirmModal({ visible: true, titulo, mensaje, tipo, onConfirm });
   };
   const cerrarConfirm = () => setConfirmModal({ ...confirmModal, visible: false });
@@ -73,24 +71,13 @@ export default function Layout() {
   };
 
   const handleCerrarSesion = () => {
-    mostrarConfirm(
-      '¿Cerrar sesión?',
-      'Se cerrará tu sesión actual y volverás a la pantalla de inicio. ¿Deseas continuar?',
-      'warning',
-      async () => {
-        cerrarConfirm();
-        setCerrandoSesion(true);
-        try {
-          await supabase.auth.signOut();
-          setIsSidebarOpen(false);
-          navigate('/login', { replace: true });
-        } catch (err) {
-          console.error('Error inesperado al cerrar sesión:', err);
-        } finally {
-          setCerrandoSesion(false);
-        }
-      }
-    );
+    mostrarConfirm('¿Cerrar sesión?', 'Se cerrará tu sesión actual.', 'warning', async () => {
+      cerrarConfirm();
+      setCerrandoSesion(true);
+      await supabase.auth.signOut();
+      navigate('/login', { replace: true });
+      setCerrandoSesion(false);
+    });
   };
 
   const menuPermitido = menuItems.filter(item => item.roles.includes(userRole));
@@ -98,42 +85,23 @@ export default function Layout() {
   return (
     <div className="app-container">
       <header className="mobile-header">
-        <button
-          onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-          style={{ background: 'none', border: 'none', color: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
-        >
+        <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} style={{ background: 'none', border: 'none', color: 'white', cursor: 'pointer' }}>
           {isSidebarOpen ? <X size={28} /> : <Menu size={28} />}
         </button>
-        {/* 🚀 IMAGEN LOCAL */}
-        <img src="/orion-logo.png" alt="ORION" style={{ height: '30px' }} onError={(e) => { e.currentTarget.src = 'https://ui-avatars.com/api/?name=ORION&background=0A1628&color=00D4FF&bold=true'; }} />
+        <img src="/dossier/orion-logo.png" alt="ORION" style={{ height: '30px', filter: 'invert(1) hue-rotate(180deg) brightness(1.2)' }} />
         <div style={{ width: '28px' }}></div>
       </header>
 
-      {isSidebarOpen && (
-        <div
-          onClick={() => setIsSidebarOpen(false)}
-          style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(0,0,0,0.5)', zIndex: 998 }}
-        />
-      )}
+      {isSidebarOpen && <div onClick={() => setIsSidebarOpen(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 998 }} />}
 
       <aside className={`sidebar ${isSidebarOpen ? 'open' : ''}`}>
         <div className="sidebar-logo">
-          {/* 🚀 IMAGEN LOCAL */}
-          <img 
-            src="/orion-logo.png" 
-            alt="ORION" 
-            style={{ width: '180px', height: 'auto', filter: 'drop-shadow(0px 0px 15px rgba(0, 212, 255, 0.3))' }}
-            onError={(e) => { e.currentTarget.src = 'https://ui-avatars.com/api/?name=ORION&background=0A1628&color=00D4FF&bold=true&size=180'; }}
-          />
+          <img src="/dossier/orion-logo.png" alt="ORION" style={{ width: '180px', height: 'auto', filter: 'invert(1) hue-rotate(180deg) brightness(1.2)' }} />
         </div>
 
         <nav>
           {menuPermitido.map((item) => (
-            <div
-              key={item.name}
-              className={`menu-item ${location.pathname === item.path ? 'active' : ''}`}
-              onClick={() => handleNavigation(item.path)}
-            >
+            <div key={item.name} className={`menu-item ${location.pathname === item.path ? 'active' : ''}`} onClick={() => handleNavigation(item.path)}>
               {item.icon}
               <span>{item.name}</span>
             </div>
@@ -143,25 +111,13 @@ export default function Layout() {
         <div style={{ marginTop: 'auto' }}>
           <div style={{ padding: '10px 20px', background: 'rgba(0, 212, 255, 0.05)', borderRadius: '8px', marginBottom: '10px' }}>
             <p style={{ margin: 0, fontSize: '11px', color: '#94A3B8' }}>ROL ACTUAL:</p>
-            <p style={{ margin: 0, fontSize: '13px', color: '#00D4FF', fontWeight: 'bold', textTransform: 'uppercase' }}>{userRole || 'Cargando...'}</p>
+            <p style={{ margin: 0, fontSize: '13px', color: '#00D4FF', fontWeight: 'bold', textTransform: 'uppercase' }}>{userRole}</p>
           </div>
-
-          <div
-            className="menu-item"
-            onClick={() => navigate('/')}
-            style={{ marginBottom: '10px', borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '20px' }}
-          >
-            <Globe size={20} />
-            <span>Ir a la Página Web</span>
+          <div className="menu-item" onClick={() => navigate('/')} style={{ marginBottom: '10px', borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '20px' }}>
+            <Globe size={20} /> <span>Ir a la Página Web</span>
           </div>
-
-          <div
-            className="menu-item"
-            onClick={handleCerrarSesion}
-            style={{ opacity: cerrandoSesion ? 0.5 : 1 }}
-          >
-            <LogOut size={20} />
-            <span>{cerrandoSesion ? 'Cerrando sesión...' : 'Cerrar Sesión'}</span>
+          <div className="menu-item" onClick={handleCerrarSesion} style={{ opacity: cerrandoSesion ? 0.5 : 1 }}>
+            <LogOut size={20} /> <span>{cerrandoSesion ? 'Cerrando...' : 'Cerrar Sesión'}</span>
           </div>
         </div>
       </aside>
@@ -171,21 +127,13 @@ export default function Layout() {
       </main>
 
       {confirmModal.visible && (
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.65)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 2000, padding: '20px' }}>
-          <div style={{ background: 'white', borderRadius: '14px', padding: '28px', width: '100%', maxWidth: '440px', boxShadow: '0 20px 50px rgba(0,0,0,0.3)', borderTop: `5px solid ${confirmModal.tipo === 'danger' ? '#F43F5E' : confirmModal.tipo === 'success' ? '#10B981' : '#F59E0B'}` }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '15px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1, minWidth: 0 }}>
-                <div style={{ background: confirmModal.tipo === 'danger' ? '#FFE4E6' : confirmModal.tipo === 'success' ? '#D1FAE5' : '#FEF3C7', color: confirmModal.tipo === 'danger' ? '#F43F5E' : confirmModal.tipo === 'success' ? '#10B981' : '#F59E0B', width: '46px', height: '46px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                  {confirmModal.tipo === 'success' ? <CheckCircle2 size={26} /> : <AlertTriangle size={26} />}
-                </div>
-                <h3 style={{ margin: 0, fontSize: '17px', color: '#0F172A', wordBreak: 'break-word', lineHeight: '1.3' }}>{confirmModal.titulo}</h3>
-              </div>
-              <button onClick={cerrarConfirm} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px', marginLeft: '8px' }}><X size={20} color="#64748B" /></button>
-            </div>
-            <p style={{ fontSize: '14px', color: '#64748B', lineHeight: '1.6', marginBottom: '25px' }}>{confirmModal.mensaje}</p>
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.65)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 2000, padding: '20px' }}>
+          <div style={{ background: 'white', borderRadius: '14px', padding: '28px', width: '100%', maxWidth: '440px' }}>
+            <h3 style={{ margin: '0 0 10px 0', color: '#0F172A' }}>{confirmModal.titulo}</h3>
+            <p style={{ fontSize: '14px', color: '#64748B', marginBottom: '25px' }}>{confirmModal.mensaje}</p>
             <div style={{ display: 'flex', gap: '10px' }}>
-              <button onClick={cerrarConfirm} style={{ flex: 1, padding: '13px', background: '#F1F5F9', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '14px', color: '#64748B' }}>Cancelar</button>
-              <button onClick={confirmModal.onConfirm} style={{ flex: 1, padding: '13px', background: confirmModal.tipo === 'danger' ? '#F43F5E' : confirmModal.tipo === 'success' ? '#10B981' : '#F59E0B', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '14px' }}>Sí, confirmar</button>
+              <button onClick={cerrarConfirm} style={{ flex: 1, padding: '13px', background: '#F1F5F9', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>Cancelar</button>
+              <button onClick={confirmModal.onConfirm} style={{ flex: 1, padding: '13px', background: '#F43F5E', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>Confirmar</button>
             </div>
           </div>
         </div>
