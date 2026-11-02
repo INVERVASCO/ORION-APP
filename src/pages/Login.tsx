@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { Eye, EyeOff, Loader2, ArrowLeft } from 'lucide-react';
@@ -79,7 +78,6 @@ export default function Login() {
       <div className="login-box">
         
         <div style={{ textAlign: 'center', marginBottom: '20px', paddingBottom: '15px', borderBottom: '1px solid #E2E8F0' }}>
-          {/* 🚀 IMAGEN LOCAL */}
           <img 
             src="/orion-logo.png" 
             alt="ORION" 
