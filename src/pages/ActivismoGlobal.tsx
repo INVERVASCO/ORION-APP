@@ -32,7 +32,6 @@ export default function ActivismoGlobal() {
   const [toastVisible, setToastVisible] = useState(false);
   const [toastMensaje, setToastMensaje] = useState('');
 
-  // Modal de confirmación flotante
   const [confirmModal, setConfirmModal] = useState<ConfirmModalData>({
     visible: false, titulo: '', mensaje: '', tipo: 'warning', onConfirm: () => {},
   });
@@ -42,7 +41,6 @@ export default function ActivismoGlobal() {
   };
   const cerrarConfirm = () => setConfirmModal({ ...confirmModal, visible: false });
 
-  // Cargar datos
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
@@ -59,23 +57,28 @@ export default function ActivismoGlobal() {
         .order('tipo_cargo');
 
       if (!error && data) {
-        setActivistas(data as any);
-        setFiltrados(data as any);
+        // 🚀 FIX CRÍTICO: Normalizamos los datos por si Supabase devuelve un arreglo
+        const procesados = data.map((a: any) => {
+          const persona = Array.isArray(a.personas) ? a.personas[0] : a.personas;
+          const barrio = Array.isArray(a.barrios_colonias) ? a.barrios_colonias[0] : a.barrios_colonias;
+          return { ...a, personas: persona, barrios_colonias: barrio };
+        });
+        setActivistas(procesados as any);
+        setFiltrados(procesados as any);
       }
       setLoading(false);
     };
     fetchData();
   }, []);
 
-  // Filtros
   useEffect(() => {
     let result = [...activistas];
     if (busqueda.trim() !== '') {
       const q = busqueda.toLowerCase();
       result = result.filter(a =>
-        (a.personas?.nombre_completo || '').toLowerCase().includes(q) ||
-        (a.personas?.telefono || '').includes(q) ||
-        (a.barrios_colonias?.nombre || '').toLowerCase().includes(q)
+        String(a.personas?.nombre_completo || '').toLowerCase().includes(q) ||
+        String(a.personas?.telefono || '').includes(q) ||
+        String(a.barrios_colonias?.nombre || '').toLowerCase().includes(q)
       );
     }
     if (filtroCargo) {
@@ -84,7 +87,6 @@ export default function ActivismoGlobal() {
     setFiltrados(result);
   }, [busqueda, filtroCargo, activistas]);
 
-  // Eliminar con modal flotante
   const handleEliminar = (id: string, nombre: string) => {
     mostrarConfirm(
       '¿Eliminar a este integrante?',
@@ -126,10 +128,9 @@ export default function ActivismoGlobal() {
     <div>
       <h1 className="header-title">Activismo Municipal</h1>
       <p style={{ marginBottom: '25px', color: '#666', fontSize: '14px' }}>
-        Vista global de toda la estructura de activismo de Tula de Allende.
+        Vista global de toda la estructura de activismo.
       </p>
 
-      {/* Resumen por cargo */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: '10px', marginBottom: '20px' }}>
         {cargos.map(cargo => (
           <div key={cargo} className="card" style={{ padding: '15px', textAlign: 'center', borderTop: `4px solid ${colorCargo[cargo]}`, borderLeft: 'none' }}>
@@ -143,7 +144,6 @@ export default function ActivismoGlobal() {
         </div>
       </div>
 
-      {/* Filtros */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '10px', marginBottom: '25px' }}>
         <div style={{ position: 'relative' }}>
           <Search size={18} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#999' }} />
@@ -168,7 +168,6 @@ export default function ActivismoGlobal() {
         Mostrando <strong>{filtrados.length}</strong> de {activistas.length} integrantes
       </p>
 
-      {/* Lista */}
       {filtrados.length === 0 ? (
         <div className="card" style={{ textAlign: 'center', padding: '40px 20px' }}>
           <Users size={40} color="#9F2241" style={{ opacity: 0.5, marginBottom: '15px' }} />
@@ -193,7 +192,7 @@ export default function ActivismoGlobal() {
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                     fontWeight: 'bold', fontSize: '15px', flexShrink: 0
                   }}>
-                    {(a.personas?.nombre_completo || 'S').charAt(0).toUpperCase()}
+                    {String(a.personas?.nombre_completo || 'S').charAt(0).toUpperCase()}
                   </div>
                   <div style={{ minWidth: 0, flex: 1 }}>
                     <h3 style={{ margin: 0, fontSize: '14px', wordBreak: 'break-word', color: '#333' }}>
@@ -241,7 +240,6 @@ export default function ActivismoGlobal() {
         </div>
       )}
 
-      {/* MODAL DE CONFIRMACIÓN FLOTANTE */}
       {confirmModal.visible && (
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.65)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 2000, padding: '20px' }}>
           <div style={{ background: 'white', borderRadius: '14px', padding: '28px', width: '100%', maxWidth: '440px', boxShadow: '0 20px 50px rgba(0,0,0,0.3)', borderTop: `5px solid ${confirmModal.tipo === 'danger' ? '#C62828' : confirmModal.tipo === 'success' ? '#2E7D32' : '#F9A825'}` }}>
