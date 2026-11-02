@@ -381,7 +381,7 @@ export default function AuditoriaCampo() {
               <>
                 <div id="pdf-reporte" style={{ padding: '20px', background: 'white', border: '1px solid #E2E8F0' }}>
                   <div style={{ textAlign: 'center', marginBottom: '20px', borderBottom: '2px solid #E2E8F0', paddingBottom: '15px' }}>
-                    <img src="https://i.ibb.co/qLGmzCyZ/orion-logo-png.png" alt="ORION" style={{ height: '60px', margin: '0 auto' }} />
+                    <img src="/dossier/orion-logo.png" alt="ORION" style={{ height: '60px', margin: '0 auto' }} />
                     <h2 style={{ margin: '10px 0 0 0', color: '#0A1628', fontSize: '18px', fontWeight: 'bold' }}>Reporte de Auditoría Electoral</h2>
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '15px', fontSize: '13px' }}>
