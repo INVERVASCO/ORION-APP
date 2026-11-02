@@ -9,14 +9,14 @@ import OrionAnimatedLogo from './components/OrionAnimatedLogo';
 import Layout from './components/Layout';
 import ProtectedRoute from './components/ProtectedRoute';
 
-// Páginas públicas (eager)
+// Páginas públicas
 import LandingPage from './pages/LandingPage';
 import DossierPage from './pages/DossierPage';
 import Login from './pages/Login';
 import RecuperarPassword from './pages/RecuperarPassword';
 import CambiarPassword from './pages/CambiarPassword';
 
-// Páginas privadas (lazy)
+// Páginas privadas (Lazy)
 const Dashboard = lazy(() => import('./pages/Dashboard'));
 const Analisis = lazy(() => import('./pages/Analisis'));
 const Pronostico = lazy(() => import('./pages/Pronostico'));
@@ -41,13 +41,38 @@ const AuditoriaCampo = lazy(() => import('./pages/AuditoriaCampo'));
 const AdminGeocode = lazy(() => import('./pages/AdminGeocode'));
 
 const PageLoader = () => (
-  <div style={{
-    display: 'flex', justifyContent: 'center', alignItems: 'center',
-    height: '60vh', color: '#00D4FF', gap: '10px',
-  }}>
+  <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '60vh', color: '#00D4FF', gap: '10px' }}>
     <OrionAnimatedLogo />
   </div>
 );
+
+// 🚀 COMPONENTE DE ERROR PERSONALIZADO
+const ErrorFallback = ({ error, resetError }: { error: Error, resetError: () => void }) => {
+  // Si el error es por un archivo que no se encontró (ChunkLoadError)
+  const isChunkLoadFailed = error?.message?.includes('Failed to fetch dynamically imported module') || error?.message?.includes('Importing a module script failed');
+
+  return (
+    <div style={{ padding: '50px', textAlign: 'center', background: '#0A1628', minHeight: '100vh', color: 'white', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center' }}>
+      <h1 style={{ color: '#F43F5E', fontSize: '28px', marginBottom: '10px' }}>
+        {isChunkLoadFailed ? 'Nueva versión disponible' : 'Algo salió mal'}
+      </h1>
+      <p style={{ color: '#94A3B8', marginTop: '10px', maxWidth: '500px', marginBottom: '25px', lineHeight: '1.6' }}>
+        {isChunkLoadFailed 
+          ? 'Hemos actualizado el sistema para mejorar tu experiencia. Por favor, recarga la página para cargar la versión más reciente.'
+          : 'Ocurrió un error inesperado. El equipo técnico ha sido notificado automáticamente por Sentry.'}
+      </p>
+      <button 
+        onClick={() => {
+          resetError(); // Resetea el estado del ErrorBoundary
+          window.location.reload(); // Recarga la página
+        }} 
+        style={{ padding: '14px 28px', background: '#00D4FF', color: '#0A1628', border: 'none', borderRadius: '8px', fontWeight: 'bold', fontSize: '16px', cursor: 'pointer', boxShadow: '0 4px 15px rgba(0,212,255,0.4)' }}
+      >
+        Recargar Sistema
+      </button>
+    </div>
+  );
+};
 
 function App() {
   const [session, setSession] = useState<Session | null>(null);
@@ -56,7 +81,6 @@ function App() {
 
   useEffect(() => {
     let cancelled = false;
-
     const timeout = setTimeout(() => {
       if (!cancelled && loading) {
         setBootError('El servidor tardó demasiado en responder. Verifica tu conexión.');
@@ -92,68 +116,37 @@ function App() {
       clearTimeout(timeout);
       subscription.unsubscribe();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   if (loading) {
     return (
-      <div style={{
-        display: 'flex', flexDirection: 'column', justifyContent: 'center',
-        alignItems: 'center', height: '100vh', backgroundColor: '#0A1628',
-      }}>
+      <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', height: '100vh', backgroundColor: '#0A1628' }}>
         <OrionAnimatedLogo />
-        <p style={{
-          color: '#00D4FF', marginTop: '20px', fontWeight: 'bold', letterSpacing: '2px',
-        }}>
-          INICIANDO SISTEMA...
-        </p>
+        <p style={{ color: '#00D4FF', marginTop: '20px', fontWeight: 'bold', letterSpacing: '2px' }}>INICIANDO SISTEMA...</p>
       </div>
     );
   }
 
   if (bootError) {
     return (
-      <div style={{
-        display: 'flex', flexDirection: 'column', justifyContent: 'center',
-        alignItems: 'center', height: '100vh', backgroundColor: '#0A1628',
-        color: 'white', padding: '20px', textAlign: 'center',
-      }}>
+      <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', height: '100vh', backgroundColor: '#0A1628', color: 'white', padding: '20px', textAlign: 'center' }}>
         <h1 style={{ color: '#F43F5E', marginBottom: '15px' }}>Error de inicio</h1>
-        <p style={{ marginBottom: '25px', color: '#94A3B8', maxWidth: '400px' }}>
-          {bootError}
-        </p>
-        <button
-          onClick={() => window.location.reload()}
-          style={{
-            background: '#00D4FF', color: '#0A1628', border: 'none',
-            padding: '12px 24px', borderRadius: '8px', cursor: 'pointer',
-            fontWeight: 'bold',
-          }}
-        >
+        <p style={{ marginBottom: '25px', color: '#94A3B8', maxWidth: '400px' }}>{bootError}</p>
+        <button onClick={() => window.location.reload()} style={{ background: '#00D4FF', color: '#0A1628', border: 'none', padding: '12px 24px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>
           Reintentar
         </button>
       </div>
     );
   }
 
-  // 🚀 AQUÍ ESTÁ LA MAGIA DE SENTRY ENVOLVIENDO TODO
   return (
-    <Sentry.ErrorBoundary fallback={
-      <div style={{ padding: '50px', textAlign: 'center', background: '#0A1628', minHeight: '100vh', color: 'white' }}>
-        <h1 style={{ color: '#F43F5E', fontSize: '24px' }}>Algo salió mal</h1>
-        <p style={{ color: '#94A3B8', marginTop: '10px' }}>El equipo técnico ha sido notificado automáticamente por Sentry.</p>
-        <button onClick={() => window.location.reload()} style={{ marginTop: '20px', padding: '10px 20px', background: '#00D4FF', color: '#0A1628', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer' }}>
-          Recargar Página
-        </button>
-      </div>
-    }>
+    <Sentry.ErrorBoundary fallback={ErrorFallback}>
       <SyncProvider>
         <BrowserRouter>
           <Suspense fallback={<PageLoader />}>
             <Routes>
               <Route path="/" element={<LandingPage />} />
               <Route path="/dossier" element={<DossierPage />} />
-
               <Route path="/login" element={!session ? <Login /> : <Navigate to="/app" replace />} />
               <Route path="/recuperar-password" element={!session ? <RecuperarPassword /> : <Navigate to="/app" replace />} />
               <Route path="/cambiar-password" element={<CambiarPassword />} />
