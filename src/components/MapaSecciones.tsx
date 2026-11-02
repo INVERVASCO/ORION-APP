@@ -3,6 +3,7 @@ import React from 'react';
 import { MapContainer, TileLayer, GeoJSON } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
+import { ORION_CONFIG } from '../lib/config';
 
 // @ts-ignore
 import geoData from '../assets/secciones_tula.json';
@@ -17,7 +18,7 @@ const MapaSecciones: React.FC<MapaSeccionesProps> = ({ datos }) => {
   const getEstiloSeccion = (seccion: number) => {
     const seccionNum = Number(seccion);
     const info = datos[seccionNum];
-    let color = '#475569'; // Gris oscuro por defecto
+    let color = '#475569'; // Gris oscuro por defecto si no hay datos
 
     if (info) {
       if (info.riesgo === 'alto') color = '#F43F5E'; // Rojo
@@ -70,9 +71,12 @@ const MapaSecciones: React.FC<MapaSeccionesProps> = ({ datos }) => {
     `);
   };
 
+  // 🚀 LEEMOS LOS UMBRALES DINÁMICOS DE LA CONFIGURACIÓN
+  const umbralSegura = ORION_CONFIG.electoral.umbralSegura;
+  const umbralRiesgo = ORION_CONFIG.electoral.umbralRiesgo;
+
   return (
     <div style={{ position: 'relative', width: '100%', height: '100%', borderRadius: '12px', overflow: 'hidden' }}>
-      {/* 🚀 FILTRO PARA VOLVER EL MAPA OSCURO */}
       <style>{`
         .leaflet-layer {
           filter: invert(100%) hue-rotate(180deg) brightness(95%) contrast(90%);
@@ -99,6 +103,7 @@ const MapaSecciones: React.FC<MapaSeccionesProps> = ({ datos }) => {
         />
       </MapContainer>
 
+      {/* LEYENDA DINÁMICA */}
       <div style={{
         position: 'absolute', bottom: '15px', right: '15px',
         background: 'rgba(15, 23, 42, 0.9)', padding: '10px 14px',
@@ -111,15 +116,15 @@ const MapaSecciones: React.FC<MapaSeccionesProps> = ({ datos }) => {
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
           <span style={{ display: 'inline-block', width: '12px', height: '12px', background: '#10B981', borderRadius: '3px' }}></span>
-          <span><b>Segura</b> (≥45%)</span>
+          <span><b>Segura</b> (≥{umbralSegura}%)</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
           <span style={{ display: 'inline-block', width: '12px', height: '12px', background: '#F59E0B', borderRadius: '3px' }}></span>
-          <span><b>Disputa</b> (35-44%)</span>
+          <span><b>Disputa</b> ({umbralRiesgo}-{umbralSegura - 1}%)</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
           <span style={{ display: 'inline-block', width: '12px', height: '12px', background: '#F43F5E', borderRadius: '3px' }}></span>
-          <span><b>Riesgo</b> (&lt;35%)</span>
+          <span><b>Riesgo</b> (&lt;{umbralRiesgo}%)</span>
         </div>
       </div>
     </div>
