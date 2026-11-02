@@ -1,24 +1,30 @@
-// @ts-nocheck
 import React from 'react';
 import { MapContainer, TileLayer, GeoJSON } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import { ORION_CONFIG } from '../lib/config';
 
-// @ts-ignore
 import geoData from '../assets/secciones_tula.json';
 
 interface MapaSeccionesProps {
   datos: Record<number, { pct: number, riesgo: 'alto' | 'medio' | 'bajo' }>;
 }
 
+interface GeoFeature {
+  properties: {
+    seccion: number;
+    [key: string]: any;
+  };
+  [key: string]: any;
+}
+
 const MapaSecciones: React.FC<MapaSeccionesProps> = ({ datos }) => {
   const geoJsonKey = JSON.stringify(datos);
 
-  const getEstiloSeccion = (seccion: number) => {
+  const getEstiloSeccion = (seccion: number): L.PathOptions => {
     const seccionNum = Number(seccion);
     const info = datos[seccionNum];
-    let color = '#475569'; // Gris oscuro por defecto si no hay datos
+    let color = '#475569'; // Gris oscuro por defecto
 
     if (info) {
       if (info.riesgo === 'alto') color = '#F43F5E'; // Rojo
@@ -36,17 +42,17 @@ const MapaSecciones: React.FC<MapaSeccionesProps> = ({ datos }) => {
     };
   };
 
-  const onEachSeccion = (feature: any, layer: L.Layer) => {
+  const onEachSeccion = (feature: GeoFeature, layer: L.Layer) => {
     const seccionNum = Number(feature.properties.seccion);
     const info = datos[seccionNum];
 
     layer.on({
-      mouseover: (e: any) => {
-        const l = e.target;
+      mouseover: (e: L.LeafletMouseEvent) => {
+        const l = e.target as L.Path;
         l.setStyle({ weight: 2, color: '#00D4FF', fillOpacity: 0.9 });
       },
-      mouseout: (e: any) => {
-        const l = e.target;
+      mouseout: (e: L.LeafletMouseEvent) => {
+        const l = e.target as L.Path;
         l.setStyle({ weight: 1, color: '#1E293B', fillOpacity: 0.6 });
       }
     });
@@ -71,19 +77,14 @@ const MapaSecciones: React.FC<MapaSeccionesProps> = ({ datos }) => {
     `);
   };
 
-  // 🚀 LEEMOS LOS UMBRALES DINÁMICOS DE LA CONFIGURACIÓN
   const umbralSegura = ORION_CONFIG.electoral.umbralSegura;
   const umbralRiesgo = ORION_CONFIG.electoral.umbralRiesgo;
 
   return (
     <div style={{ position: 'relative', width: '100%', height: '100%', borderRadius: '12px', overflow: 'hidden' }}>
       <style>{`
-        .leaflet-layer {
-          filter: invert(100%) hue-rotate(180deg) brightness(95%) contrast(90%);
-        }
-        .leaflet-marker-icon, .leaflet-popup {
-          filter: invert(0%) hue-rotate(0deg) brightness(100%) contrast(100%) !important;
-        }
+        .leaflet-layer { filter: invert(100%) hue-rotate(180deg) brightness(95%) contrast(90%); }
+        .leaflet-marker-icon, .leaflet-popup { filter: invert(0%) hue-rotate(0deg) brightness(100%) contrast(100%) !important; }
       `}</style>
 
       <MapContainer 
@@ -97,13 +98,12 @@ const MapaSecciones: React.FC<MapaSeccionesProps> = ({ datos }) => {
         />
         <GeoJSON 
           key={geoJsonKey}
-          data={geoData as any}
+          data={geoData as any} // El JSON es un any nativo, esto es seguro
           style={(feature) => getEstiloSeccion(feature?.properties.seccion)}
           onEachFeature={onEachSeccion}
         />
       </MapContainer>
 
-      {/* LEYENDA DINÁMICA */}
       <div style={{
         position: 'absolute', bottom: '15px', right: '15px',
         background: 'rgba(15, 23, 42, 0.9)', padding: '10px 14px',
