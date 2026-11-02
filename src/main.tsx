@@ -4,16 +4,15 @@ import * as Sentry from "@sentry/react";
 import './index.css';
 import App from './App.tsx';
 
-// Inicializamos Sentry antes de renderizar la app
 Sentry.init({
-  dsn: import.meta.env.VITE_SENTRY_DSN, // Leerá la llave desde Vercel
+  dsn: import.meta.env.VITE_SENTRY_DSN,
   integrations: [
     Sentry.browserTracingIntegration(),
     Sentry.replayIntegration(),
   ],
-  tracesSampleRate: 1.0, 
-  replaysSessionSampleRate: 0.1, 
-  replaysOnErrorSampleRate: 1.0, 
+  tracesSampleRate: 1.0,
+  replaysSessionSampleRate: 0.1,
+  replaysOnErrorSampleRate: 1.0,
 });
 
 createRoot(document.getElementById('root')!).render(
