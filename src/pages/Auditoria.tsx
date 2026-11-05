@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { 
   Loader2, Search, Eye, Clock, User, Database, 
   X, AlertTriangle, CheckCircle2, Trash2, Edit3, PlusCircle,
-  ChevronLeft, ChevronRight
+  ChevronLeft, ChevronRight, Globe
 } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 
@@ -14,6 +14,7 @@ interface RegistroAuditoria {
   usuario_id: string | null;
   datos_anteriores: any;
   datos_nuevos: any;
+  ip_address: string | null;
   created_at: string;
 }
 
@@ -25,12 +26,11 @@ export default function Auditoria() {
   const [filtroAccion, setFiltroAccion] = useState('');
   const [registroSeleccionado, setRegistroSeleccionado] = useState<RegistroAuditoria | null>(null);
 
-  // 🚀 ESTADOS DE PAGINACIÓN SERVER-SIDE
+  // Paginación server-side
   const [page, setPage] = useState(0);
   const [totalCount, setTotalCount] = useState(0);
-  const PAGE_SIZE = 20; // Tamaño de página para auditoría
+  const PAGE_SIZE = 20;
 
-  // Cargar perfiles de usuario (esto se puede cachear)
   useEffect(() => {
     const fetchPerfiles = async () => {
       const { data } = await supabase.from('perfiles').select('id, nombre_completo, email');
@@ -41,14 +41,12 @@ export default function Auditoria() {
     fetchPerfiles();
   }, []);
 
-  // 🚀 FUNCIÓN DE CARGA PAGINADA
   const fetchAuditoria = async () => {
     setLoading(true);
     
     let query = supabase.from('auditoria').select('*', { count: 'exact' });
 
     if (busqueda.trim() !== '') {
-      // Buscamos en tabla o en ID de registro
       query = query.or(`tabla_afectada.ilike.%${busqueda}%,registro_id.ilike.%${busqueda}%`);
     }
     if (filtroAccion) {
@@ -69,17 +67,13 @@ export default function Auditoria() {
     setLoading(false);
   };
 
-  // Efecto con debounce para búsquedas
   useEffect(() => {
     const timer = setTimeout(() => { setPage(0); fetchAuditoria(); }, 500);
     return () => clearTimeout(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [busqueda, filtroAccion]);
 
-  // Efecto para cambiar de página
   useEffect(() => {
     fetchAuditoria();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [page]);
 
   const getAccionInfo = (accion: string) => {
@@ -95,9 +89,9 @@ export default function Auditoria() {
 
   return (
     <div>
-      <h1 className="header-title">Bitácora de Auditoría</h1>
+      <h1 className="header-title">Bitácora de Auditoría Forense</h1>
       <p style={{ marginBottom: '25px', color: '#666', fontSize: '14px' }}>
-        Registro histórico de los cambios realizados en la base de datos. Solo visible para administradores.
+        Registro histórico inalterable de todos los movimientos. Incluye dirección IP para rastreo de seguridad.
       </p>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '12px', marginBottom: '25px' }}>
@@ -148,6 +142,7 @@ export default function Auditoria() {
                 <tr style={{ background: '#9F2241', color: 'white' }}>
                   <th style={{ padding: '12px', textAlign: 'left' }}>Fecha</th>
                   <th style={{ padding: '12px', textAlign: 'left' }}>Usuario</th>
+                  <th style={{ padding: '12px', textAlign: 'center' }}>IP</th>
                   <th style={{ padding: '12px', textAlign: 'center' }}>Acción</th>
                   <th style={{ padding: '12px', textAlign: 'left' }}>Tabla</th>
                   <th style={{ padding: '12px', textAlign: 'center' }}>Detalles</th>
@@ -169,15 +164,19 @@ export default function Auditoria() {
                           {r.usuario_id ? (perfiles[r.usuario_id] || 'Usuario desconocido') : 'Sistema'}
                         </div>
                       </td>
+                      {/* 🚀 NUEVA COLUMNA DE IP */}
+                      <td style={{ padding: '10px', textAlign: 'center', color: '#475569', fontSize: '12px', fontFamily: 'monospace' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
+                          <Globe size={12} color="#00D4FF" /> {r.ip_address || 'IP no registrada'}
+                        </div>
+                      </td>
                       <td style={{ padding: '10px', textAlign: 'center' }}>
                         <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', background: `${info.color}20`, color: info.color, padding: '4px 8px', borderRadius: '12px', fontWeight: 'bold', fontSize: '11px' }}>
                           {info.icon} {info.label}
                         </span>
                       </td>
                       <td style={{ padding: '10px' }}>
-                        <code style={{ background: '#EEE', padding: '2px 6px', borderRadius: '4px', fontSize: '11px' }}>
-                          {r.tabla_afectada}
-                        </code>
+                        <code style={{ background: '#EEE', padding: '2px 6px', borderRadius: '4px', fontSize: '11px' }}>{r.tabla_afectada}</code>
                       </td>
                       <td style={{ padding: '10px', textAlign: 'center' }}>
                         <button 
@@ -194,26 +193,13 @@ export default function Auditoria() {
             </table>
           </div>
 
-          {/* CONTROLES DE PAGINACIÓN SERVER-SIDE */}
           {totalPages > 1 && (
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '15px', background: 'white', padding: '15px', borderRadius: '10px', border: '1px solid #E0E0E0' }}>
-              <button 
-                onClick={() => setPage(prev => Math.max(prev - 1, 0))}
-                disabled={page === 0}
-                style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '8px 16px', background: page === 0 ? '#F0F0F0' : 'white', color: page === 0 ? '#999' : '#9F2241', border: '1px solid #E0E0E0', borderRadius: '6px', cursor: page === 0 ? 'not-allowed' : 'pointer', fontWeight: 'bold' }}
-              >
+              <button onClick={() => setPage(prev => Math.max(prev - 1, 0))} disabled={page === 0} style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '8px 16px', background: page === 0 ? '#F0F0F0' : 'white', color: page === 0 ? '#999' : '#9F2241', border: '1px solid #E0E0E0', borderRadius: '6px', cursor: page === 0 ? 'not-allowed' : 'pointer', fontWeight: 'bold' }}>
                 <ChevronLeft size={16} /> Anterior
               </button>
-              
-              <span style={{ fontSize: '13px', color: '#666', fontWeight: 'bold' }}>
-                Página {page + 1} de {totalPages} (Mostrando {PAGE_SIZE} por página)
-              </span>
-
-              <button 
-                onClick={() => setPage(prev => Math.min(prev + 1, totalPages - 1))}
-                disabled={page === totalPages - 1}
-                style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '8px 16px', background: page === totalPages - 1 ? '#F0F0F0' : 'white', color: page === totalPages - 1 ? '#999' : '#9F2241', border: '1px solid #E0E0E0', borderRadius: '6px', cursor: page === totalPages - 1 ? 'not-allowed' : 'pointer', fontWeight: 'bold' }}
-              >
+              <span style={{ fontSize: '13px', color: '#666', fontWeight: 'bold' }}>Página {page + 1} de {totalPages}</span>
+              <button onClick={() => setPage(prev => Math.min(prev + 1, totalPages - 1))} disabled={page === totalPages - 1} style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '8px 16px', background: page === totalPages - 1 ? '#F0F0F0' : 'white', color: page === totalPages - 1 ? '#999' : '#9F2241', border: '1px solid #E0E0E0', borderRadius: '6px', cursor: page === totalPages - 1 ? 'not-allowed' : 'pointer', fontWeight: 'bold' }}>
                 Siguiente <ChevronRight size={16} />
               </button>
             </div>
@@ -221,7 +207,7 @@ export default function Auditoria() {
         </>
       )}
 
-      {/* Modal de Detalle (Igual que tu versión anterior) */}
+      {/* Modal de Detalle */}
       {registroSeleccionado && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000, padding: '15px' }}>
           <div style={{ background: 'white', padding: '25px', borderRadius: '12px', width: '100%', maxWidth: '600px', maxHeight: '90vh', overflowY: 'auto' }}>
@@ -231,12 +217,29 @@ export default function Auditoria() {
             </div>
 
             <div style={{ display: 'grid', gap: '15px', fontSize: '14px' }}>
+              
+              <div style={{ display: 'flex', gap: '20px' }}>
+                <div style={{ flex: 1 }}>
+                  <strong style={{ color: '#666' }}>Usuario:</strong>
+                  <p style={{ margin: '5px 0 0 0', fontWeight: 'bold' }}>
+                    {registroSeleccionado.usuario_id ? (perfiles[registroSeleccionado.usuario_id] || 'Desconocido') : 'Sistema'}
+                  </p>
+                </div>
+                <div style={{ flex: 1 }}>
+                  <strong style={{ color: '#666' }}>Dirección IP:</strong>
+                  <p style={{ margin: '5px 0 0 0', fontWeight: 'bold', color: '#0284C7', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                    <Globe size={14} /> {registroSeleccionado.ip_address || 'No registrada'}
+                  </p>
+                </div>
+              </div>
+
               <div>
                 <strong style={{ color: '#666' }}>Registro ID:</strong>
                 <p style={{ margin: '5px 0 0 0', fontFamily: 'monospace', fontSize: '12px', background: '#F4F4F4', padding: '8px', borderRadius: '4px', wordBreak: 'break-all' }}>
                   {registroSeleccionado.registro_id}
                 </p>
               </div>
+
               {registroSeleccionado.datos_anteriores && (
                 <div>
                   <strong style={{ color: '#C62828' }}>🔴 Datos Anteriores:</strong>
