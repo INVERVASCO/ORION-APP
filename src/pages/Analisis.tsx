@@ -5,6 +5,7 @@ import {
   Tooltip, Legend, ResponsiveContainer, ReferenceLine
 } from 'recharts';
 import { supabase } from '../lib/supabaseClient';
+import { ORION_CONFIG, PARTIDOS_DB } from '../lib/config';
 
 interface Resultado {
   anio: number;
@@ -17,21 +18,12 @@ interface Resultado {
   participacion: number;
   votos_nulos: number;
   votos_no_reg: number;
-  morena: number;
-  pan: number;
-  pri: number;
-  prd: number;
-  pvem: number;
-  pt: number;
-  mc: number;
-  otros: number;
+  [key: string]: any; 
 }
 
 interface ResumenSeccion {
   seccion: number;
-  seccion_oposicion_2024: number;
-  seccion_oposicion_2018: number;
-  pct_oposicion: number;
+  pct_nuestra_org: number;
   participacion: number;
   total_votos: number;
   total_lista: number;
@@ -46,6 +38,8 @@ export default function Analisis() {
   const [seccionActiva, setSeccionActiva] = useState<number | null>(null);
   const [resumenSecciones, setResumenSecciones] = useState<ResumenSeccion[]>([]);
   const [filtroSemaforo, setFiltroSemaforo] = useState<'todas' | 'segura' | 'disputa' | 'riesgo'>('todas');
+  
+  const [partidoObjetivo, setPartidoObjetivo] = useState<string>('todos');
 
   useEffect(() => {
     const cargarDatos = async () => {
@@ -65,11 +59,9 @@ export default function Analisis() {
       setResumenSecciones(calcularResumen(data || []));
       setLoading(false);
     };
-
     cargarDatos();
-  }, []);
+  }, [partidoObjetivo]);
 
-  // === Calcular resumen por sección (ADAPTADO A OPOSICIÓN) ===
   const calcularResumen = (data: Resultado[]): ResumenSeccion[] => {
     const porSeccion = new Map<number, Resultado[]>();
     data.forEach(r => {
@@ -80,47 +72,39 @@ export default function Analisis() {
     const resumen: ResumenSeccion[] = [];
 
     porSeccion.forEach((rows, seccion) => {
-      // Filtrar solo Presidencial 2018 y Presidencial 2024 (comparables)
       const pres2018 = rows.filter(r => r.anio === 2018 && r.tipo_eleccion === 'Presidencial');
       const pres2024 = rows.filter(r => r.anio === 2024 && r.tipo_eleccion === 'Presidencial');
 
-      // Votos de MORENA
-      const morena2018 = pres2018.reduce((s, r) => s + r.morena, 0);
-      const morena2024 = pres2024.reduce((s, r) => s + r.morena, 0);
+      const getVotos = (res: any[]) => {
+        return res.reduce((sum, r) => {
+          if (partidoObjetivo === 'todos') return sum + (Number(r.total_votos) || 0);
+          return sum + (Number(r[partidoObjetivo]) || 0);
+        }, 0);
+      };
+
+      const votosNuestraOrg2024 = getVotos(pres2024);
+      const votosNuestraOrg2018 = getVotos(pres2018);
       
-      const total2024 = pres2024.reduce((s, r) => s + r.total_votos, 0);
-      const lista2024 = pres2024.reduce((s, r) => s + r.lista_nominal, 0);
+      const total2024 = pres2024.reduce((s, r) => s + (Number(r.total_votos) || 0), 0);
+      const lista2024 = pres2024.reduce((s, r) => s + (Number(r.lista_nominal) || 0), 0);
 
-      // 🚀 CÁLCULO DE OPOSICIÓN: Todo lo que NO es MORENA
-      const votos_oposicion_2024 = total2024 - morena2024;
-      const votos_oposicion_2018 = pres2018.reduce((s, r) => s + r.total_votos, 0) - morena2018;
-
-      // Participación
       const participacion = lista2024 > 0 ? (total2024 / lista2024) * 100 : 0;
+      const pctNuestraOrg = total2024 > 0 ? (votosNuestraOrg2024 / total2024) * 100 : 0;
 
-      // % de Oportunidad (Voto Opositor) sobre votos totales 2024
-      const pct_oposicion = total2024 > 0 ? (votos_oposicion_2024 / total2024) * 100 : 0;
-
-      // 🚦 SEMÁFORO INVERTIDO (A favor de nuestra organización)
-      // Si la oposición tiene >= 50%, es una sección SEGURA para nosotros (Verde)
-      // Si la oposición tiene < 35%, es una sección en RIESGO (Rojo - terreno enemigo)
       let semaforo: 'segura' | 'disputa' | 'riesgo' = 'disputa';
-      if (pct_oposicion >= 50) semaforo = 'segura';
-      else if (pct_oposicion < 35) semaforo = 'riesgo';
+      if (pctNuestraOrg >= ORION_CONFIG.electoral.umbralSegura) semaforo = 'segura';
+      else if (pctNuestraOrg < ORION_CONFIG.electoral.umbralRiesgo) semaforo = 'riesgo';
 
-      // Tendencia
       let tendencia: 'sube' | 'baja' | 'estable' = 'estable';
-      if (votos_oposicion_2018 > 0) {
-        const dif = ((votos_oposicion_2024 - votos_oposicion_2018) / votos_oposicion_2018) * 100;
+      if (votosNuestraOrg2018 > 0) {
+        const dif = ((votosNuestraOrg2024 - votosNuestraOrg2018) / votosNuestraOrg2018) * 100;
         if (dif > 5) tendencia = 'sube';
         else if (dif < -5) tendencia = 'baja';
       }
 
       resumen.push({
         seccion,
-        seccion_oposicion_2024: votos_oposicion_2024,
-        seccion_oposicion_2018: votos_oposicion_2018,
-        pct_oposicion: Math.round(pct_oposicion * 10) / 10,
+        pct_nuestra_org: Math.round(pctNuestraOrg * 10) / 10,
         participacion: Math.round(participacion * 10) / 10,
         total_votos: total2024,
         total_lista: lista2024,
@@ -141,14 +125,11 @@ export default function Analisis() {
     );
   }
 
-  // === Vista de detalle de sección ===
   if (seccionActiva !== null) {
-    return <DetalleSeccion seccion={seccionActiva} resultados={resultados} onBack={() => setSeccionActiva(null)} />;
+    return <DetalleSeccion seccion={seccionActiva} resultados={resultados} partidoObjetivo={partidoObjetivo} onBack={() => setSeccionActiva(null)} />;
   }
 
-  // === Vista general (mapa de calor + KPIs) ===
   const filtradas = resumenSecciones.filter(s => filtroSemaforo === 'todas' || s.semaforo === filtroSemaforo);
-
   const conteoSeguras = resumenSecciones.filter(s => s.semaforo === 'segura').length;
   const conteoDisputa = resumenSecciones.filter(s => s.semaforo === 'disputa').length;
   const conteoRiesgo = resumenSecciones.filter(s => s.semaforo === 'riesgo').length;
@@ -156,29 +137,44 @@ export default function Analisis() {
   return (
     <div>
       <h1 className="header-title">Análisis Territorial</h1>
-      <p style={{ marginBottom: '25px', color: '#666', fontSize: '14px' }}>
-        Mapa de calor de las {resumenSecciones.length} secciones de Tula de Allende. Análisis de oportunidad frente al partido en el poder (2018-2024).
+      <p style={{ marginBottom: '10px', color: '#666', fontSize: '14px' }}>
+        Mapa de calor de las {resumenSecciones.length} secciones. Análisis de oportunidad y tendencia histórica.
+      </p>
+      
+      <p style={{ marginBottom: '20px', color: '#94A3B8', fontSize: '12px', fontStyle: 'italic', maxWidth: '800px' }}>
+        ⚠️ Aviso: Las proyecciones y tendencias son estimaciones heurísticas basadas en datos históricos. No constituyen una predicción matemática exacta.
       </p>
 
-      {/* KPIs superiores */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '20px', background: 'white', padding: '10px', borderRadius: '8px', border: '1px solid #E2E8F0', width: 'fit-content' }}>
+        <Target size={18} color="#00A651" />
+        <span style={{ fontSize: '14px', fontWeight: 'bold', color: '#333' }}>Analizar desempeño de:</span>
+        <select 
+          value={partidoObjetivo} 
+          onChange={(e) => setPartidoObjetivo(e.target.value)}
+          style={{ padding: '6px 12px', borderRadius: '6px', border: '1px solid #E2E8F0', fontSize: '14px', fontWeight: 'bold', color: '#00A651', background: 'transparent', cursor: 'pointer' }}
+        >
+          <option value="todos">Participación Total</option>
+          {PARTIDOS_DB.map(p => <option key={p.key} value={p.key}>{p.nombre}</option>)}
+        </select>
+      </div>
+
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '12px', marginBottom: '25px' }}>
         <div className="card" style={{ padding: '15px', textAlign: 'center', borderTop: '4px solid #4CAF50', borderLeft: 'none' }}>
           <CheckCircle2 size={22} color="#4CAF50" style={{ marginBottom: '5px' }} />
           <div style={{ fontSize: '26px', fontWeight: 'bold', color: '#4CAF50' }}>{conteoSeguras}</div>
-          <div style={{ fontSize: '12px', color: '#666', fontWeight: 'bold' }}>Secciones Seguras</div>
-          <div style={{ fontSize: '10px', color: '#999' }}>Voto Opositor ≥50%</div>
+          <div style={{ fontSize: '12px', color: '#666', fontWeight: 'bold' }}>Zonas Seguras</div>
+          <div style={{ fontSize: '10px', color: '#999' }}>≥{ORION_CONFIG.electoral.umbralSegura}%</div>
         </div>
         <div className="card" style={{ padding: '15px', textAlign: 'center', borderTop: '4px solid #F9A825', borderLeft: 'none' }}>
           <Minus size={22} color="#F9A825" style={{ marginBottom: '5px' }} />
           <div style={{ fontSize: '26px', fontWeight: 'bold', color: '#F9A825' }}>{conteoDisputa}</div>
           <div style={{ fontSize: '12px', color: '#666', fontWeight: 'bold' }}>En Disputa</div>
-          <div style={{ fontSize: '10px', color: '#999' }}>Voto Opositor 35-49%</div>
         </div>
         <div className="card" style={{ padding: '15px', textAlign: 'center', borderTop: '4px solid #F44336', borderLeft: 'none' }}>
           <AlertTriangle size={22} color="#F44336" style={{ marginBottom: '5px' }} />
           <div style={{ fontSize: '26px', fontWeight: 'bold', color: '#F44336' }}>{conteoRiesgo}</div>
           <div style={{ fontSize: '12px', color: '#666', fontWeight: 'bold' }}>En Riesgo</div>
-          <div style={{ fontSize: '10px', color: '#999' }}>Voto Opositor &lt;35%</div>
+          <div style={{ fontSize: '10px', color: '#999' }}>&lt;{ORION_CONFIG.electoral.umbralRiesgo}%</div>
         </div>
         <div className="card" style={{ padding: '15px', textAlign: 'center', borderTop: '4px solid #00A651', borderLeft: 'none' }}>
           <Target size={22} color="#00A651" style={{ marginBottom: '5px' }} />
@@ -187,7 +183,6 @@ export default function Analisis() {
         </div>
       </div>
 
-      {/* Filtros de semáforo */}
       <div style={{ display: 'flex', gap: '8px', marginBottom: '20px', flexWrap: 'wrap' }}>
         {(['todas', 'segura', 'disputa', 'riesgo'] as const).map(f => (
           <button
@@ -196,14 +191,8 @@ export default function Analisis() {
             style={{
               padding: '8px 16px',
               borderRadius: '20px',
-              border: `2px solid ${
-                f === 'segura' ? '#4CAF50' :
-                f === 'disputa' ? '#F9A825' :
-                f === 'riesgo' ? '#F44336' : '#00A651'
-              }`,
-              background: filtroSemaforo === f
-                ? (f === 'segura' ? '#4CAF50' : f === 'disputa' ? '#F9A825' : f === 'riesgo' ? '#F44336' : '#00A651')
-                : 'white',
+              border: `2px solid ${f === 'segura' ? '#4CAF50' : f === 'disputa' ? '#F9A825' : f === 'riesgo' ? '#F44336' : '#00A651'}`,
+              background: filtroSemaforo === f ? (f === 'segura' ? '#4CAF50' : f === 'disputa' ? '#F9A825' : f === 'riesgo' ? '#F44336' : '#00A651') : 'white',
               color: filtroSemaforo === f ? 'white' : '#333',
               fontWeight: 'bold',
               cursor: 'pointer',
@@ -216,7 +205,6 @@ export default function Analisis() {
         ))}
       </div>
 
-      {/* Grid de secciones */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '12px' }}>
         {filtradas.map(s => (
           <div
@@ -228,10 +216,7 @@ export default function Analisis() {
               borderRadius: '10px',
               cursor: 'pointer',
               boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
-              borderLeft: `5px solid ${
-                s.semaforo === 'segura' ? '#4CAF50' :
-                s.semaforo === 'disputa' ? '#F9A825' : '#F44336'
-              }`,
+              borderLeft: `5px solid ${s.semaforo === 'segura' ? '#4CAF50' : s.semaforo === 'disputa' ? '#F9A825' : '#F44336'}`,
               transition: 'transform 0.2s'
             }}
             onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-3px)'}
@@ -244,10 +229,10 @@ export default function Analisis() {
               {s.tendencia === 'estable' && <Minus size={18} color="#999" />}
             </div>
             <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#0066CC', marginBottom: '4px' }}>
-              {s.pct_oposicion}%
+              {s.pct_nuestra_org}%
             </div>
             <div style={{ fontSize: '11px', color: '#666', marginBottom: '6px' }}>
-              Voto a Conquistar (2024)
+              Porcentaje de presencia
             </div>
             <div style={{ fontSize: '11px', color: '#999', borderTop: '1px solid #EEE', paddingTop: '6px', display: 'flex', justifyContent: 'space-between' }}>
               <span>{s.casillas} casillas</span>
@@ -260,68 +245,63 @@ export default function Analisis() {
   );
 }
 
-// ==========================================================
-// COMPONENTE: Detalle de Sección
-// ==========================================================
-function DetalleSeccion({ seccion, resultados, onBack }: { seccion: number; resultados: Resultado[]; onBack: () => void; }) {
+function DetalleSeccion({ seccion, resultados, partidoObjetivo, onBack }: { seccion: number; resultados: Resultado[]; partidoObjetivo: string; onBack: () => void; }) {
   const datosSeccion = resultados.filter(r => r.seccion === seccion);
+  
+  const nombreOrg = partidoObjetivo === 'todos' ? 'Participación Total' : (PARTIDOS_DB.find(p => p.key === partidoObjetivo)?.nombre || 'Nuestra Organización');
+  const colorOrg = partidoObjetivo === 'todos' ? '#0066CC' : (PARTIDOS_DB.find(p => p.key === partidoObjetivo)?.color || '#00A651');
 
-  // Agrupar por año/tipo para la gráfica histórica
   const historicos = ['2018-Presidencial', '2021-Diputacion Federal', '2022-Gubernatura', '2024-Presidencial'];
   const dataGrafica = historicos.map(key => {
     const [anio, tipo] = key.split('-');
     const filas = datosSeccion.filter(r => r.anio === Number(anio) && r.tipo_eleccion === tipo);
-    const total = filas.reduce((s, r) => s + r.total_votos, 0);
-    const morena = filas.reduce((s, r) => s + r.morena, 0);
-    const oposicion = total - morena;
+    const total = filas.reduce((s, r) => s + (Number(r.total_votos) || 0), 0);
+    const votosOrg = filas.reduce((s, r) => s + (Number(r[partidoObjetivo]) || 0), 0);
     
     return {
       name: `${anio} ${tipo.split(' ')[0]}`,
-      'Voto Opositor': oposicion,
-      'MORENA': morena,
+      [nombreOrg]: votosOrg,
+      'Resto': total - votosOrg,
       'Total': total
     };
   });
 
-  // Comparativa de casillas 2024 Presidencial
   const pres2024 = datosSeccion.filter(r => r.anio === 2024 && r.tipo_eleccion === 'Presidencial');
   const dataCasillas = pres2024.map(r => {
     const totalPartidos = r.morena + r.pan + r.pri + r.prd + r.pvem + r.pt + r.mc + r.otros;
+    const votosOrg = Number(r[partidoObjetivo]) || 0;
     return {
       casilla: r.casilla,
-      'Voto Opositor': totalPartidos - r.morena,
-      'MORENA': r.morena,
-      pct: totalPartidos > 0 ? Math.round(((totalPartidos - r.morena) / totalPartidos) * 1000) / 10 : 0
+      [nombreOrg]: votosOrg,
+      'Resto': totalPartidos - votosOrg,
+      pct: totalPartidos > 0 ? Math.round((votosOrg / totalPartidos) * 1000) / 10 : 0
     };
   });
 
-  // Cálculos
-  const totalVotos2024 = pres2024.reduce((s, r) => s + r.total_votos, 0);
-  const morena2024 = pres2024.reduce((s, r) => s + r.morena, 0);
-  const oposicion2024 = totalVotos2024 - morena2024;
-  const lista2024 = pres2024.reduce((s, r) => s + r.lista_nominal, 0);
-  const pctOposicion = totalVotos2024 > 0 ? Math.round((oposicion2024 / totalVotos2024) * 1000) / 10 : 0;
+  const totalVotos2024 = pres2024.reduce((s, r) => s + (Number(r.total_votos) || 0), 0);
+  const votosOrg2024 = pres2024.reduce((s, r) => s + (Number(r[partidoObjetivo]) || 0), 0);
+  const lista2024 = pres2024.reduce((s, r) => s + (Number(r.lista_nominal) || 0), 0);
+  const pctOrg = totalVotos2024 > 0 ? Math.round((votosOrg2024 / totalVotos2024) * 1000) / 10 : 0;
   const participacion = lista2024 > 0 ? Math.round((totalVotos2024 / lista2024) * 1000) / 10 : 0;
 
-  // Recomendación automática (INVERTIDA PARA OPOSICIÓN)
   let recomendacion = '';
   let colorRecomendacion = '#00A651';
   
-  if (pctOposicion >= 50) {
-    recomendacion = 'Sección prioritaria para consolidar. Tenemos la mayoría. Asegurar representantes de casilla y mantener el contacto con los simpatizantes.';
+  if (pctOrg >= ORION_CONFIG.electoral.umbralSegura) {
+    recomendacion = `Zona de fortaleza para ${nombreOrg}. Priorizar el mantenimiento de la estructura, asegurar representantes y consolidar la presencia.`;
     colorRecomendacion = '#4CAF50';
-  } else if (pctOposicion >= 35) {
-    recomendacion = 'Sección en disputa. Enfocar brigadas de persuasión en indecisos. Revisar casillas donde MORENA tenga menor rendimiento para atacar.';
+  } else if (pctOrg >= ORION_CONFIG.electoral.umbralRiesgo) {
+    recomendacion = `Zona en disputa. Enfocar esfuerzos en persuasión, identificar indecisos y reforzar la presencia territorial de ${nombreOrg}.`;
     colorRecomendacion = '#F9A825';
   } else {
-    recomendacion = 'Sección en terreno enemigo. No gastar recursos excesivos aquí. Enfocar el esfuerzo en mantener la estructura mínima y buscar un giro de última hora.';
+    recomendacion = `Zona de oportunidad baja. Optimizar recursos, mantener estructura mínima de contacto y buscar estrategias de giro o alianzas locales.`;
     colorRecomendacion = '#F44336';
   }
 
   return (
     <div>
       <button onClick={onBack} style={{
-        background: 'none', border: 'none', color: '#00A651', cursor: 'pointer',
+        background: 'none', border: 'none', color: colorOrg, cursor: 'pointer',
         display: 'flex', alignItems: 'center', gap: '5px', marginBottom: '15px',
         fontWeight: 'bold', fontSize: '15px'
       }}>
@@ -330,19 +310,18 @@ function DetalleSeccion({ seccion, resultados, onBack }: { seccion: number; resu
 
       <h1 className="header-title">Sección {seccion}</h1>
 
-      {/* KPIs */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '12px', marginBottom: '25px' }}>
-        <div className="card" style={{ padding: '15px', textAlign: 'center', borderTop: '4px solid #0066CC', borderLeft: 'none' }}>
-          <div style={{ fontSize: '26px', fontWeight: 'bold', color: '#0066CC' }}>{pctOposicion}%</div>
-          <div style={{ fontSize: '12px', color: '#666', fontWeight: 'bold' }}>Voto a Conquistar</div>
+        <div className="card" style={{ padding: '15px', textAlign: 'center', borderTop: `4px solid ${colorOrg}`, borderLeft: 'none' }}>
+          <div style={{ fontSize: '26px', fontWeight: 'bold', color: colorOrg }}>{pctOrg}%</div>
+          <div style={{ fontSize: '12px', color: '#666', fontWeight: 'bold' }}>Presencia de {nombreOrg}</div>
         </div>
         <div className="card" style={{ padding: '15px', textAlign: 'center', borderTop: '4px solid #0277BD', borderLeft: 'none' }}>
           <div style={{ fontSize: '26px', fontWeight: 'bold', color: '#0277BD' }}>{participacion}%</div>
           <div style={{ fontSize: '12px', color: '#666', fontWeight: 'bold' }}>Participación</div>
         </div>
-        <div className="card" style={{ padding: '15px', textAlign: 'center', borderTop: '4px solid #00A651', borderLeft: 'none' }}>
-          <div style={{ fontSize: '26px', fontWeight: 'bold', color: '#00A651' }}>{oposicion2024.toLocaleString()}</div>
-          <div style={{ fontSize: '12px', color: '#666', fontWeight: 'bold' }}>Votos Opositores</div>
+        <div className="card" style={{ padding: '15px', textAlign: 'center', borderTop: `4px solid ${colorOrg}`, borderLeft: 'none' }}>
+          <div style={{ fontSize: '26px', fontWeight: 'bold', color: colorOrg }}>{votosOrg2024.toLocaleString()}</div>
+          <div style={{ fontSize: '12px', color: '#666', fontWeight: 'bold' }}>Votos {nombreOrg}</div>
         </div>
         <div className="card" style={{ padding: '15px', textAlign: 'center', borderTop: '4px solid #666', borderLeft: 'none' }}>
           <div style={{ fontSize: '26px', fontWeight: 'bold', color: '#666' }}>{pres2024.length}</div>
@@ -350,7 +329,6 @@ function DetalleSeccion({ seccion, resultados, onBack }: { seccion: number; resu
         </div>
       </div>
 
-      {/* Recomendación */}
       <div style={{
         background: `${colorRecomendacion}15`,
         borderLeft: `5px solid ${colorRecomendacion}`,
@@ -364,10 +342,9 @@ function DetalleSeccion({ seccion, resultados, onBack }: { seccion: number; resu
         <p style={{ fontSize: '13px', color: '#333', margin: 0 }}>{recomendacion}</p>
       </div>
 
-      {/* Gráfica histórica */}
       <div className="card" style={{ marginBottom: '25px' }}>
-        <h3 style={{ color: '#00A651', fontSize: '16px', marginBottom: '15px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <BarChart3 size={20} /> Tendencia histórica: Voto Opositor vs MORENA
+        <h3 style={{ color: colorOrg, fontSize: '16px', marginBottom: '15px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <BarChart3 size={20} /> Tendencia histórica: {nombreOrg} vs Resto
         </h3>
         <ResponsiveContainer width="100%" height={300}>
           <LineChart data={dataGrafica}>
@@ -376,15 +353,14 @@ function DetalleSeccion({ seccion, resultados, onBack }: { seccion: number; resu
             <YAxis stroke="#666" />
             <Tooltip contentStyle={{ borderRadius: '8px', border: '1px solid #E0E0E0' }} />
             <Legend wrapperStyle={{ fontSize: '12px' }} />
-            <Line type="monotone" dataKey="Voto Opositor" stroke="#0066CC" strokeWidth={3} dot={{ fill: '#0066CC', r: 5 }} />
-            <Line type="monotone" dataKey="MORENA" stroke="#9F2241" strokeWidth={2} dot={{ fill: '#9F2241', r: 3 }} />
+            <Line type="monotone" dataKey={nombreOrg} stroke={colorOrg} strokeWidth={3} dot={{ fill: colorOrg, r: 5 }} />
+            <Line type="monotone" dataKey="Resto" stroke="#999" strokeWidth={2} dot={{ fill: '#999', r: 3 }} strokeDasharray="5 5" />
           </LineChart>
         </ResponsiveContainer>
       </div>
 
-      {/* Comparativa por casilla */}
       <div className="card">
-        <h3 style={{ color: '#00A651', fontSize: '16px', marginBottom: '15px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <h3 style={{ color: colorOrg, fontSize: '16px', marginBottom: '15px', display: 'flex', alignItems: 'center', gap: '8px' }}>
           <MapPin size={20} /> Rendimiento por casilla (Presidencial 2024)
         </h3>
         <ResponsiveContainer width="100%" height={Math.max(250, dataCasillas.length * 35)}>
@@ -395,8 +371,8 @@ function DetalleSeccion({ seccion, resultados, onBack }: { seccion: number; resu
             <Tooltip contentStyle={{ borderRadius: '8px', border: '1px solid #E0E0E0' }} />
             <Legend wrapperStyle={{ fontSize: '12px' }} />
             <ReferenceLine x={0} stroke="#999" />
-            <Bar dataKey="Voto Opositor" stackId="a" fill="#0066CC" name="Voto Opositor" />
-            <Bar dataKey="MORENA" stackId="a" fill="#9F2241" name="MORENA" />
+            <Bar dataKey={nombreOrg} stackId="a" fill={colorOrg} name={nombreOrg} />
+            <Bar dataKey="Resto" stackId="a" fill="#E2E8F0" name="Resto" />
           </BarChart>
         </ResponsiveContainer>
       </div>
