@@ -231,42 +231,51 @@ export const syncNow = async () => {
   estadoMotor.syncing = true;
   publicarEstado();
 
-  const queue = await Queue.getAll();
-  // Solo procesamos PENDING. Los DEAD se ignoran.
-  const pendientes = queue.filter((q: any) => q.status === 'PENDING');
+  try { // 🚀 TRY/FINALLY PARA EVITAR BLOQUEOS
+    const queue = await Queue.getAll();
+    
+    // 🚀 ORDENAR POR TIMESTAMP (Para que no se ejecute un UPDATE antes de su INSERT)
+    const pendientes = queue
+      .filter((q: any) => q.status === 'PENDING')
+      .sort((a: any, b: any) => a.timestamp - b.timestamp);
 
-  let exitos = 0;
-  let fallidos = 0;
+    let exitos = 0;
+    let fallidos = 0;
 
-  for (let i = 0; i < pendientes.length; i += BATCH_SIZE) {
-    const lote = pendientes.slice(i, i + BATCH_SIZE);
-    for (const op of lote) {
-      try {
-        await ejecutarOperacion(op);
-        await Queue.remove(op.id);
-        exitos++;
-      } catch (err: any) {
-        fallidos++;
-        const attempts = (op.attempts || 0) + 1;
-        // 🚀 FIX: Si supera el máximo, pasa a DEAD y ya no se reintenta.
-        await Queue.update(op.id, {
-          attempts,
-          status: attempts >= MAX_INTENTOS ? 'DEAD' : 'PENDING',
-          error: err?.message || String(err),
-        });
+    for (let i = 0; i < pendientes.length; i += BATCH_SIZE) {
+      const lote = pendientes.slice(i, i + BATCH_SIZE);
+      for (const op of lote) {
+        try {
+          await ejecutarOperacion(op);
+          await Queue.remove(op.id);
+          exitos++;
+        } catch (err: any) {
+          fallidos++;
+          const attempts = (op.attempts || 0) + 1;
+          await Queue.update(op.id, {
+            attempts,
+            status: attempts >= MAX_INTENTOS ? 'DEAD' : 'PENDING',
+            error: err?.message || String(err),
+          });
+        }
+      }
+      if (i + BATCH_SIZE < pendientes.length) {
+        await new Promise((r) => setTimeout(r, 100));
       }
     }
-    if (i + BATCH_SIZE < pendientes.length) {
-      await new Promise((r) => setTimeout(r, 100));
-    }
-  }
 
-  estadoMotor.queueSize = await Queue.size();
-  estadoMotor.syncing = false;
-  estadoMotor.lastSyncAt = new Date();
-  estadoMotor.lastError = fallidos > 0 ? `${fallidos} op(s) fallida(s)` : null;
-  publicarEstado();
-  return { ok: true, exitos, fallidos };
+    estadoMotor.queueSize = await Queue.size();
+    estadoMotor.lastSyncAt = new Date();
+    estadoMotor.lastError = fallidos > 0 ? `${fallidos} op(s) fallida(s)` : null;
+    return { ok: true, exitos, fallidos };
+  } catch (error) {
+    console.error("Error crítico en syncNow:", error);
+    return { ok: false, reason: 'error_critico' };
+  } finally {
+    // 🚀 SIEMPRE SE EJECUTA, evitando que el motor se quede colgado
+    estadoMotor.syncing = false;
+    publicarEstado();
+  }
 };
 
 const iniciarMotorSync = () => {
