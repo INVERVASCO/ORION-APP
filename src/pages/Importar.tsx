@@ -1,77 +1,47 @@
 import { useEffect, useState, useRef } from 'react';
-import { Upload, Loader2, CheckCircle2, AlertTriangle, Database, Trash2, ArrowRight, Download, X, FileSpreadsheet } from 'lucide-react';
+import { Upload, Loader2, CheckCircle2, AlertTriangle, Database, Trash2, ArrowRight, Download, X, FileSpreadsheet, Shield } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 import Toast from '../components/Toast';
 import * as XLSX from 'xlsx';
 import ExcelJS from 'exceljs';
 import { saveAs } from 'file-saver';
+import { PARTIDOS_DB } from '../lib/config'; // 🚀 IMPORTAMOS LOS PARTIDOS
 
 interface PersonaStaging {
-  id: string;
-  nombre_completo: string;
-  telefono: string | null;
-  ocupacion: string | null;
-  correo_electronico: string | null;
-  direccion: string | null;
-  preferencia_voto: string | null;
-  barrio_colonia_id: string | null;
-  estado: string;
-  errores: any;
-  created_at: string;
+  id: string; nombre_completo: string; telefono: string | null;
+  ocupacion: string | null; correo_electronico: string | null;
+  direccion: string | null; preferencia_voto: string | null;
+  barrio_colonia_id: string | null; estado: string; errores: any; created_at: string;
 }
 
 interface Barrio { id: string; nombre: string; }
-
-interface ConfirmModalData {
-  visible: boolean;
-  titulo: string;
-  mensaje: string;
-  tipo: 'danger' | 'success' | 'warning';
-  onConfirm: () => void;
-}
+interface ConfirmModalData { visible: boolean; titulo: string; mensaje: string; tipo: 'danger' | 'success' | 'warning'; onConfirm: () => void; }
 
 function parsearArchivo(contenido: string) {
   const lineas = contenido.split('\n').filter(l => l.trim() !== '');
   if (lineas.length < 2) return { error: 'El archivo está vacío o no tiene filas de datos' };
-
   const muestras = lineas.slice(0, Math.min(5, lineas.length));
   let tabs = 0, semis = 0, comas = 0;
-  muestras.forEach(l => {
-    tabs += (l.match(/\t/g) || []).length;
-    semis += (l.match(/;/g) || []).length;
-    comas += (l.match(/,/g) || []).length;
-  });
-
-  let separador = ',';
-  if (tabs > comas && tabs > semis) separador = '\t';
-  else if (semis > comas && semis > tabs) separador = ';';
-
+  muestras.forEach(l => { tabs += (l.match(/\t/g) || []).length; semis += (l.match(/;/g) || []).length; comas += (l.match(/,/g) || []).length; });
+  let separador = ','; if (tabs > comas && tabs > semis) separador = '\t'; else if (semis > comas && semis > tabs) separador = ';';
   const parseLinea = (linea: string) => linea.split(separador).map(v => v.trim().replace(/^"|"$/g, '').trim());
-
   let encabezados = parseLinea(lineas[0]).filter(h => h !== '');
-  if (encabezados.length === 1 && encabezados[0].includes('\t')) {
-    encabezados = encabezados[0].split('\t').map(v => v.trim()).filter(h => h !== '');
-  }
-
+  if (encabezados.length === 1 && encabezados[0].includes('\t')) encabezados = encabezados[0].split('\t').map(v => v.trim()).filter(h => h !== '');
   const indices: Record<string, number> = {};
   encabezados.forEach((h, i) => {
     const hn = h.toLowerCase().trim();
     if (indices.nombre === undefined && hn.includes('nombre')) indices.nombre = i;
-    else if (indices.telefono === undefined && (hn.includes('tel') || hn.includes('celular') || hn.includes('whatsapp'))) indices.telefono = i;
-    else if (indices.ocupacion === undefined && (hn.includes('ocupacion') || hn.includes('ocupación') || hn.includes('profesion') || hn.includes('profesión'))) indices.ocupacion = i;
+    else if (indices.telefono === undefined && (hn.includes('tel') || hn.includes('celular'))) indices.telefono = i;
+    else if (indices.ocupacion === undefined && (hn.includes('ocupacion') || hn.includes('ocupación'))) indices.ocupacion = i;
     else if (indices.correo === undefined && (hn.includes('correo') || hn.includes('email'))) indices.correo = i;
-    else if (indices.direccion === undefined && (hn.includes('direccion') || hn.includes('dirección') || hn.includes('domicilio'))) indices.direccion = i;
+    else if (indices.direccion === undefined && (hn.includes('direccion') || hn.includes('dirección'))) indices.direccion = i;
     else if (indices.preferencia_voto === undefined && (hn.includes('voto') || hn.includes('preferencia'))) indices.preferencia_voto = i;
     else if (indices.barrio === undefined && (hn.includes('barrio') || hn.includes('colonia'))) indices.barrio = i;
   });
-
   if (indices.nombre === undefined) return { error: `No se detectó la columna "Nombre". Encabezados leídos: ${encabezados.join(' | ')}` };
-
   const filas: any[] = [];
   for (let i = 1; i < lineas.length; i++) {
-    const valores = parseLinea(lineas[i]);
-    if (valores.every(v => v === '')) continue;
-
+    const valores = parseLinea(lineas[i]); if (valores.every(v => v === '')) continue;
     filas.push({
       nombre_completo: valores[indices.nombre!] || 'Sin nombre',
       telefono: indices.telefono !== undefined ? valores[indices.telefono] || null : null,
@@ -82,7 +52,6 @@ function parsearArchivo(contenido: string) {
       barrio_texto: indices.barrio !== undefined ? valores[indices.barrio] || null : null,
     });
   }
-
   return { encabezados, filas, indices };
 }
 
@@ -91,9 +60,7 @@ async function parsearXLSX(file: File) {
   const workbook = XLSX.read(arrayBuffer, { type: 'array' });
   const primeraHoja = workbook.Sheets[workbook.SheetNames[0]];
   const jsonData = XLSX.utils.sheet_to_json(primeraHoja, { header: 1, defval: '' });
-
   if (jsonData.length < 2) return { error: 'El archivo está vacío' };
-
   const encabezados = (jsonData[0] as any[]).map(h => String(h).trim()).filter(h => h !== '');
   const indices: Record<string, number> = {};
   encabezados.forEach((h, i) => {
@@ -106,14 +73,10 @@ async function parsearXLSX(file: File) {
     else if (indices.preferencia_voto === undefined && (hn.includes('voto') || hn.includes('preferencia'))) indices.preferencia_voto = i;
     else if (indices.barrio === undefined && (hn.includes('barrio') || hn.includes('colonia'))) indices.barrio = i;
   });
-
   if (indices.nombre === undefined) return { error: `No se detectó la columna "Nombre". Encabezados: ${encabezados.join(' | ')}` };
-
   const filas: any[] = [];
   for (let i = 1; i < jsonData.length; i++) {
-    const valores = jsonData[i] as any[];
-    if (!valores || valores.every(v => String(v).trim() === '')) continue;
-
+    const valores = jsonData[i] as any[]; if (!valores || valores.every(v => String(v).trim() === '')) continue;
     filas.push({
       nombre_completo: String(valores[indices.nombre!] || '').trim() || 'Sin nombre',
       telefono: indices.telefono !== undefined ? String(valores[indices.telefono] || '').trim() || null : null,
@@ -124,7 +87,6 @@ async function parsearXLSX(file: File) {
       barrio_texto: indices.barrio !== undefined ? String(valores[indices.barrio] || '').trim() || null : null,
     });
   }
-
   return { encabezados, filas };
 }
 
@@ -134,6 +96,9 @@ export default function Importar() {
   const [loading, setLoading] = useState(false);
   const [publicando, setPublicando] = useState(false);
   
+  // 🚀 NUEVO ESTADO PARA EL CONSENTIMIENTO LEGAL
+  const [aceptoConsentimiento, setAceptoConsentimiento] = useState(false);
+  
   const [progreso, setProgreso] = useState({ actual: 0, total: 0, mensaje: '' });
   
   const [toastVisible, setToastVisible] = useState(false);
@@ -141,13 +106,8 @@ export default function Importar() {
   const [tabVista, setTabVista] = useState<'todas' | 'validas' | 'errores'>('todas');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const [confirmModal, setConfirmModal] = useState<ConfirmModalData>({
-    visible: false, titulo: '', mensaje: '', tipo: 'warning', onConfirm: () => {},
-  });
-
-  const mostrarConfirm = (titulo: string, mensaje: string, tipo: 'danger' | 'success' | 'warning', onConfirm: () => void) => {
-    setConfirmModal({ visible: true, titulo, mensaje, tipo, onConfirm });
-  };
+  const [confirmModal, setConfirmModal] = useState<ConfirmModalData>({ visible: false, titulo: '', mensaje: '', tipo: 'warning', onConfirm: () => {} });
+  const mostrarConfirm = (titulo: string, mensaje: string, tipo: 'danger' | 'success' | 'warning', onConfirm: () => void) => setConfirmModal({ visible: true, titulo, mensaje, tipo, onConfirm });
   const cerrarConfirm = () => setConfirmModal({ ...confirmModal, visible: false });
 
   useEffect(() => {
@@ -155,10 +115,8 @@ export default function Importar() {
       setLoading(true);
       const { data: stagingData } = await supabase.from('personas_staging').select('*').order('created_at', { ascending: false });
       if (stagingData) setStaging(stagingData as any);
-
       const { data: barriosData } = await supabase.from('barrios_colonias').select('id, nombre').order('nombre');
       if (barriosData) setBarrios(barriosData);
-
       setLoading(false);
     };
     fetchData();
@@ -168,15 +126,8 @@ export default function Importar() {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // 🚀 FIX LEGAL (LFPDPPP): Declaración de consentimiento
-    const tieneConsentimiento = window.confirm(
-      "DECLARACIÓN DE CONSENTIMIENTO (LFPDPPP):\n\n" +
-      "Al subir este archivo, usted declara bajo protesta de decir verdad que cuenta con el consentimiento expreso de los titulares (maestros/ciudadanos) para el tratamiento de sus datos personales y datos sensibles (opinión política).\n\n" +
-      "¿Confirma que tiene el consentimiento de esta base de datos?"
-    );
-
-    if (!tieneConsentimiento) {
-      setToastMensaje('Importación cancelada. Se requiere el consentimiento para proceder.');
+    if (!aceptoConsentimiento) {
+      setToastMensaje('Debes confirmar la declaración de consentimiento.');
       setToastVisible(true);
       if (fileInputRef.current) fileInputRef.current.value = '';
       return;
@@ -187,27 +138,13 @@ export default function Importar() {
     let parsed: any = null;
 
     try {
-      if (file.name.endsWith('.xlsx') || file.name.endsWith('.xls')) {
-        parsed = await parsearXLSX(file);
-      } else {
-        const texto = await file.text();
-        parsed = parsearArchivo(texto);
-      }
+      if (file.name.endsWith('.xlsx') || file.name.endsWith('.xls')) parsed = await parsearXLSX(file);
+      else { const texto = await file.text(); parsed = parsearArchivo(texto); }
     } catch (err: any) {
-      setToastMensaje('Error al leer el archivo: ' + err.message);
-      setToastVisible(true);
-      setLoading(false);
-      if (fileInputRef.current) fileInputRef.current.value = '';
-      return;
+      setToastMensaje('Error al leer el archivo: ' + err.message); setToastVisible(true); setLoading(false); return;
     }
 
-    if (parsed.error) {
-      setToastMensaje(parsed.error);
-      setToastVisible(true);
-      setLoading(false);
-      if (fileInputRef.current) fileInputRef.current.value = '';
-      return;
-    }
+    if (parsed.error) { setToastMensaje(parsed.error); setToastVisible(true); setLoading(false); return; }
 
     const { encabezados, filas } = parsed;
     const totalFilas = filas.length;
@@ -217,11 +154,7 @@ export default function Importar() {
       const { barrio_texto, ...resto } = f;
       let barrio_colonia_id: string | null = null;
       if (barrio_texto) {
-        const encontrado = barrios.find(b =>
-          b.nombre.toLowerCase().trim() === barrio_texto.toLowerCase().trim() ||
-          b.nombre.toLowerCase().includes(barrio_texto.toLowerCase()) ||
-          barrio_texto.toLowerCase().includes(b.nombre.toLowerCase())
-        );
+        const encontrado = barrios.find(b => b.nombre.toLowerCase().trim() === barrio_texto.toLowerCase().trim() || b.nombre.toLowerCase().includes(barrio_texto.toLowerCase()) || barrio_texto.toLowerCase().includes(b.nombre.toLowerCase()));
         if (encontrado) barrio_colonia_id = encontrado.id;
       }
       return { ...resto, barrio_colonia_id, estado: 'pendiente', errores: null };
@@ -232,29 +165,20 @@ export default function Importar() {
 
     for (let i = 0; i < filasConBarrio.length; i += CHUNK_SIZE) {
       const lote = filasConBarrio.slice(i, i + CHUNK_SIZE);
-      
       const { error } = await supabase.from('personas_staging').insert(lote);
-
-      if (error) {
-        setToastMensaje(`Error en lote ${i / CHUNK_SIZE + 1}: ` + error.message);
-        setToastVisible(true);
-        break;
-      }
-
+      if (error) { setToastMensaje(`Error en lote ${i / CHUNK_SIZE + 1}: ` + error.message); setToastVisible(true); break; }
       insertados += lote.length;
       setProgreso({ actual: insertados, total: totalFilas, mensaje: `Guardando lote de 1,000 registros...` });
       await new Promise(r => setTimeout(r, 50));
     }
 
     if (insertados > 0) {
-      setToastMensaje(`✅ ${insertados} registros cargados. Columnas: ${encabezados.join(', ')}`);
-      setToastVisible(true);
+      setToastMensaje(`✅ ${insertados} registros cargados. Columnas: ${encabezados.join(', ')}`); setToastVisible(true);
       const { data } = await supabase.from('personas_staging').select('*').order('created_at', { ascending: false });
       if (data) setStaging(data as any);
     }
 
-    setProgreso({ actual: 0, total: 0, mensaje: '' });
-    setLoading(false);
+    setProgreso({ actual: 0, total: 0, mensaje: '' }); setLoading(false);
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
@@ -262,16 +186,13 @@ export default function Importar() {
     setLoading(true);
     const actualizados = staging.map(s => {
       const errores: string[] = [];
-      if (!s.nombre_completo || s.nombre_completo === 'Sin nombre' || s.nombre_completo.trim() === '') {
-        errores.push('Falta el nombre completo');
-      }
+      if (!s.nombre_completo || s.nombre_completo === 'Sin nombre' || s.nombre_completo.trim() === '') errores.push('Falta el nombre completo');
       if (s.telefono && s.telefono.trim() !== '') {
         const soloDigitos = s.telefono.replace(/\D/g, '');
         if (soloDigitos.length !== 10) errores.push(`Teléfono inválido: "${s.telefono}" (se esperaban 10 dígitos)`);
       }
       if (s.correo_electronico && s.correo_electronico.trim() !== '') {
-        const email = s.correo_electronico.trim();
-        const partes = email.split('@');
+        const email = s.correo_electronico.trim(); const partes = email.split('@');
         if (partes.length !== 2 || !partes[1].includes('.')) errores.push(`Correo inválido: "${email}"`);
       }
       return { ...s, estado: errores.length === 0 ? 'validado' : 'error', errores: errores.length > 0 ? errores : null };
@@ -280,9 +201,7 @@ export default function Importar() {
     const CHUNK_SIZE = 500;
     for (let i = 0; i < actualizados.length; i += CHUNK_SIZE) {
       const lote = actualizados.slice(i, i + CHUNK_SIZE);
-      for (const registro of lote) {
-        await supabase.from('personas_staging').update({ estado: registro.estado, errores: registro.errores }).eq('id', registro.id);
-      }
+      for (const registro of lote) await supabase.from('personas_staging').update({ estado: registro.estado, errores: registro.errores }).eq('id', registro.id);
       setProgreso({ actual: i + lote.length, total: actualizados.length, mensaje: 'Validando registros...' });
       await new Promise(r => setTimeout(r, 20));
     }
@@ -290,47 +209,27 @@ export default function Importar() {
     setStaging(actualizados);
     const totalErrores = actualizados.filter(a => a.estado === 'error').length;
     const totalValidados = actualizados.filter(a => a.estado === 'validado').length;
-    setToastMensaje(`Validación: ${totalValidados} válidos, ${totalErrores} con errores`);
-    setToastVisible(true);
-    setProgreso({ actual: 0, total: 0, mensaje: '' });
-    setLoading(false);
+    setToastMensaje(`Validación: ${totalValidados} válidos, ${totalErrores} con errores`); setToastVisible(true);
+    setProgreso({ actual: 0, total: 0, mensaje: '' }); setLoading(false);
   };
 
   const publicar = () => {
     const validos = staging.filter(s => s.estado === 'validado');
-    if (validos.length === 0) {
-      setToastMensaje('No hay registros validados para publicar'); setToastVisible(true);
-      return;
-    }
+    if (validos.length === 0) { setToastMensaje('No hay registros validados para publicar'); setToastVisible(true); return; }
 
     mostrarConfirm('¿Publicar al sistema productivo?', `Se publicarán ${validos.length} registro(s). Una vez publicados, se eliminarán del arenero.`, 'success', async () => {
-      cerrarConfirm();
-      setPublicando(true);
-      setProgreso({ actual: 0, total: validos.length, mensaje: 'Publicando...' });
-
-      let exitosos = 0, fallidos = 0;
-      const idsExitosos: string[] = [];
-      const CHUNK_SIZE = 500;
+      cerrarConfirm(); setPublicando(true); setProgreso({ actual: 0, total: validos.length, mensaje: 'Publicando...' });
+      let exitosos = 0, fallidos = 0; const idsExitosos: string[] = []; const CHUNK_SIZE = 500;
 
       for (let i = 0; i < validos.length; i += CHUNK_SIZE) {
         const lote = validos.slice(i, i + CHUNK_SIZE);
         const payload = lote.map(v => ({
-          nombre_completo: v.nombre_completo,
-          telefono: v.telefono,
-          ocupacion: v.ocupacion,
-          correo_electronico: v.correo_electronico,
-          direccion: v.direccion,
-          preferencia_voto: v.preferencia_voto,
-          barrio_colonia_id: v.barrio_colonia_id,
-          consentimiento_aceptado: true,
-          fecha_consentimiento: new Date().toISOString(),
-          origen_captura: 'Importación masiva',
+          nombre_completo: v.nombre_completo, telefono: v.telefono, ocupacion: v.ocupacion, correo_electronico: v.correo_electronico,
+          direccion: v.direccion, preferencia_voto: v.preferencia_voto, barrio_colonia_id: v.barrio_colonia_id,
+          consentimiento_aceptado: true, fecha_consentimiento: new Date().toISOString(), origen_captura: 'Importación masiva',
         }));
-
         const { error } = await supabase.from('personas').insert(payload);
-        if (error) fallidos += lote.length;
-        else { exitosos += lote.length; idsExitosos.push(...lote.map(v => v.id)); }
-        
+        if (error) fallidos += lote.length; else { exitosos += lote.length; idsExitosos.push(...lote.map(v => v.id)); }
         setProgreso({ actual: i + lote.length, total: validos.length, mensaje: 'Publicando al sistema online...' });
         await new Promise(r => setTimeout(r, 50));
       }
@@ -342,25 +241,21 @@ export default function Importar() {
 
       if (fallidos > 0) setToastMensaje(`Publicados ${exitosos}, fallaron ${fallidos}.`);
       else setToastMensaje(`¡${exitosos} registros publicados con éxito!`);
-      
       setToastVisible(true); setPublicando(false); setProgreso({ actual: 0, total: 0, mensaje: '' });
     });
   };
 
   const eliminarStaging = (id: string, nombre: string) => {
     mostrarConfirm('¿Eliminar este registro?', `Se eliminará "${nombre}" del arenero.`, 'danger', async () => {
-      cerrarConfirm();
-      await supabase.from('personas_staging').delete().eq('id', id);
-      setStaging(staging.filter(s => s.id !== id));
-      setToastMensaje('Registro eliminado'); setToastVisible(true);
+      cerrarConfirm(); await supabase.from('personas_staging').delete().eq('id', id);
+      setStaging(staging.filter(s => s.id !== id)); setToastMensaje('Registro eliminado'); setToastVisible(true);
     });
   };
 
   const limpiarArenero = () => {
     if (staging.length === 0) return;
     mostrarConfirm('¿Limpiar todo el arenero?', `Se eliminarán TODOS los ${staging.length} registros.`, 'danger', async () => {
-      cerrarConfirm();
-      await supabase.from('personas_staging').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+      cerrarConfirm(); await supabase.from('personas_staging').delete().neq('id', '00000000-0000-0000-0000-000000000000');
       setStaging([]); setToastMensaje('Arenero limpiado'); setToastVisible(true);
     });
   };
@@ -370,12 +265,9 @@ export default function Importar() {
       const workbook = new ExcelJS.Workbook();
       const sheet = workbook.addWorksheet('Personas', { views: [{ state: 'frozen', ySplit: 1 }] });
       sheet.columns = [
-        { header: 'Nombre', key: 'nombre', width: 30 },
-        { header: 'Teléfono', key: 'telefono', width: 15 },
-        { header: 'Ocupación', key: 'ocupacion', width: 22 },
-        { header: 'Correo', key: 'correo', width: 32 },
-        { header: 'Dirección', key: 'direccion', width: 38 },
-        { header: 'Preferencia Voto', key: 'voto', width: 22 },
+        { header: 'Nombre', key: 'nombre', width: 30 }, { header: 'Teléfono', key: 'telefono', width: 15 },
+        { header: 'Ocupación', key: 'ocupacion', width: 22 }, { header: 'Correo', key: 'correo', width: 32 },
+        { header: 'Dirección', key: 'direccion', width: 38 }, { header: 'Preferencia Voto', key: 'voto', width: 22 },
         { header: 'Barrio/Colonia', key: 'barrio', width: 28 },
       ];
       const headerRow = sheet.getRow(1);
@@ -383,12 +275,16 @@ export default function Importar() {
       headerRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF9F2241' } };
 
       const listSheet = workbook.addWorksheet('Listas');
-      ['UNIDOS X TULA', 'MORENA', 'PAN', 'PRI', 'Indeciso', 'Otro'].forEach((p, i) => { listSheet.getCell(`A${i + 1}`).value = p; });
+      
+      // 🚀 FIX: GENERACIÓN DINÁMICA DE PARTIDOS
+      const opcionesVoto = [...PARTIDOS_DB.map(p => p.nombre), 'Indeciso', 'Otro'];
+      opcionesVoto.forEach((p, i) => { listSheet.getCell(`A${i + 1}`).value = p; });
+      
       barrios.forEach((b, i) => { listSheet.getCell(`B${i + 1}`).value = b.nombre; });
       listSheet.state = 'veryHidden';
 
       for (let i = 2; i <= 1000; i++) {
-        sheet.getCell(`F${i}`).dataValidation = { type: 'list', allowBlank: true, formulae: [`Listas!$A$1:$A$6`] };
+        sheet.getCell(`F${i}`).dataValidation = { type: 'list', allowBlank: true, formulae: [`Listas!$A$1:$A$${opcionesVoto.length}`] };
         if (barrios.length > 0) sheet.getCell(`G${i}`).dataValidation = { type: 'list', allowBlank: true, formulae: [`Listas!$B$1:$B$${barrios.length}`] };
       }
 
@@ -396,9 +292,7 @@ export default function Importar() {
       const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
       saveAs(blob, `plantilla_personas_${new Date().toISOString().split('T')[0]}.xlsx`);
       setToastMensaje('Plantilla descargada'); setToastVisible(true);
-    } catch (err: any) {
-      alert('Error al generar la plantilla: ' + err.message);
-    }
+    } catch (err: any) { alert('Error al generar la plantilla: ' + err.message); }
   };
 
   const filtrados = staging.filter(s => {
@@ -420,10 +314,7 @@ export default function Importar() {
 
       {progreso.total > 0 && (
         <div className="card" style={{ background: '#0A1628', color: 'white', marginBottom: '20px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px', fontSize: '14px' }}>
-            <span>{progreso.mensaje}</span>
-            <strong>{progreso.actual} / {progreso.total}</strong>
-          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px', fontSize: '14px' }}><span>{progreso.mensaje}</span><strong>{progreso.actual} / {progreso.total}</strong></div>
           <div style={{ height: '10px', background: 'rgba(255,255,255,0.1)', borderRadius: '5px', overflow: 'hidden' }}>
             <div style={{ width: `${(progreso.actual / progreso.total) * 100}%`, height: '100%', background: '#00D4FF', transition: 'width 0.3s' }} />
           </div>
@@ -432,26 +323,41 @@ export default function Importar() {
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '12px', marginBottom: '25px' }}>
         <div className="card" style={{ padding: '15px', textAlign: 'center', borderTop: '4px solid #9F2241', borderLeft: 'none' }}>
-          <div style={{ fontSize: '26px', fontWeight: 'bold', color: '#9F2241' }}>{staging.length}</div>
-          <div style={{ fontSize: '12px', color: '#666', fontWeight: 'bold' }}>En el arenero</div>
+          <div style={{ fontSize: '26px', fontWeight: 'bold', color: '#9F2241' }}>{staging.length}</div><div style={{ fontSize: '12px', color: '#666', fontWeight: 'bold' }}>En el arenero</div>
         </div>
         <div className="card" style={{ padding: '15px', textAlign: 'center', borderTop: '4px solid #2E7D32', borderLeft: 'none' }}>
-          <div style={{ fontSize: '26px', fontWeight: 'bold', color: '#2E7D32' }}>{totalValidados}</div>
-          <div style={{ fontSize: '12px', color: '#666', fontWeight: 'bold' }}>Validados ✓</div>
+          <div style={{ fontSize: '26px', fontWeight: 'bold', color: '#2E7D32' }}>{totalValidados}</div><div style={{ fontSize: '12px', color: '#666', fontWeight: 'bold' }}>Validados ✓</div>
         </div>
         <div className="card" style={{ padding: '15px', textAlign: 'center', borderTop: '4px solid #C62828', borderLeft: 'none' }}>
-          <div style={{ fontSize: '26px', fontWeight: 'bold', color: '#C62828' }}>{totalErrores}</div>
-          <div style={{ fontSize: '12px', color: '#666', fontWeight: 'bold' }}>Con errores</div>
+          <div style={{ fontSize: '26px', fontWeight: 'bold', color: '#C62828' }}>{totalErrores}</div><div style={{ fontSize: '12px', color: '#666', fontWeight: 'bold' }}>Con errores</div>
         </div>
         <div className="card" style={{ padding: '15px', textAlign: 'center', borderTop: '4px solid #F9A825', borderLeft: 'none' }}>
-          <div style={{ fontSize: '26px', fontWeight: 'bold', color: '#F9A825' }}>{totalPendientes}</div>
-          <div style={{ fontSize: '12px', color: '#666', fontWeight: 'bold' }}>Pendientes</div>
+          <div style={{ fontSize: '26px', fontWeight: 'bold', color: '#F9A825' }}>{totalPendientes}</div><div style={{ fontSize: '12px', color: '#666', fontWeight: 'bold' }}>Pendientes</div>
         </div>
+      </div>
+
+      {/* 🚀 NUEVO CHECKBOX DE CONSENTIMIENTO */}
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', padding: '15px', background: '#FFF8E1', borderRadius: '8px', borderLeft: '4px solid #F9A825', marginBottom: '20px' }}>
+        <input 
+          type="checkbox" 
+          id="acepto-consentimiento" 
+          checked={aceptoConsentimiento} 
+          onChange={(e) => setAceptoConsentimiento(e.target.checked)} 
+          style={{ width: '20px', height: '20px', cursor: 'pointer', marginTop: '2px', flexShrink: 0 }} 
+        />
+        <label htmlFor="acepto-consentimiento" style={{ fontSize: '13px', color: '#475569', cursor: 'pointer', lineHeight: '1.5' }}>
+          <strong>Declaración de Consentimiento (LFPDPPP):</strong> Declaro bajo protesta de decir verdad que cuento con el consentimiento expreso de los titulares de los datos para el tratamiento de su información personal y datos sensibles. Entiendo que el uso indebido de esta información es mi responsabilidad legal.
+        </label>
       </div>
 
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', marginBottom: '20px', alignItems: 'center' }}>
         <input ref={fileInputRef} type="file" accept=".csv,.txt,.xlsx,.xls" onChange={handleFileUpload} style={{ display: 'none' }} />
-        <button onClick={() => fileInputRef.current?.click()} className="btn-primary" disabled={loading} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <button 
+          onClick={() => fileInputRef.current?.click()} 
+          className="btn-primary" 
+          disabled={loading || !aceptoConsentimiento} // Bloqueado si no acepta
+          style={{ display: 'flex', alignItems: 'center', gap: '8px', opacity: !aceptoConsentimiento ? 0.5 : 1 }}
+        >
           <Upload size={16} /> Subir archivo
         </button>
         <button onClick={descargarPlantillaXLSX} style={{ padding: '12px 20px', background: 'white', color: '#9F2241', border: '2px solid #9F2241', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '8px' }}>
