@@ -1,61 +1,26 @@
-// ============================================================
-// CLIENTE DEEPSEEK - UNIDOS X TULA
-// Usa el cliente de Supabase para invocar la Edge Function
-// ============================================================
-
 import { supabase } from './supabaseClient';
+import { ORION_CONFIG } from './config'; // 🚀 IMPORTAMOS LA CONFIGURACIÓN
 
-interface DeepSeekMessage {
-  role: 'system' | 'user' | 'assistant';
-  content: string;
-}
+const ORG_NAME = ORION_CONFIG.organizacionNombre;
 
-interface DeepSeekOptions {
-  temperature?: number;
-  model?: string;
-}
+interface DeepSeekMessage { role: 'system' | 'user' | 'assistant'; content: string; }
+interface DeepSeekOptions { temperature?: number; model?: string; }
 
-/**
- * Invoca DeepSeek a través de la Edge Function de Supabase.
- * Las credenciales se toman automáticamente de supabaseClient.ts
- */
 export async function invocarDeepSeek(
   messages: DeepSeekMessage[],
   { temperature = 0.4, model = 'deepseek-chat' }: DeepSeekOptions = {}
 ): Promise<string> {
   try {
-    // Usar el cliente de Supabase para invocar la Edge Function
     const { data, error } = await supabase.functions.invoke('deepseek-chat', {
-      body: {
-        model,
-        messages,
-        temperature,
-      },
+      body: { model, messages, temperature },
     });
 
-    if (error) {
-      throw new Error(error.message || 'Error al invocar la Edge Function');
-    }
-
-    // La Edge Function regresa { ok: true, data: { choices: [...] } }
+    if (error) throw new Error(error.message || 'Error al invocar la Edge Function');
     const payload = data?.data ?? data;
-
-    if (data?.ok === false) {
-      throw new Error(data?.error || 'Error del proxy de DeepSeek');
-    }
-
-    if (payload?.error) {
-      throw new Error(
-        typeof payload.error === 'string' ? payload.error : JSON.stringify(payload.error)
-      );
-    }
-
+    if (data?.ok === false) throw new Error(data?.error || 'Error del proxy de DeepSeek');
+    if (payload?.error) throw new Error(typeof payload.error === 'string' ? payload.error : JSON.stringify(payload.error));
     const contenido = payload?.choices?.[0]?.message?.content;
-
-    if (!contenido) {
-      throw new Error('Respuesta vacía del modelo.');
-    }
-
+    if (!contenido) throw new Error('Respuesta vacía del modelo.');
     return contenido;
   } catch (err: any) {
     console.error('[DeepSeek] Error:', err);
@@ -63,13 +28,8 @@ export async function invocarDeepSeek(
   }
 }
 
-// ============================================================
-// SYSTEM PROMPTS ESPECIALIZADOS PARA CAMPAÑA ELECTORAL
-// ============================================================
-
 export const SYSTEM_PROMPTS = {
-  ASISTENTE_GENERAL: `Eres el Copiloto Estratégico del candidato de UNIDOS X TULA, coalición opositora en Tula de Allende, Hidalgo, México, para las elecciones municipales 2026-2027.
-
+  ASISTENTE_GENERAL: `Eres el Copiloto Estratégico del candidato de ${ORG_NAME}. 
 Tu función es darle al candidato y su equipo recomendaciones concretas, tácticas y accionables basadas en datos del territorio.
 
 REGLAS:
@@ -86,7 +46,7 @@ FORMATO DE RESPUESTA:
 - Usa negritas para conceptos clave.
 - Termina con una recomendación clara de acción inmediata.`,
 
-  COPILOTO_DIARIO: `Eres un estratega político senior que prepara el briefing diario del candidato de UNIDOS X TULA en Tula de Allende.
+  COPILOTO_DIARIO: `Eres un estratega político senior que prepara el briefing diario del candidato de ${ORG_NAME}.
 
 Con base en los datos reales que se te proporcionen, genera un reporte ejecutivo diario con:
 
@@ -114,7 +74,7 @@ Responde con análisis cuantitativo y cualitativo. Cita cifras específicas.`,
 Tu tarea es:
 1. Identificar el posicionamiento temático del oponente
 2. Recomendar contra-narrativas específicas
-3. Detectar vacíos temáticos que UNIDOS X TULA pueda ocupar
+3. Detectar vacíos temáticos que ${ORG_NAME} pueda ocupar
 4. Sugerir tácticas de contraste sin caer en ataques personales
 
 Tono: profesional, estratégico, basado en datos.`,
