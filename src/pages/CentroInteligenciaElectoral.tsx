@@ -10,15 +10,9 @@ import { invocarDeepSeek, SYSTEM_PROMPTS } from '../lib/deepseekClient';
 import { recolectarContextoCampana, formatearContextoParaIA } from '../lib/cerebroCampana';
 import type { ContextoCampana } from '../lib/cerebroCampana';
 import { supabase } from '../lib/supabaseClient';
+import { ORION_CONFIG } from '../lib/config'; // 🚀 IMPORTAMOS LA CONFIGURACIÓN
 
-interface Tab {
-  key: string;
-  label: string;
-  icono: string;
-  descripcion: string;
-}
-
-const TABS: Tab[] = [
+const TABS = [
   { key: 'SISTEMA', label: 'Sistema Nervioso', icono: '🧠', descripcion: 'Vista completa del cerebro' },
   { key: 'COPILOTO', label: 'Copiloto del Día', icono: '⚡', descripcion: 'Briefing con datos reales' },
   { key: 'ADN_EMOCIONAL', label: 'ADN Emocional', icono: '🧬', descripcion: 'Inteligencia psicológica' },
@@ -102,20 +96,8 @@ export default function CentroInteligenciaElectoral() {
   );
 }
 
-interface Contadores {
-  personas: number;
-  encuestas: number;
-  monitoreo_redes: number;
-  activismo: number;
-  problematicas: number;
-  gastos: number;
-  inteligencia: number;
-  eventos: number;
-  promesas: number;
-}
-
 function TabSistemaNervioso() {
-  const [contadores, setContadores] = useState<Contadores>({
+  const [contadores, setContadores] = useState({
     personas: 0, encuestas: 0, monitoreo_redes: 0, activismo: 0,
     problematicas: 0, gastos: 0, inteligencia: 0, eventos: 0, promesas: 0,
   });
@@ -308,7 +290,10 @@ function TabCopiloto() {
             <div ref={pdfRef} style={{ width: '210mm', padding: '15mm', backgroundColor: 'white', fontFamily: 'Arial, sans-serif', color: '#333' }}>
                <div style={{ borderBottom: '4px solid #00A651', paddingBottom: '15px', marginBottom: '20px', textAlign: 'center' }}>
                   <img src="/dossier/orion-logo.png" alt="ORION" style={{ height: '80px', margin: '0 auto' }} />
-                  <h1 style={{ margin: '10px 0 0 0', fontSize: '24px', color: '#00A651', fontWeight: '900' }}>UNIDOS X TULA</h1>
+                  {/* 🚀 FIX WHITE-LABEL: Ahora el nombre es dinámico */}
+                  <h1 style={{ margin: '10px 0 0 0', fontSize: '24px', color: '#00A651', fontWeight: '900' }}>
+                    {ORION_CONFIG.organizacionNombre.toUpperCase()}
+                  </h1>
                   <p style={{ margin: '4px 0 0 0', fontSize: '12px', color: '#666' }}>BRIEFING EJECUTIVO DIARIO</p>
                </div>
                <div style={{ background: '#F9F9F9', padding: '20px', borderRadius: '8px', borderLeft: '5px solid #00A651', fontSize: '12px', lineHeight: '1.7', color: '#333', whiteSpace: 'pre-wrap' }}>
