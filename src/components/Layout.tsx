@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 import { ORION_CONFIG } from '../lib/config';
+import { useSyncStatus } from '../lib/syncManager'; // 🚀 IMPORTAMOS EL SYNC MANAGER
 
 export default function Layout() {
   const navigate = useNavigate();
@@ -17,6 +18,9 @@ export default function Layout() {
   const [userRole, setUserRole] = useState<string | null>(null);
   const [roleLoading, setRoleLoading] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
+
+  // 🚀 HOOK PARA SABER SI HAY DATOS SIN SINCRONIZAR
+  const { queueSize } = useSyncStatus();
 
   useEffect(() => {
     let cancelled = false;
@@ -30,7 +34,7 @@ export default function Layout() {
         
         if (!cancelled) {
           if (data) {
-            // VALIDACIÓN DE EXPIRACIÓN
+            // VALIDACIÓN DE EXPIRACIÓN EN CLIENTE
             if (data.fecha_expiracion && new Date(data.fecha_expiracion) < new Date()) {
               await supabase.auth.signOut();
               alert('Tu acceso temporal a este sistema ha expirado. Contacta al administrador.');
@@ -90,47 +94,35 @@ export default function Layout() {
   };
 
   const handleCerrarSesion = () => {
-    mostrarConfirm('¿Cerrar sesión?', 'Asegúrate de que tus datos se hayan sincronizado.', 'warning', async () => {
+    // 🚀 BLOQUEO LEGAL: Si hay datos pendientes, no dejamos cerrar sesión
+    if (queueSize > 0) {
+      alert(`⚠️ Tienes ${queueSize} registro(s) sin sincronizar en tu dispositivo.\n\nPor seguridad y para evitar pérdida de datos, no puedes cerrar sesión hasta que tengas internet y los datos se suban al servidor.`);
+      return;
+    }
+
+    mostrarConfirm('¿Cerrar sesión?', 'Se cerrará tu sesión actual.', 'warning', async () => {
       cerrarConfirm();
       setCerrandoSesion(true);
       
       try {
-        // 🚀 VERIFICAR SI HAY DATOS PENDIENTES
-        const dbRequest = indexedDB.open('orion_db');
-        dbRequest.onsuccess = async (event) => {
-          const db = (event.target as IDBOpenDBRequest).result;
-          if (db.objectStoreNames.contains('queue')) {
-            const tx = db.transaction('queue', 'readonly');
-            const store = tx.objectStore('queue');
-            const countRequest = store.count();
-            
-            countRequest.onsuccess = async () => {
-              if (countRequest.result > 0) {
-                alert(`⚠️ Tienes ${countRequest.result} registros sin sincronizar. Conéctate a internet y espera a que se suban antes de cerrar sesión.`);
-                setCerrandoSesion(false);
-                return;
-              }
-              // Si está vacío, cerramos
-              db.close();
-              indexedDB.deleteDatabase('orion_db');
-              await supabase.auth.signOut();
-              navigate('/login', { replace: true });
-              setCerrandoSesion(false);
-            };
-          }
+        // Limpiamos la base de datos local de forma segura (solo si está vacía)
+        const dbRequest = indexedDB.deleteDatabase('orion_db');
+        dbRequest.onsuccess = async () => {
+          await supabase.auth.signOut();
+          navigate('/login', { replace: true });
+          setCerrandoSesion(false);
+        };
+        dbRequest.onerror = async () => {
+          console.warn('No se pudo limpiar IndexedDB, pero cerrando sesión...');
+          await supabase.auth.signOut();
+          navigate('/login', { replace: true });
+          setCerrandoSesion(false);
         };
       } catch (e) {
-        console.warn('No se pudo verificar la cola:', e);
         await supabase.auth.signOut();
         navigate('/login', { replace: true });
         setCerrandoSesion(false);
       }
-    });
-  };
-
-      await supabase.auth.signOut();
-      navigate('/login', { replace: true });
-      setCerrandoSesion(false);
     });
   };
 
