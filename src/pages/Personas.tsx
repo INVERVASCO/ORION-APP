@@ -7,27 +7,15 @@ import { supabase } from '../lib/supabaseClient';
 import Toast from '../components/Toast';
 import AvisoPrivacidad from '../components/AvisoPrivacidad';
 import { offlineInsert } from '../lib/syncManager';
+import { PARTIDOS_DB } from '../lib/config'; // 🚀 IMPORTAMOS LOS PARTIDOS
 
 interface Persona {
-  id: string;
-  nombre_completo: string;
-  telefono: string | null;
-  ocupacion: string | null;
-  correo_electronico: string | null;
-  direccion: string | null;
-  preferencia_voto: string | null;
-  barrio_colonia_id: string | null;
-  created_at: string;
-  barrios_colonias: { nombre: string } | null;
+  id: string; nombre_completo: string; telefono: string | null; ocupacion: string | null;
+  correo_electronico: string | null; direccion: string | null; preferencia_voto: string | null;
+  barrio_colonia_id: string | null; created_at: string; barrios_colonias: { nombre: string } | null;
 }
 
-interface ConfirmModalData {
-  visible: boolean;
-  titulo: string;
-  mensaje: string;
-  tipo: 'danger' | 'success' | 'warning';
-  onConfirm: () => void;
-}
+interface ConfirmModalData { visible: boolean; titulo: string; mensaje: string; tipo: 'danger' | 'success' | 'warning'; onConfirm: () => void; }
 
 export default function Personas() {
   const [personas, setPersonas] = useState<Persona[]>([]);
@@ -35,7 +23,6 @@ export default function Personas() {
   const [loading, setLoading] = useState(true);
   const [userRole, setUserRole] = useState<string | null>(null);
   
-  // Paginación
   const [page, setPage] = useState(0);
   const [totalCount, setTotalCount] = useState(0);
   const PAGE_SIZE = 50;
@@ -54,32 +41,21 @@ export default function Personas() {
   const [avisoVisible, setAvisoVisible] = useState(false);
   const [aceptoAviso, setAceptoAviso] = useState(false);
 
-  const [confirmModal, setConfirmModal] = useState<ConfirmModalData>({
-    visible: false, titulo: '', mensaje: '', tipo: 'warning', onConfirm: () => {},
-  });
-
-  const mostrarConfirm = (titulo: string, mensaje: string, tipo: 'danger' | 'success' | 'warning', onConfirm: () => void) => {
-    setConfirmModal({ visible: true, titulo, mensaje, tipo, onConfirm });
-  };
+  const [confirmModal, setConfirmModal] = useState<ConfirmModalData>({ visible: false, titulo: '', mensaje: '', tipo: 'warning', onConfirm: () => {} });
+  const mostrarConfirm = (titulo: string, mensaje: string, tipo: 'danger' | 'success' | 'warning', onConfirm: () => void) => setConfirmModal({ visible: true, titulo, mensaje, tipo, onConfirm });
   const cerrarConfirm = () => setConfirmModal({ ...confirmModal, visible: false });
 
-  // 🚀 OBTENER EL ROL DEL USUARIO PARA SEGURIDAD
   useEffect(() => {
     const fetchRole = async () => {
       const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        const { data } = await supabase.from('perfiles').select('rol').eq('id', user.id).single();
-        if (data) setUserRole(data.rol);
-      }
+      if (user) { const { data } = await supabase.from('perfiles').select('rol').eq('id', user.id).single(); if (data) setUserRole(data.rol); }
     };
     fetchRole();
   }, []);
 
   const fetchPersonas = async () => {
     setLoading(true);
-    let query = supabase
-      .from('personas')
-      .select('id, nombre_completo, telefono, ocupacion, correo_electronico, direccion, preferencia_voto, barrio_colonia_id, created_at, barrios_colonias(nombre)', { count: 'exact' });
+    let query = supabase.from('personas').select('id, nombre_completo, telefono, ocupacion, correo_electronico, direccion, preferencia_voto, barrio_colonia_id, created_at, barrios_colonias(nombre)', { count: 'exact' });
 
     if (busqueda.trim() !== '') query = query.ilike('nombre_completo', `%${busqueda}%`);
     if (filtroBarrio) query = query.eq('barrio_colonia_id', filtroBarrio);
@@ -91,10 +67,7 @@ export default function Personas() {
     const { data, count, error } = await query.order('created_at', { ascending: false }).range(from, to);
     
     if (!error && data) {
-      const procesadas = data.map((p: any) => ({
-        ...p,
-        barrios_colonias: Array.isArray(p.barrios_colonias) ? p.barrios_colonias[0] : p.barrios_colonias
-      }));
+      const procesadas = data.map((p: any) => ({ ...p, barrios_colonias: Array.isArray(p.barrios_colonias) ? p.barrios_colonias[0] : p.barrios_colonias }));
       setPersonas(procesadas as any);
       if (count !== null) setTotalCount(count);
     }
@@ -102,30 +75,15 @@ export default function Personas() {
   };
 
   useEffect(() => {
-    const fetchBarrios = async () => {
-      const { data } = await supabase.from('barrios_colonias').select('id, nombre').order('nombre');
-      if (data) setBarrios(data);
-    };
+    const fetchBarrios = async () => { const { data } = await supabase.from('barrios_colonias').select('id, nombre').order('nombre'); if (data) setBarrios(data); };
     fetchBarrios();
   }, []);
 
-  useEffect(() => {
-    const timer = setTimeout(() => { setPage(0); fetchPersonas(); }, 500);
-    return () => clearTimeout(timer);
-  }, [busqueda, filtroBarrio, filtroVoto]);
-
+  useEffect(() => { const timer = setTimeout(() => { setPage(0); fetchPersonas(); }, 500); return () => clearTimeout(timer); }, [busqueda, filtroBarrio, filtroVoto]);
   useEffect(() => { fetchPersonas(); }, [page]);
+  useEffect(() => { if (personaEditar || personaNueva) setAceptoAviso(false); }, [personaEditar, personaNueva]);
 
-  useEffect(() => {
-    if (personaEditar || personaNueva) setAceptoAviso(false);
-  }, [personaEditar, personaNueva]);
-
-  const abrirModalNueva = () => {
-    setPersonaNueva({
-      nombre_completo: '', telefono: '', correo_electronico: '',
-      ocupacion: '', direccion: '', barrio_colonia_id: '', preferencia_voto: '',
-    });
-  };
+  const abrirModalNueva = () => { setPersonaNueva({ nombre_completo: '', telefono: '', correo_electronico: '', ocupacion: '', direccion: '', barrio_colonia_id: '', preferencia_voto: '' }); };
 
   const handleCrearPersona = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -134,27 +92,16 @@ export default function Personas() {
 
     setGuardando(true);
     const payloadLimpio = {
-      nombre_completo: personaNueva.nombre_completo,
-      telefono: personaNueva.telefono || null,
-      correo_electronico: personaNueva.correo_electronico || null,
-      ocupacion: personaNueva.ocupacion || null,
-      direccion: personaNueva.direccion || null,
-      barrio_colonia_id: personaNueva.barrio_colonia_id || null,
-      preferencia_voto: personaNueva.preferencia_voto || null,
-      consentimiento_aceptado: true,
-      fecha_consentimiento: new Date().toISOString(),
-      origen_captura: 'Captura manual',
-      created_at: new Date().toISOString()
+      nombre_completo: personaNueva.nombre_completo, telefono: personaNueva.telefono || null, correo_electronico: personaNueva.correo_electronico || null,
+      ocupacion: personaNueva.ocupacion || null, direccion: personaNueva.direccion || null, barrio_colonia_id: personaNueva.barrio_colonia_id || null,
+      preferencia_voto: personaNueva.preferencia_voto || null, consentimiento_aceptado: true, fecha_consentimiento: new Date().toISOString(),
+      origen_captura: 'Captura manual', created_at: new Date().toISOString()
     };
 
     const res = await offlineInsert('personas', payloadLimpio);
-
     if (res.ok) {
-      setPersonaNueva(null);
-      setAceptoAviso(false);
-      setToastMensaje(res.queued ? '📡 Sin señal: Persona guardada localmente.' : `¡${payloadLimpio.nombre_completo} registrado!`);
-      setToastVisible(true);
-      fetchPersonas();
+      setPersonaNueva(null); setAceptoAviso(false);
+      setToastMensaje(res.queued ? '📡 Sin señal: Persona guardada localmente.' : `¡${payloadLimpio.nombre_completo} registrado!`); setToastVisible(true); fetchPersonas();
     }
     setGuardando(false);
   };
@@ -165,83 +112,40 @@ export default function Personas() {
     if (!aceptoAviso) { setToastMensaje('Debes confirmar el Aviso de Privacidad.'); setToastVisible(true); return; }
 
     setGuardando(true);
-    const { error } = await supabase
-      .from('personas')
-      .update({
-        nombre_completo: personaEditar.nombre_completo,
-        telefono: personaEditar.telefono,
-        ocupacion: personaEditar.ocupacion,
-        correo_electronico: personaEditar.correo_electronico,
-        direccion: personaEditar.direccion,
-        preferencia_voto: personaEditar.preferencia_voto,
-        barrio_colonia_id: personaEditar.barrio_colonia_id,
-      })
-      .eq('id', personaEditar.id);
+    const { error } = await supabase.from('personas').update({
+        nombre_completo: personaEditar.nombre_completo, telefono: personaEditar.telefono, ocupacion: personaEditar.ocupacion,
+        correo_electronico: personaEditar.correo_electronico, direccion: personaEditar.direccion,
+        preferencia_voto: personaEditar.preferencia_voto, barrio_colonia_id: personaEditar.barrio_colonia_id,
+      }).eq('id', personaEditar.id);
 
-    if (error) {
-      setToastMensaje('Error al guardar: ' + error.message);
-    } else {
-      setPersonaEditar(null);
-      setAceptoAviso(false);
-      setToastMensaje('¡Datos actualizados!');
-      fetchPersonas();
-    }
-    setToastVisible(true);
-    setGuardando(false);
+    if (error) setToastMensaje('Error al guardar: ' + error.message);
+    else { setPersonaEditar(null); setAceptoAviso(false); setToastMensaje('¡Datos actualizados!'); fetchPersonas(); }
+    setToastVisible(true); setGuardando(false);
   };
 
   const handleEliminar = (id: string, nombre: string) => {
     mostrarConfirm('¿Eliminar esta persona?', `Se eliminará a "${nombre}" del directorio.`, 'danger', async () => {
-      cerrarConfirm();
-      const { error } = await supabase.from('personas').delete().eq('id', id);
-      if (error) {
-        setToastMensaje('Error al eliminar: ' + error.message);
-        setToastVisible(true);
-      } else {
-        setToastMensaje(`${nombre} eliminado`);
-        setToastVisible(true);
-        fetchPersonas();
-      }
+      cerrarConfirm(); const { error } = await supabase.from('personas').delete().eq('id', id);
+      if (error) { setToastMensaje('Error al eliminar: ' + error.message); setToastVisible(true); }
+      else { setToastMensaje(`${nombre} eliminado`); setToastVisible(true); fetchPersonas(); }
     });
   };
 
-  // 🚀 BLOQUEO DE DESCARGA MASIVA
   const handleExportarCSV = async () => {
-    if (userRole !== 'admin' && userRole !== 'coordinador') {
-      setToastMensaje('⚠️ Permiso denegado. Solo administradores pueden exportar bases de datos.');
-      setToastVisible(true);
-      return; // Detenemos la ejecución
-    }
-
-    setToastMensaje('Generando CSV...');
-    setToastVisible(true);
-    
-    // Hacemos la consulta completa (esto puede ser pesado, pero solo lo hacen admins)
+    if (userRole !== 'admin' && userRole !== 'coordinador') { setToastMensaje('⚠️ Permiso denegado. Solo administradores pueden exportar bases de datos.'); setToastVisible(true); return; }
+    setToastMensaje('Generando CSV...'); setToastVisible(true);
     const { data } = await supabase.from('personas').select('*, barrios_colonias(nombre)');
     if (!data || data.length === 0) return;
 
     const encabezados = ['Nombre', 'Teléfono', 'Ocupación', 'Correo', 'Dirección', 'Preferencia Voto', 'Barrio/Colonia'];
-    const filas = data.map(p => [
-      p.nombre_completo, p.telefono || '', p.ocupacion || '', p.correo_electronico || '',
-      p.direccion || '', p.preferencia_voto || '', (Array.isArray(p.barrios_colonias) ? p.barrios_colonias[0]?.nombre : p.barrios_colonias?.nombre) || ''
-    ]);
+    const filas = data.map(p => [ p.nombre_completo, p.telefono || '', p.ocupacion || '', p.correo_electronico || '', p.direccion || '', p.preferencia_voto || '', (Array.isArray(p.barrios_colonias) ? p.barrios_colonias[0]?.nombre : p.barrios_colonias?.nombre) || '' ]);
 
-    const escapar = (val: string) => {
-      let limpio = (val || '').replace(/"/g, '""');
-      if (/^[=+\-@]/.test(limpio)) limpio = "'" + limpio;
-      return `"${limpio}"`;
-    };
-
+    const escapar = (val: string) => { let limpio = (val || '').replace(/"/g, '""'); if (/^[=+\-@]/.test(limpio)) limpio = "'" + limpio; return `"${limpio}"`; };
     const csv = [encabezados.map(escapar).join(','), ...filas.map(fila => fila.map(escapar).join(','))].join('\n');
     const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `personas_${new Date().toISOString().split('T')[0]}.csv`;
-    link.click();
-    URL.revokeObjectURL(url);
-    setToastMensaje(`Se exportaron ${data.length} registros`);
-    setToastVisible(true);
+    const url = URL.createObjectURL(blob); const link = document.createElement('a'); link.href = url;
+    link.download = `personas_${new Date().toISOString().split('T')[0]}.csv`; link.click(); URL.revokeObjectURL(url);
+    setToastMensaje(`Se exportaron ${data.length} registros`); setToastVisible(true);
   };
 
   const totalPages = Math.ceil(totalCount / PAGE_SIZE);
@@ -251,22 +155,12 @@ export default function Personas() {
       <h1 className="header-title">Directorio de Personas</h1>
       
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', marginBottom: '20px', alignItems: 'center', justifyContent: 'space-between' }}>
-        <p style={{ margin: 0, fontSize: '15px', fontWeight: 'bold', color: '#00D4FF' }}>
-          <Users size={18} style={{ verticalAlign: 'middle', marginRight: '6px' }} />
-          {totalCount.toLocaleString()} personas registradas
-        </p>
+        <p style={{ margin: 0, fontSize: '15px', fontWeight: 'bold', color: '#00D4FF' }}><Users size={18} style={{ verticalAlign: 'middle', marginRight: '6px' }} />{totalCount.toLocaleString()} personas registradas</p>
         <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-          
-          {/* 🚀 BOTÓN CONDICIONAL: Solo visible para Admin y Coordinador */}
           {(userRole === 'admin' || userRole === 'coordinador') && (
-            <button onClick={handleExportarCSV} style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '14px', padding: '12px 20px', background: 'white', color: '#0066CC', border: '2px solid #0066CC', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>
-              <Download size={16} /> Exportar Todo a CSV
-            </button>
+            <button onClick={handleExportarCSV} style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '14px', padding: '12px 20px', background: 'white', color: '#0066CC', border: '2px solid #0066CC', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}><Download size={16} /> Exportar Todo a CSV</button>
           )}
-
-          <button onClick={abrirModalNueva} className="btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '14px' }}>
-            <Plus size={16} /> Nueva Persona
-          </button>
+          <button onClick={abrirModalNueva} className="btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '14px' }}><Plus size={16} /> Nueva Persona</button>
         </div>
       </div>
 
@@ -281,10 +175,8 @@ export default function Personas() {
         </select>
         <select value={filtroVoto} onChange={(e) => setFiltroVoto(e.target.value)} style={{ padding: '11px', borderRadius: '6px', border: '1px solid #E2E8F0', fontSize: '14px', background: 'white' }}>
           <option value="">Todas las preferencias</option>
-          <option value="UNIDOS X TULA">UNIDOS X TULA</option>
-          <option value="MORENA">MORENA</option>
-          <option value="PAN">PAN</option>
-          <option value="PRI">PRI</option>
+          {/* 🚀 DINÁMICO */}
+          {PARTIDOS_DB.map(p => <option key={p.key} value={p.nombre}>{p.nombre}</option>)}
           <option value="Indeciso">Indeciso</option>
           <option value="Otro">Otro</option>
         </select>
@@ -297,16 +189,19 @@ export default function Personas() {
       ) : (
         <>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '15px', marginBottom: '20px' }}>
-            {personas.map(p => (
+            {personas.map(p => {
+              // 🚀 BUSCAMOS EL COLOR DINÁMICO
+              const partidoInfo = PARTIDOS_DB.find(part => part.nombre === p.preferencia_voto);
+              const colorBadge = partidoInfo ? partidoInfo.color : '#64748B';
+              
+              return (
               <div key={p.id} style={{ background: 'white', borderRadius: '10px', padding: '18px', boxShadow: '0 2px 8px rgba(0,0,0,0.06)', borderLeft: '4px solid #00D4FF', display: 'flex', flexDirection: 'column', gap: '8px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1, minWidth: 0 }}>
-                  <div style={{ background: '#00D4FF', color: 'white', width: '36px', height: '36px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', fontSize: '15px', flexShrink: 0 }}>
-                    {p.nombre_completo.charAt(0).toUpperCase()}
-                  </div>
+                  <div style={{ background: '#00D4FF', color: 'white', width: '36px', height: '36px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', fontSize: '15px', flexShrink: 0 }}>{p.nombre_completo.charAt(0).toUpperCase()}</div>
                   <div style={{ minWidth: 0, flex: 1 }}>
                     <h3 style={{ margin: 0, fontSize: '15px', wordBreak: 'break-word', color: '#0F172A' }}>{p.nombre_completo}</h3>
                     {p.preferencia_voto && (
-                      <span style={{ display: 'inline-block', marginTop: '3px', padding: '2px 8px', background: p.preferencia_voto === 'UNIDOS X TULA' ? '#00D4FF' : '#F1F5F9', color: p.preferencia_voto === 'UNIDOS X TULA' ? 'white' : '#64748B', borderRadius: '10px', fontSize: '11px', fontWeight: 'bold' }}>
+                      <span style={{ display: 'inline-block', marginTop: '3px', padding: '2px 8px', background: colorBadge, color: 'white', borderRadius: '10px', fontSize: '11px', fontWeight: 'bold' }}>
                         {p.preferencia_voto}
                       </span>
                     )}
@@ -314,17 +209,12 @@ export default function Personas() {
                 </div>
                 {p.telefono && <div style={{ fontSize: '13px', color: '#475569', display: 'flex', alignItems: 'center', gap: '6px' }}><Phone size={14} color="#00D4FF" /> {p.telefono}</div>}
                 {p.barrios_colonias?.nombre && <div style={{ fontSize: '13px', color: '#475569', display: 'flex', alignItems: 'center', gap: '6px' }}><MapPin size={14} color="#00D4FF" /> {p.barrios_colonias.nombre}</div>}
-                
                 <div style={{ display: 'flex', gap: '8px', marginTop: '8px', paddingTop: '10px', borderTop: '1px solid #E2E8F0' }}>
-                  <button onClick={() => setPersonaEditar(p)} style={{ flex: 1, padding: '8px', background: '#F1F5F9', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '13px', fontWeight: 'bold', color: '#0F172A', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '5px' }}>
-                    <Edit3 size={14} /> Editar
-                  </button>
-                  <button onClick={() => handleEliminar(p.id, p.nombre_completo)} style={{ padding: '8px 12px', background: '#FFE4E6', border: 'none', borderRadius: '6px', cursor: 'pointer', color: '#F43F5E', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <Trash2 size={14} />
-                  </button>
+                  <button onClick={() => setPersonaEditar(p)} style={{ flex: 1, padding: '8px', background: '#F1F5F9', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '13px', fontWeight: 'bold', color: '#0F172A', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '5px' }}><Edit3 size={14} /> Editar</button>
+                  <button onClick={() => handleEliminar(p.id, p.nombre_completo)} style={{ padding: '8px 12px', background: '#FFE4E6', border: 'none', borderRadius: '6px', cursor: 'pointer', color: '#F43F5E', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Trash2 size={14} /></button>
                 </div>
               </div>
-            ))}
+            )})}
           </div>
 
           {totalPages > 1 && (
@@ -337,14 +227,11 @@ export default function Personas() {
         </>
       )}
 
-      {/* MODALES (Nuevo y Editar) - Sin cambios estructurales */}
+      {/* MODALES DINÁMICOS */}
       {personaNueva && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000, padding: '15px' }}>
           <div style={{ background: 'white', padding: '25px', borderRadius: '12px', width: '100%', maxWidth: '550px', maxHeight: '90vh', overflowY: 'auto' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-              <h3 style={{ color: '#00D4FF', fontSize: '18px', margin: 0 }}>Nueva Persona</h3>
-              <button onClick={() => setPersonaNueva(null)} style={{ background: 'none', border: 'none', cursor: 'pointer' }}><X size={22} /></button>
-            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}><h3 style={{ color: '#00D4FF', fontSize: '18px', margin: 0 }}>Nueva Persona</h3><button onClick={() => setPersonaNueva(null)} style={{ background: 'none', border: 'none', cursor: 'pointer' }}><X size={22} /></button></div>
             <form onSubmit={handleCrearPersona} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
               <div><label style={labelStyle}>Nombre completo *</label><input required type="text" value={personaNueva.nombre_completo} onChange={(e) => setPersonaNueva({...personaNueva, nombre_completo: e.target.value})} style={inputStyle} /></div>
               <div><label style={labelStyle}>Teléfono</label><input type="tel" value={personaNueva.telefono} onChange={(e) => setPersonaNueva({...personaNueva, telefono: e.target.value})} style={inputStyle} /></div>
@@ -353,28 +240,21 @@ export default function Personas() {
               <div><label style={labelStyle}>Dirección</label><input type="text" value={personaNueva.direccion} onChange={(e) => setPersonaNueva({...personaNueva, direccion: e.target.value})} style={inputStyle} /></div>
               <div>
                 <label style={labelStyle}>Barrio / Colonia</label>
-                <select value={personaNueva.barrio_colonia_id} onChange={(e) => setPersonaNueva({...personaNueva, barrio_colonia_id: e.target.value})} style={inputStyle}>
-                  <option value="">Sin asignar</option>
-                  {barrios.map(b => <option key={b.id} value={b.id}>{b.nombre}</option>)}
-                </select>
+                <select value={personaNueva.barrio_colonia_id} onChange={(e) => setPersonaNueva({...personaNueva, barrio_colonia_id: e.target.value})} style={inputStyle}><option value="">Sin asignar</option>{barrios.map(b => <option key={b.id} value={b.id}>{b.nombre}</option>)}</select>
               </div>
               <div>
                 <label style={labelStyle}>Preferencia de voto</label>
+                {/* 🚀 DINÁMICO */}
                 <select value={personaNueva.preferencia_voto} onChange={(e) => setPersonaNueva({...personaNueva, preferencia_voto: e.target.value})} style={inputStyle}>
                   <option value="">Sin definir</option>
-                  <option value="UNIDOS X TULA">UNIDOS X TULA</option>
-                  <option value="MORENA">MORENA</option>
-                  <option value="PAN">PAN</option>
-                  <option value="PRI">PRI</option>
+                  {PARTIDOS_DB.map(p => <option key={p.key} value={p.nombre}>{p.nombre}</option>)}
                   <option value="Indeciso">Indeciso</option>
                   <option value="Otro">Otro</option>
                 </select>
               </div>
               <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', padding: '12px', background: '#FEF3C7', borderRadius: '6px', borderLeft: '3px solid #F59E0B' }}>
                 <input type="checkbox" id="acepto-aviso-nuevo" checked={aceptoAviso} onChange={(e) => setAceptoAviso(e.target.checked)} style={{ width: '18px', height: '18px', cursor: 'pointer', marginTop: '2px', flexShrink: 0 }} />
-                <label htmlFor="acepto-aviso-nuevo" style={{ fontSize: '12px', color: '#475569', cursor: 'pointer', lineHeight: '1.5' }}>
-                  Confirmo que el titular ha leído y aceptado el <button type="button" onClick={() => setAvisoVisible(true)} style={{ background: 'none', border: 'none', color: '#00D4FF', cursor: 'pointer', textDecoration: 'underline', fontSize: '12px', fontWeight: 'bold', padding: 0 }}>Aviso de Privacidad</button>.
-                </label>
+                <label htmlFor="acepto-aviso-nuevo" style={{ fontSize: '12px', color: '#475569', cursor: 'pointer', lineHeight: '1.5' }}>Confirmo que el titular ha leído y aceptado el <button type="button" onClick={() => setAvisoVisible(true)} style={{ background: 'none', border: 'none', color: '#00D4FF', cursor: 'pointer', textDecoration: 'underline', fontSize: '12px', fontWeight: 'bold', padding: 0 }}>Aviso de Privacidad</button>.</label>
               </div>
               <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
                 <button type="button" onClick={() => setPersonaNueva(null)} style={btnSecundario}>Cancelar</button>
@@ -388,10 +268,7 @@ export default function Personas() {
       {personaEditar && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000, padding: '15px' }}>
           <div style={{ background: 'white', padding: '25px', borderRadius: '12px', width: '100%', maxWidth: '550px', maxHeight: '90vh', overflowY: 'auto' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-              <h3 style={{ color: '#00D4FF', fontSize: '18px', margin: 0 }}>Editar Persona</h3>
-              <button onClick={() => setPersonaEditar(null)} style={{ background: 'none', border: 'none', cursor: 'pointer' }}><X size={22} /></button>
-            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}><h3 style={{ color: '#00D4FF', fontSize: '18px', margin: 0 }}>Editar Persona</h3><button onClick={() => setPersonaEditar(null)} style={{ background: 'none', border: 'none', cursor: 'pointer' }}><X size={22} /></button></div>
             <form onSubmit={handleGuardarEdicion} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
               <div><label style={labelStyle}>Nombre completo *</label><input required type="text" value={personaEditar.nombre_completo} onChange={(e) => setPersonaEditar({...personaEditar, nombre_completo: e.target.value})} style={inputStyle} /></div>
               <div><label style={labelStyle}>Teléfono</label><input type="tel" value={personaEditar.telefono || ''} onChange={(e) => setPersonaEditar({...personaEditar, telefono: e.target.value})} style={inputStyle} /></div>
@@ -400,28 +277,21 @@ export default function Personas() {
               <div><label style={labelStyle}>Dirección</label><input type="text" value={personaEditar.direccion || ''} onChange={(e) => setPersonaEditar({...personaEditar, direccion: e.target.value})} style={inputStyle} /></div>
               <div>
                 <label style={labelStyle}>Barrio / Colonia</label>
-                <select value={personaEditar.barrio_colonia_id || ''} onChange={(e) => setPersonaEditar({...personaEditar, barrio_colonia_id: e.target.value || null})} style={inputStyle}>
-                  <option value="">Sin asignar</option>
-                  {barrios.map(b => <option key={b.id} value={b.id}>{b.nombre}</option>)}
-                </select>
+                <select value={personaEditar.barrio_colonia_id || ''} onChange={(e) => setPersonaEditar({...personaEditar, barrio_colonia_id: e.target.value || null})} style={inputStyle}><option value="">Sin asignar</option>{barrios.map(b => <option key={b.id} value={b.id}>{b.nombre}</option>)}</select>
               </div>
               <div>
                 <label style={labelStyle}>Preferencia de voto</label>
+                {/* 🚀 DINÁMICO */}
                 <select value={personaEditar.preferencia_voto || ''} onChange={(e) => setPersonaEditar({...personaEditar, preferencia_voto: e.target.value})} style={inputStyle}>
                   <option value="">Sin definir</option>
-                  <option value="UNIDOS X TULA">UNIDOS X TULA</option>
-                  <option value="MORENA">MORENA</option>
-                  <option value="PAN">PAN</option>
-                  <option value="PRI">PRI</option>
+                  {PARTIDOS_DB.map(p => <option key={p.key} value={p.nombre}>{p.nombre}</option>)}
                   <option value="Indeciso">Indeciso</option>
                   <option value="Otro">Otro</option>
                 </select>
               </div>
               <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', padding: '12px', background: '#FEF3C7', borderRadius: '6px', borderLeft: '3px solid #F59E0B' }}>
                 <input type="checkbox" id="acepto-aviso-edit" checked={aceptoAviso} onChange={(e) => setAceptoAviso(e.target.checked)} style={{ width: '18px', height: '18px', cursor: 'pointer', marginTop: '2px', flexShrink: 0 }} />
-                <label htmlFor="acepto-aviso-edit" style={{ fontSize: '12px', color: '#475569', cursor: 'pointer', lineHeight: '1.5' }}>
-                  Confirmo que el titular ha leído y aceptado el <button type="button" onClick={() => setAvisoVisible(true)} style={{ background: 'none', border: 'none', color: '#00D4FF', cursor: 'pointer', textDecoration: 'underline', fontSize: '12px', fontWeight: 'bold', padding: 0 }}>Aviso de Privacidad</button>.
-                </label>
+                <label htmlFor="acepto-aviso-edit" style={{ fontSize: '12px', color: '#475569', cursor: 'pointer', lineHeight: '1.5' }}>Confirmo que el titular ha leído y aceptado el <button type="button" onClick={() => setAvisoVisible(true)} style={{ background: 'none', border: 'none', color: '#00D4FF', cursor: 'pointer', textDecoration: 'underline', fontSize: '12px', fontWeight: 'bold', padding: 0 }}>Aviso de Privacidad</button>.</label>
               </div>
               <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
                 <button type="button" onClick={() => setPersonaEditar(null)} style={btnSecundario}>Cancelar</button>
@@ -437,9 +307,7 @@ export default function Personas() {
           <div style={{ background: 'white', borderRadius: '14px', padding: '28px', width: '100%', maxWidth: '440px', boxShadow: '0 20px 50px rgba(0,0,0,0.3)', borderTop: `5px solid ${confirmModal.tipo === 'danger' ? '#F43F5E' : '#00D4FF'}` }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '15px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1, minWidth: 0 }}>
-                <div style={{ background: confirmModal.tipo === 'danger' ? '#FFE4E6' : '#E0F2FE', color: confirmModal.tipo === 'danger' ? '#F43F5E' : '#00D4FF', width: '46px', height: '46px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                  {confirmModal.tipo === 'success' ? <CheckCircle2 size={26} /> : <AlertTriangle size={26} />}
-                </div>
+                <div style={{ background: confirmModal.tipo === 'danger' ? '#FFE4E6' : '#E0F2FE', color: confirmModal.tipo === 'danger' ? '#F43F5E' : '#00D4FF', width: '46px', height: '46px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>{confirmModal.tipo === 'success' ? <CheckCircle2 size={26} /> : <AlertTriangle size={26} />}</div>
                 <h3 style={{ margin: 0, fontSize: '17px', color: '#0F172A', wordBreak: 'break-word', lineHeight: '1.3' }}>{confirmModal.titulo}</h3>
               </div>
               <button onClick={cerrarConfirm} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px' }}><X size={20} color="#64748B" /></button>
