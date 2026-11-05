@@ -23,30 +23,20 @@ export default function Layout() {
     const fetchRole = async () => {
       try {
         const { data: { user }, error: authError } = await supabase.auth.getUser();
-        
-        if (authError || !user) {
-          throw new Error('No hay sesión activa');
-        }
+        if (authError || !user) throw new Error('No hay sesión activa');
 
-        // 🚀 TRAEMOS EL ROL Y LA FECHA DE EXPIRACIÓN
-        const { data, error } = await supabase
-          .from('perfiles')
-          .select('rol, fecha_expiracion')
-          .eq('id', user.id)
-          .single();
-
+        const { data, error } = await supabase.from('perfiles').select('rol, fecha_expiracion').eq('id', user.id).single();
         if (error) throw error;
         
         if (!cancelled) {
           if (data) {
-            // 🚀 VALIDACIÓN DE EXPIRACIÓN
+            // VALIDACIÓN DE EXPIRACIÓN
             if (data.fecha_expiracion && new Date(data.fecha_expiracion) < new Date()) {
               await supabase.auth.signOut();
               alert('Tu acceso temporal a este sistema ha expirado. Contacta al administrador.');
               navigate('/login', { replace: true });
               return;
             }
-            
             setUserRole(data.rol);
           } else {
             throw new Error('Perfil no encontrado en la base de datos');
@@ -63,9 +53,7 @@ export default function Layout() {
     return () => { cancelled = true; };
   }, [navigate]);
 
-  const [confirmModal, setConfirmModal] = useState<any>({
-    visible: false, titulo: '', mensaje: '', tipo: 'warning', onConfirm: () => {},
-  });
+  const [confirmModal, setConfirmModal] = useState<any>({ visible: false, titulo: '', mensaje: '', tipo: 'warning', onConfirm: () => {} });
 
   const mostrarConfirm = (titulo: string, mensaje: string, tipo: string, onConfirm: () => void) => {
     setConfirmModal({ visible: true, titulo, mensaje, tipo, onConfirm });
@@ -102,9 +90,19 @@ export default function Layout() {
   };
 
   const handleCerrarSesion = () => {
-    mostrarConfirm('¿Cerrar sesión?', 'Se cerrará tu sesión actual.', 'warning', async () => {
+    mostrarConfirm('¿Cerrar sesión?', 'Se cerrará tu sesión actual. Asegúrate de que tus datos se hayan sincronizado.', 'warning', async () => {
       cerrarConfirm();
       setCerrandoSesion(true);
+      
+      // 🚀 SEGURIDAD: Limpiar la cola offline para que el siguiente usuario no vea datos
+      try {
+        const dbRequest = indexedDB.deleteDatabase('orion_db');
+        dbRequest.onsuccess = () => console.log('Caché local limpiada por seguridad.');
+        dbRequest.onerror = () => console.warn('No se pudo limpiar la caché local.');
+      } catch (e) {
+        console.error('Error al limpiar IndexedDB', e);
+      }
+
       await supabase.auth.signOut();
       navigate('/login', { replace: true });
       setCerrandoSesion(false);
@@ -116,19 +114,14 @@ export default function Layout() {
   return (
     <div className="app-container">
       <header className="mobile-header">
-        <button
-          onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-          style={{ background: 'none', border: 'none', color: 'white', cursor: 'pointer' }}
-        >
+        <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} style={{ background: 'none', border: 'none', color: 'white', cursor: 'pointer' }}>
           {isSidebarOpen ? <X size={28} /> : <Menu size={28} />}
         </button>
         <img src={ORION_CONFIG.organizacionLogo} alt={ORION_CONFIG.organizacionNombre} style={{ height: '35px', borderRadius: '8px' }} />
         <div style={{ width: '28px' }}></div>
       </header>
 
-      {isSidebarOpen && (
-        <div onClick={() => setIsSidebarOpen(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 998 }} />
-      )}
+      {isSidebarOpen && <div onClick={() => setIsSidebarOpen(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 998 }} />}
 
       <aside className={`sidebar ${isSidebarOpen ? 'open' : ''}`}>
         <div className="sidebar-logo" style={{ padding: '15px', display: 'flex', justifyContent: 'center' }}>
