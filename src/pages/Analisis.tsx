@@ -101,7 +101,7 @@ export default function Analisis() {
       // % de Oportunidad (Voto Opositor) sobre votos totales 2024
       const pct_oposicion = total2024 > 0 ? (votos_oposicion_2024 / total2024) * 100 : 0;
 
-      // 🚦 SEMÁFORO INVERTIDO (A favor de UNIDOS X TULA)
+      // 🚦 SEMÁFORO INVERTIDO (A favor de nuestra organización)
       // Si la oposición tiene >= 50%, es una sección SEGURA para nosotros (Verde)
       // Si la oposición tiene < 35%, es una sección en RIESGO (Rojo - terreno enemigo)
       let semaforo: 'segura' | 'disputa' | 'riesgo' = 'disputa';
