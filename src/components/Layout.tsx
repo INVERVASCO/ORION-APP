@@ -90,18 +90,43 @@ export default function Layout() {
   };
 
   const handleCerrarSesion = () => {
-    mostrarConfirm('¿Cerrar sesión?', 'Se cerrará tu sesión actual. Asegúrate de que tus datos se hayan sincronizado.', 'warning', async () => {
+    mostrarConfirm('¿Cerrar sesión?', 'Asegúrate de que tus datos se hayan sincronizado.', 'warning', async () => {
       cerrarConfirm();
       setCerrandoSesion(true);
       
-      // 🚀 SEGURIDAD: Limpiar la cola offline para que el siguiente usuario no vea datos
       try {
-        const dbRequest = indexedDB.deleteDatabase('orion_db');
-        dbRequest.onsuccess = () => console.log('Caché local limpiada por seguridad.');
-        dbRequest.onerror = () => console.warn('No se pudo limpiar la caché local.');
+        // 🚀 VERIFICAR SI HAY DATOS PENDIENTES
+        const dbRequest = indexedDB.open('orion_db');
+        dbRequest.onsuccess = async (event) => {
+          const db = (event.target as IDBOpenDBRequest).result;
+          if (db.objectStoreNames.contains('queue')) {
+            const tx = db.transaction('queue', 'readonly');
+            const store = tx.objectStore('queue');
+            const countRequest = store.count();
+            
+            countRequest.onsuccess = async () => {
+              if (countRequest.result > 0) {
+                alert(`⚠️ Tienes ${countRequest.result} registros sin sincronizar. Conéctate a internet y espera a que se suban antes de cerrar sesión.`);
+                setCerrandoSesion(false);
+                return;
+              }
+              // Si está vacío, cerramos
+              db.close();
+              indexedDB.deleteDatabase('orion_db');
+              await supabase.auth.signOut();
+              navigate('/login', { replace: true });
+              setCerrandoSesion(false);
+            };
+          }
+        };
       } catch (e) {
-        console.error('Error al limpiar IndexedDB', e);
+        console.warn('No se pudo verificar la cola:', e);
+        await supabase.auth.signOut();
+        navigate('/login', { replace: true });
+        setCerrandoSesion(false);
       }
+    });
+  };
 
       await supabase.auth.signOut();
       navigate('/login', { replace: true });
