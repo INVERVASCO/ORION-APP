@@ -1,9 +1,8 @@
 import { useEffect, useState, useRef } from 'react';
-// @ts-ignore
 import html2pdf from 'html2pdf.js';
 import { 
   Loader2, TrendingUp, TrendingDown, Minus, Target, 
-  AlertTriangle, CheckCircle2, BarChart3, Users, UserCheck, Download, User
+  AlertTriangle, CheckCircle2, BarChart3, Users, UserCheck, FileText, Filter, Download, User
 } from 'lucide-react';
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ReferenceLine
@@ -35,7 +34,6 @@ export default function Pronostico() {
   const [filtroSemaforo, setFiltroSemaforo] = useState<'todas' | 'segura' | 'disputa' | 'riesgo'>('todas');
   const [generandoPDF, setGenerandoPDF] = useState(false);
   
-  // 🚀 EL USUARIO ELIGE DESDE LA INTERFAZ
   const [partidoObjetivo, setPartidoObjetivo] = useState<string>('todos');
 
   const pdfRef = useRef<HTMLDivElement>(null);
@@ -163,10 +161,9 @@ export default function Pronostico() {
 
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '10px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '5px', flexWrap: 'wrap', gap: '10px' }}>
         <div>
           <h1 className="header-title" style={{ marginBottom: '5px' }}>Pronóstico Electoral {ORION_CONFIG.electoral.anioProyeccion}</h1>
-          <p style={{ margin: 0, color: '#64748B', fontSize: '14px' }}>Proyección basada en tendencia histórica y estructura actual.</p>
         </div>
         
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'white', padding: '6px 12px', borderRadius: '8px', border: '1px solid #E2E8F0' }}>
@@ -178,6 +175,11 @@ export default function Pronostico() {
           </select>
         </div>
       </div>
+
+      {/* 🚀 DISCLAIMER LEGAL */}
+      <p style={{ marginBottom: '20px', color: '#94A3B8', fontSize: '12px', fontStyle: 'italic', maxWidth: '800px' }}>
+        ⚠️ Aviso Legal: Esta es una proyección heurística basada en datos históricos y la estructura de campo actual. No constituye una predicción matemática exacta ni garantiza resultados electorales.
+      </p>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '12px', marginBottom: '25px' }}>
         <div className="card" style={{ padding: '15px', textAlign: 'center', borderTop: '4px solid #00D4FF', borderLeft: 'none' }}>
@@ -286,6 +288,67 @@ export default function Pronostico() {
           </div>
         </div>
       )}
+
+      <div style={{ position: 'absolute', left: '-9999px', top: 0 }}>
+        <div ref={pdfRef} style={{ width: '210mm', padding: '15mm', backgroundColor: 'white', fontFamily: 'Arial, sans-serif', color: '#333' }}>
+          {seccionSeleccionada && (
+            <>
+              <div style={{ borderBottom: '4px solid #0A1628', paddingBottom: '15px', marginBottom: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                  <img src="/dossier/orion-logo.png" alt="ORION" style={{ height: '60px' }} />
+                  <p style={{ margin: '4px 0 0 0', fontSize: '12px', color: '#64748B', letterSpacing: '2px' }}>INTELIGENCIA ELECTORAL</p>
+                </div>
+                <div style={{ textAlign: 'right' }}>
+                  <p style={{ margin: 0, fontSize: '11px', color: '#94A3B8', fontWeight: 'bold' }}>PLAN DE TRABAJO</p>
+                  <p style={{ margin: '4px 0 0 0', fontSize: '13px', color: '#0F172A', fontWeight: 'bold' }}>Sección {seccionSeleccionada.seccion}</p>
+                </div>
+              </div>
+
+              <p style={{ fontSize: '11px', color: '#64748B', marginBottom: '20px' }}>Generado el {new Date().toLocaleDateString('es-MX', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' })}</p>
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '10px', marginBottom: '20px' }}>
+                <div style={{ background: '#F0FDF4', padding: '12px', borderRadius: '8px', textAlign: 'center' }}>
+                  <div style={{ fontSize: '22px', fontWeight: 'bold', color: '#10B981' }}>{seccionSeleccionada.proyeccion_pct_2027.toFixed(1)}%</div>
+                  <div style={{ fontSize: '10px', color: '#64748B', fontWeight: 'bold' }}>PROYECCIÓN</div>
+                </div>
+                <div style={{ background: '#E0F2FE', padding: '12px', borderRadius: '8px', textAlign: 'center' }}>
+                  <div style={{ fontSize: '22px', fontWeight: 'bold', color: '#0284C7' }}>{seccionSeleccionada.proyeccion_votos_2027.toLocaleString()}</div>
+                  <div style={{ fontSize: '10px', color: '#64748B', fontWeight: 'bold' }}>VOTOS</div>
+                </div>
+                <div style={{ background: '#F8FAFC', padding: '12px', borderRadius: '8px', textAlign: 'center' }}>
+                  <div style={{ fontSize: '22px', fontWeight: 'bold', color: '#6366F1' }}>{seccionSeleccionada.activistas}</div>
+                  <div style={{ fontSize: '10px', color: '#64748B', fontWeight: 'bold' }}>ACTIVISTAS</div>
+                </div>
+                <div style={{ background: '#F8FAFC', padding: '12px', borderRadius: '8px', textAlign: 'center' }}>
+                  <div style={{ fontSize: '22px', fontWeight: 'bold', color: '#F59E0B' }}>{seccionSeleccionada.capturados}</div>
+                  <div style={{ fontSize: '10px', color: '#64748B', fontWeight: 'bold' }}>CAPTURADOS</div>
+                </div>
+              </div>
+
+              <div style={{ background: '#F8FAFC', padding: '15px', borderRadius: '8px', marginBottom: '20px', borderLeft: '5px solid #64748B' }}>
+                <h3 style={{ color: '#0F172A', fontSize: '14px', marginBottom: '6px', marginTop: 0 }}>DIAGNÓSTICO</h3>
+                <p style={{ fontSize: '12px', color: '#475569', margin: 0, lineHeight: '1.6' }}>{seccionSeleccionada.explicacion}</p>
+              </div>
+
+              <div style={{ background: `${seccionSeleccionada.semaforo === 'segura' ? '#F0FDF4' : seccionSeleccionada.semaforo === 'disputa' ? '#FEF3C7' : '#FFE4E6'}`, borderLeft: `5px solid ${seccionSeleccionada.semaforo === 'segura' ? '#10B981' : seccionSeleccionada.semaforo === 'disputa' ? '#F59E0B' : '#F43F5E'}`, padding: '15px', borderRadius: '8px', marginBottom: '20px' }}>
+                <h3 style={{ color: seccionSeleccionada.semaforo === 'segura' ? '#10B981' : seccionSeleccionada.semaforo === 'disputa' ? '#F59E0B' : '#F43F5E', fontSize: '14px', marginBottom: '6px', marginTop: 0 }}>RECOMENDACIÓN ESTRATÉGICA</h3>
+                <p style={{ fontSize: '12px', color: '#0F172A', margin: 0, lineHeight: '1.6' }}>{seccionSeleccionada.recomendacion}</p>
+              </div>
+
+              {/* 🚀 DISCLAIMER EN EL PDF */}
+              <div style={{ marginBottom: '20px', padding: '10px', border: '1px dashed #CBD5E1', borderRadius: '6px', backgroundColor: '#F8FAFC' }}>
+                <p style={{ fontSize: '10px', color: '#64748B', margin: 0, fontStyle: 'italic', textAlign: 'center' }}>
+                  Aviso Legal: Esta es una proyección heurística basada en datos históricos y la estructura de campo actual. No constituye una predicción matemática exacta ni garantiza resultados electorales.
+                </p>
+              </div>
+
+              <div style={{ marginTop: '30px', paddingTop: '15px', borderTop: '2px solid #E2E8F0', textAlign: 'center', fontSize: '10px', color: '#94A3B8' }}>
+                <p style={{ margin: 0 }}><strong>ORION · Inteligencia Electoral</strong> · Documento Confidencial</p>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
