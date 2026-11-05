@@ -33,8 +33,9 @@ export default function Personas() {
   const [personas, setPersonas] = useState<Persona[]>([]);
   const [barrios, setBarrios] = useState<{ id: string; nombre: string }[]>([]);
   const [loading, setLoading] = useState(true);
+  const [userRole, setUserRole] = useState<string | null>(null);
   
-  // 🚀 ESTADOS PARA PAGINACIÓN
+  // Paginación
   const [page, setPage] = useState(0);
   const [totalCount, setTotalCount] = useState(0);
   const PAGE_SIZE = 50;
@@ -62,34 +63,33 @@ export default function Personas() {
   };
   const cerrarConfirm = () => setConfirmModal({ ...confirmModal, visible: false });
 
-  // 🚀 FUNCIÓN DE CARGA PAGINADA
+  // 🚀 OBTENER EL ROL DEL USUARIO PARA SEGURIDAD
+  useEffect(() => {
+    const fetchRole = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data } = await supabase.from('perfiles').select('rol').eq('id', user.id).single();
+        if (data) setUserRole(data.rol);
+      }
+    };
+    fetchRole();
+  }, []);
+
   const fetchPersonas = async () => {
     setLoading(true);
-    
-    // 1. Construimos la consulta
     let query = supabase
       .from('personas')
       .select('id, nombre_completo, telefono, ocupacion, correo_electronico, direccion, preferencia_voto, barrio_colonia_id, created_at, barrios_colonias(nombre)', { count: 'exact' });
 
-    // 2. Aplicamos filtros
-    if (busqueda.trim() !== '') {
-      query = query.ilike('nombre_completo', `%${busqueda}%`);
-    }
-    if (filtroBarrio) {
-      query = query.eq('barrio_colonia_id', filtroBarrio);
-    }
-    if (filtroVoto) {
-      query = query.eq('preferencia_voto', filtroVoto);
-    }
+    if (busqueda.trim() !== '') query = query.ilike('nombre_completo', `%${busqueda}%`);
+    if (filtroBarrio) query = query.eq('barrio_colonia_id', filtroBarrio);
+    if (filtroVoto) query = query.eq('preferencia_voto', filtroVoto);
 
-    // 3. Aplicamos paginación (range)
     const from = page * PAGE_SIZE;
     const to = from + PAGE_SIZE - 1;
 
-    const { data, count, error } = await query
-      .order('created_at', { ascending: false })
-      .range(from, to);
-
+    const { data, count, error } = await query.order('created_at', { ascending: false }).range(from, to);
+    
     if (!error && data) {
       const procesadas = data.map((p: any) => ({
         ...p,
@@ -101,7 +101,6 @@ export default function Personas() {
     setLoading(false);
   };
 
-  // Cargar barrios
   useEffect(() => {
     const fetchBarrios = async () => {
       const { data } = await supabase.from('barrios_colonias').select('id, nombre').order('nombre');
@@ -110,22 +109,12 @@ export default function Personas() {
     fetchBarrios();
   }, []);
 
-  // 🚀 Efecto con Debounce para buscar en el servidor
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setPage(0); // Reiniciar a página 1 al buscar
-      fetchPersonas();
-    }, 500); // Espera 500ms después de que el usuario deja de escribir
-    
+    const timer = setTimeout(() => { setPage(0); fetchPersonas(); }, 500);
     return () => clearTimeout(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [busqueda, filtroBarrio, filtroVoto]);
 
-  // Recargar cuando cambia la página
-  useEffect(() => {
-    fetchPersonas();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page]);
+  useEffect(() => { fetchPersonas(); }, [page]);
 
   useEffect(() => {
     if (personaEditar || personaNueva) setAceptoAviso(false);
@@ -141,15 +130,9 @@ export default function Personas() {
   const handleCrearPersona = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!personaNueva) return;
-
-    if (!aceptoAviso) {
-      setToastMensaje('Debes confirmar el Aviso de Privacidad (LFPDPPP).');
-      setToastVisible(true);
-      return;
-    }
+    if (!aceptoAviso) { setToastMensaje('Debes confirmar el Aviso de Privacidad.'); setToastVisible(true); return; }
 
     setGuardando(true);
-
     const payloadLimpio = {
       nombre_completo: personaNueva.nombre_completo,
       telefono: personaNueva.telefono || null,
@@ -171,7 +154,7 @@ export default function Personas() {
       setAceptoAviso(false);
       setToastMensaje(res.queued ? '📡 Sin señal: Persona guardada localmente.' : `¡${payloadLimpio.nombre_completo} registrado!`);
       setToastVisible(true);
-      fetchPersonas(); // Recargar la tabla
+      fetchPersonas();
     }
     setGuardando(false);
   };
@@ -179,10 +162,9 @@ export default function Personas() {
   const handleGuardarEdicion = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!personaEditar) return;
-    if (!aceptoAviso) { setToastVisible(true); setToastMensaje('Debes confirmar el Aviso de Privacidad.'); return; }
+    if (!aceptoAviso) { setToastMensaje('Debes confirmar el Aviso de Privacidad.'); setToastVisible(true); return; }
 
     setGuardando(true);
-
     const { error } = await supabase
       .from('personas')
       .update({
@@ -209,31 +191,33 @@ export default function Personas() {
   };
 
   const handleEliminar = (id: string, nombre: string) => {
-    mostrarConfirm(
-      '¿Eliminar esta persona?',
-      `Se eliminará a "${nombre}" del directorio. Esta acción no se puede deshacer.`,
-      'danger',
-      async () => {
-        cerrarConfirm();
-        const { error } = await supabase.from('personas').delete().eq('id', id);
-        if (error) {
-          setToastMensaje('Error al eliminar: ' + error.message);
-          setToastVisible(true);
-        } else {
-          setToastMensaje(`${nombre} eliminado`);
-          setToastVisible(true);
-          fetchPersonas(); // Recargar
-        }
+    mostrarConfirm('¿Eliminar esta persona?', `Se eliminará a "${nombre}" del directorio.`, 'danger', async () => {
+      cerrarConfirm();
+      const { error } = await supabase.from('personas').delete().eq('id', id);
+      if (error) {
+        setToastMensaje('Error al eliminar: ' + error.message);
+        setToastVisible(true);
+      } else {
+        setToastMensaje(`${nombre} eliminado`);
+        setToastVisible(true);
+        fetchPersonas();
       }
-    );
+    });
   };
 
+  // 🚀 BLOQUEO DE DESCARGA MASIVA
   const handleExportarCSV = async () => {
-    // Para exportación masiva, hacemos una consulta independiente sin paginación (Supabase permite hasta 100k)
+    if (userRole !== 'admin' && userRole !== 'coordinador') {
+      setToastMensaje('⚠️ Permiso denegado. Solo administradores pueden exportar bases de datos.');
+      setToastVisible(true);
+      return; // Detenemos la ejecución
+    }
+
     setToastMensaje('Generando CSV...');
     setToastVisible(true);
-    const { data } = await supabase.from('personas').select('*, barrios_colonias(nombre)');
     
+    // Hacemos la consulta completa (esto puede ser pesado, pero solo lo hacen admins)
+    const { data } = await supabase.from('personas').select('*, barrios_colonias(nombre)');
     if (!data || data.length === 0) return;
 
     const encabezados = ['Nombre', 'Teléfono', 'Ocupación', 'Correo', 'Dirección', 'Preferencia Voto', 'Barrio/Colonia'];
@@ -272,9 +256,14 @@ export default function Personas() {
           {totalCount.toLocaleString()} personas registradas
         </p>
         <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-          <button onClick={handleExportarCSV} style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '14px', padding: '12px 20px', background: 'white', color: '#0066CC', border: '2px solid #0066CC', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>
-            <Download size={16} /> Exportar Todo a CSV
-          </button>
+          
+          {/* 🚀 BOTÓN CONDICIONAL: Solo visible para Admin y Coordinador */}
+          {(userRole === 'admin' || userRole === 'coordinador') && (
+            <button onClick={handleExportarCSV} style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '14px', padding: '12px 20px', background: 'white', color: '#0066CC', border: '2px solid #0066CC', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>
+              <Download size={16} /> Exportar Todo a CSV
+            </button>
+          )}
+
           <button onClick={abrirModalNueva} className="btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '14px' }}>
             <Plus size={16} /> Nueva Persona
           </button>
@@ -284,13 +273,7 @@ export default function Personas() {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '10px', marginBottom: '25px' }}>
         <div style={{ position: 'relative' }}>
           <Search size={18} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#999' }} />
-          <input
-            type="text"
-            placeholder="Buscar nombre en toda la base de datos..."
-            value={busqueda}
-            onChange={(e) => setBusqueda(e.target.value)}
-            style={{ width: '100%', padding: '11px 11px 11px 40px', borderRadius: '6px', border: '1px solid #E2E8F0', fontSize: '14px', boxSizing: 'border-box' }}
-          />
+          <input type="text" placeholder="Buscar nombre..." value={busqueda} onChange={(e) => setBusqueda(e.target.value)} style={{ width: '100%', padding: '11px 11px 11px 40px', borderRadius: '6px', border: '1px solid #E2E8F0', fontSize: '14px', boxSizing: 'border-box' }} />
         </div>
         <select value={filtroBarrio} onChange={(e) => setFiltroBarrio(e.target.value)} style={{ padding: '11px', borderRadius: '6px', border: '1px solid #E2E8F0', fontSize: '14px', background: 'white' }}>
           <option value="">Todos los barrios/colonias</option>
@@ -308,14 +291,9 @@ export default function Personas() {
       </div>
 
       {loading ? (
-        <div style={{ display: 'flex', justifyContent: 'center', padding: '50px', color: '#00D4FF' }}>
-          <Loader2 size={32} className="animate-spin" /> Buscando en el servidor...
-        </div>
+        <div style={{ display: 'flex', justifyContent: 'center', padding: '50px', color: '#00D4FF' }}><Loader2 size={32} className="animate-spin" /> Buscando en el servidor...</div>
       ) : personas.length === 0 ? (
-        <div className="card" style={{ textAlign: 'center', padding: '40px 20px' }}>
-          <User size={40} color="#00D4FF" style={{ opacity: 0.5, marginBottom: '15px' }} />
-          <p style={{ color: '#64748B', fontSize: '15px' }}>No se encontraron resultados.</p>
-        </div>
+        <div className="card" style={{ textAlign: 'center', padding: '40px 20px' }}><User size={40} color="#00D4FF" style={{ opacity: 0.5, marginBottom: '15px' }} /><p style={{ color: '#64748B', fontSize: '15px' }}>No se encontraron resultados.</p></div>
       ) : (
         <>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '15px', marginBottom: '20px' }}>
@@ -349,34 +327,17 @@ export default function Personas() {
             ))}
           </div>
 
-          {/* 🚀 CONTROLES DE PAGINACIÓN */}
           {totalPages > 1 && (
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '15px', background: 'white', padding: '15px', borderRadius: '10px', border: '1px solid #E2E8F0' }}>
-              <button 
-                onClick={() => setPage(p => Math.max(0, p - 1))} 
-                disabled={page === 0}
-                style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '8px 16px', background: page === 0 ? '#F0F0F0' : 'white', color: page === 0 ? '#999' : '#00D4FF', border: '1px solid #E2E8F0', borderRadius: '6px', cursor: page === 0 ? 'not-allowed' : 'pointer', fontWeight: 'bold' }}
-              >
-                <ChevronLeft size={16} /> Anterior
-              </button>
-              
-              <span style={{ fontSize: '14px', color: '#64748B', fontWeight: 'bold' }}>
-                Página {page + 1} de {totalPages}
-              </span>
-
-              <button 
-                onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))} 
-                disabled={page === totalPages - 1}
-                style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '8px 16px', background: page === totalPages - 1 ? '#F0F0F0' : 'white', color: page === totalPages - 1 ? '#999' : '#00D4FF', border: '1px solid #E2E8F0', borderRadius: '6px', cursor: page === totalPages - 1 ? 'not-allowed' : 'pointer', fontWeight: 'bold' }}
-              >
-                Siguiente <ChevronRight size={16} />
-              </button>
+              <button onClick={() => setPage(p => Math.max(0, p - 1))} disabled={page === 0} style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '8px 16px', background: page === 0 ? '#F0F0F0' : 'white', color: page === 0 ? '#999' : '#00D4FF', border: '1px solid #E2E8F0', borderRadius: '6px', cursor: page === 0 ? 'not-allowed' : 'pointer', fontWeight: 'bold' }}><ChevronLeft size={16} /> Anterior</button>
+              <span style={{ fontSize: '14px', color: '#64748B', fontWeight: 'bold' }}>Página {page + 1} de {totalPages}</span>
+              <button onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))} disabled={page === totalPages - 1} style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '8px 16px', background: page === totalPages - 1 ? '#F0F0F0' : 'white', color: page === totalPages - 1 ? '#999' : '#00D4FF', border: '1px solid #E2E8F0', borderRadius: '6px', cursor: page === totalPages - 1 ? 'not-allowed' : 'pointer', fontWeight: 'bold' }}>Siguiente <ChevronRight size={16} /></button>
             </div>
           )}
         </>
       )}
 
-      {/* MODALES (Nuevo y Editar) - Se mantienen igual que en tu versión anterior */}
+      {/* MODALES (Nuevo y Editar) - Sin cambios estructurales */}
       {personaNueva && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000, padding: '15px' }}>
           <div style={{ background: 'white', padding: '25px', borderRadius: '12px', width: '100%', maxWidth: '550px', maxHeight: '90vh', overflowY: 'auto' }}>
