@@ -9,20 +9,15 @@ import { obtenerUbicacion, calcularDistanciaMetros } from '../lib/geolocalizacio
 import { offlineInsert } from '../lib/syncManager';
 
 interface Encuesta {
-  id: string;
-  tipo: string;
-  pregunta: string;
-  respuesta: string | null;
-  barrio_colonia_id: string | null;
-  created_at: string;
-  es_sospechosa?: boolean;
-  barrios_colonias?: { nombre: string } | null;
+  id: string; tipo: string; pregunta: string; respuesta: string | null;
+  barrio_colonia_id: string | null; created_at: string;
+  es_sospechosa?: boolean; barrios_colonias?: { nombre: string } | null;
 }
 
 const PREGUNTAS_ADN: Record<string, string[]> = {
-  'adn_18_30': ["Si pudieras cambiar UNA SOLA COSA de Tula para quedarte a vivir aquí toda tu vida, ¿qué sería?", "¿Qué es lo que más te frustra de cómo te ven los políticos?", "Cuando escuchas a un candidato hablar, ¿qué palabra o frase te hace pensar 'este sí me entiende'?"],
+  'adn_18_30': ["Si pudieras cambiar UNA SOLA COSA de la ciudad para quedarte a vivir aquí toda tu vida, ¿qué sería?", "¿Qué es lo que más te frustra de cómo te ven los políticos?", "Cuando escuchas a un candidato hablar, ¿qué palabra o frase te hace pensar 'este sí me entiende'?"],
   'adn_31_50': ["¿Cuál es el mayor miedo que tienes sobre el futuro de tus hijos en este municipio?", "¿Qué significa para ti 'progreso'?", "¿Qué te hace sentir abandonado por las autoridades?"],
-  'adn_50_mas': ["¿Qué es lo que más extrañas de la Tula de antes?", "¿Qué te haría sentir respetado por un gobierno?", "¿Cuál es la herencia que más te preocupa dejarle a tu familia?"]
+  'adn_50_mas': ["¿Qué es lo que más extrañas de la ciudad de antes?", "¿Qué te haría sentir respetado por un gobierno?", "¿Cuál es la herencia que más te preocupa dejarle a tu familia?"]
 };
 
 export default function Encuestas() {
@@ -31,7 +26,6 @@ export default function Encuestas() {
   const [loading, setLoading] = useState(true);
   const [guardando, setGuardando] = useState(false);
   
-  // 🚀 PAGINACIÓN
   const [page, setPage] = useState(0);
   const [totalCount, setTotalCount] = useState(0);
   const PAGE_SIZE = 50;
@@ -62,8 +56,7 @@ export default function Encuestas() {
     
     if (!error && data) {
       const procesadas = data.map((e: any) => ({
-        ...e,
-        barrios_colonias: Array.isArray(e.barrios_colonias) ? e.barrios_colonias[0] : e.barrios_colonias
+        ...e, barrios_colonias: Array.isArray(e.barrios_colonias) ? e.barrios_colonias[0] : e.barrios_colonias
       }));
       setEncuestas(procesadas as any);
       if (count !== null) setTotalCount(count);
@@ -82,7 +75,6 @@ export default function Encuestas() {
   useEffect(() => {
     const timer = setTimeout(() => { setPage(0); fetchEncuestas(); }, 500);
     return () => clearTimeout(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [busqueda, filtroTipo]);
 
   useEffect(() => { fetchEncuestas(); }, [page]);
@@ -139,7 +131,7 @@ export default function Encuestas() {
 
     if (res.ok) {
       setModalAbierto(false);
-      setToastMensaje(res.queued ? '📡 Sin señal: Encuesta guardada localmente.' : (esSospechosa ? '⚠️ Guardada, pero el GPS NO coincide.' : '¡Encuesta registrada con éxito!'));
+      setToastMensaje(res.queued ? '📡 Sin señal: Encuesta guardada localmente.' : (esSospechosa ? '⚠️ Guardada, pero el GPS NO coincide.' : '¡Encuesta registrada!'));
       setToastVisible(true);
       fetchEncuestas();
     }
@@ -225,14 +217,79 @@ export default function Encuestas() {
         </>
       )}
 
-      {/* Modal simplificado para no alargar el codigo, usa el mismo de tu version anterior */}
+      {/* 🚀 MODAL DE ENCUESTA (RESTAURADO Y FUNCIONAL) */}
       {modalAbierto && encuestaNueva && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000, padding: '15px' }}>
-           {/* Pega aquí tu modal de nueva encuesta, no ha cambiado nada en él */}
-           <div style={{ background: 'white', padding: '25px', borderRadius: '12px', textAlign: 'center' }}>
-              <p>El modal de encuesta se mantiene igual.</p>
-              <button onClick={() => setModalAbierto(false)}>Cerrar</button>
-           </div>
+          <div style={{ background: 'white', padding: '25px', borderRadius: '12px', width: '100%', maxWidth: '520px', maxHeight: '90vh', overflowY: 'auto' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+              <h3 style={{ color: esModoADN ? '#9C27B0' : '#00D4FF', fontSize: '18px', margin: 0 }}>
+                {esModoADN ? '🧬 Captura de ADN Emocional' : 'Nueva Encuesta Clásica'}
+              </h3>
+              <button onClick={() => setModalAbierto(false)} style={{ background: 'none', border: 'none', cursor: 'pointer' }}><X size={22} /></button>
+            </div>
+
+            <form onSubmit={handleCrear} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              
+              {esModoADN ? (
+                <>
+                  <div style={{ background: '#F3E5F5', padding: '15px', borderRadius: '8px', borderLeft: '4px solid #9C27B0' }}>
+                    <p style={{ margin: 0, fontSize: '13px', color: '#555' }}>
+                      <strong>Instrucción:</strong> Pregunta la edad al ciudadano. Selecciona el rango y el sistema te dirá exactamente qué preguntar.
+                    </p>
+                  </div>
+                  <div>
+                    <label style={labelStyle}>Rango de Edad *</label>
+                    <select value={rangoEdadADN} onChange={(e) => handleCambioRangoADN(e.target.value as any)} style={inputStyle}>
+                      <option value="adn_18_30">18 a 30 años (Jóvenes)</option>
+                      <option value="adn_31_50">31 a 50 años (Adultos)</option>
+                      <option value="adn_50_mas">50+ años (Mayores)</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label style={labelStyle}>Pregunta de Oro *</label>
+                    <select value={encuestaNueva.pregunta} onChange={(e) => setEncuestaNueva({...encuestaNueva, pregunta: e.target.value})} style={{ ...inputStyle, fontWeight: 'bold', color: '#9C27B0' }}>
+                      {PREGUNTAS_ADN[rangoEdadADN].map((p, i) => <option key={i} value={p}>{p}</option>)}
+                    </select>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div>
+                    <label style={labelStyle}>Tipo de encuesta *</label>
+                    <select value={encuestaNueva.tipo} onChange={(e) => setEncuestaNueva({...encuestaNueva, tipo: e.target.value})} style={inputStyle}>
+                      <option value="territorial">Territorial</option>
+                      <option value="telefonica">Telefónica</option>
+                      <option value="digital">Digital</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label style={labelStyle}>Pregunta *</label>
+                    <textarea required rows={2} placeholder="Escribe la pregunta..." value={encuestaNueva.pregunta} onChange={(e) => setEncuestaNueva({...encuestaNueva, pregunta: e.target.value})} style={{...inputStyle, resize: 'vertical', fontFamily: 'inherit'}} />
+                  </div>
+                </>
+              )}
+
+              <div>
+                <label style={labelStyle}>Respuesta del Ciudadano *</label>
+                <textarea required rows={3} placeholder="Escribe textualmente lo que respondió..." value={encuestaNueva.respuesta} onChange={(e) => setEncuestaNueva({...encuestaNueva, respuesta: e.target.value})} style={{...inputStyle, resize: 'vertical', fontFamily: 'inherit'}} />
+              </div>
+
+              <div>
+                <label style={labelStyle}>Barrio / Colonia</label>
+                <select value={encuestaNueva.barrio_colonia_id} onChange={(e) => setEncuestaNueva({...encuestaNueva, barrio_colonia_id: e.target.value})} style={inputStyle}>
+                  <option value="">Sin asignar</option>
+                  {barrios.map(b => <option key={b.id} value={b.id}>{b.nombre}</option>)}
+                </select>
+              </div>
+
+              <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
+                <button type="button" onClick={() => setModalAbierto(false)} style={btnSecundario}>Cancelar</button>
+                <button type="submit" className="btn-primary" style={{ flex: 1, background: esModoADN ? '#9C27B0' : undefined, border: 'none' }} disabled={guardando}>
+                  {guardando ? <><Loader2 size={16} className="animate-spin" /> Obteniendo GPS...</> : 'Registrar Respuesta'}
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
 
@@ -251,3 +308,7 @@ export default function Encuestas() {
     </div>
   );
 }
+
+const labelStyle: React.CSSProperties = { display: 'block', marginBottom: '5px', fontWeight: 'bold', fontSize: '14px' };
+const inputStyle: React.CSSProperties = { width: '100%', padding: '11px', borderRadius: '6px', border: '1px solid #E2E8F0', fontSize: '15px', boxSizing: 'border-box' };
+const btnSecundario: React.CSSProperties = { flex: 1, padding: '12px', background: '#EEE', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' };
