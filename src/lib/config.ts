@@ -1,10 +1,5 @@
-// ============================================================
-// CONFIGURACIÓN POR CLIENTE — ORION
-// ============================================================
-
 const env = import.meta.env;
 
-// Catálogo de entidades políticas (partidos o coaliciones)
 export const PARTIDOS_DB = [
   { key: 'morena', nombre: 'MORENA', color: '#9F2241' },
   { key: 'pan', nombre: 'PAN', color: '#0066CC' },
@@ -13,6 +8,8 @@ export const PARTIDOS_DB = [
   { key: 'pt', nombre: 'Partido del Trabajo', color: '#D32F2F' },
   { key: 'pvem', nombre: 'Partido Verde', color: '#4CAF50' },
   { key: 'prd', nombre: 'PRD', color: '#FFC107' },
+  { key: 'independiente', nombre: 'Independiente', color: '#94A3B8' },
+  { key: 'otro', nombre: 'Otro / No definido', color: '#64748B' },
 ];
 
 export const ORION_CONFIG = {
@@ -20,6 +17,9 @@ export const ORION_CONFIG = {
   organizacionSubtitulo: env.VITE_ORG_SUBTITULO || 'Campaign Intelligence',
   organizacionLogo: env.VITE_ORG_LOGO || '/dossier/orion-logo.png',
   organizacionColorPrimario: env.VITE_ORG_COLOR || '#00D4FF',
+  
+  // Para el Dossier
+  precioLicencia: env.VITE_PRECIO_LICENCIA || '450,000',
 
   territorio: {
     activo: env.VITE_TERRITORIO_ACTIVO !== 'false',
@@ -44,5 +44,3 @@ export const ORION_CONFIG = {
     iaActiva: env.VITE_IA_ACTIVA !== 'false',
   },
 };
-
-export const isCampanaElectoral = () => ORION_CONFIG.electoral.activo;
