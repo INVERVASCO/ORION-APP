@@ -6,7 +6,6 @@ const DB_NAME = 'orion_db';
 const DB_VERSION = 1;
 const STORES = { queue: 'queue', cache: 'cache' };
 
-// 🚀 CONEXIÓN ÚNICA (Evita bloqueos al borrar)
 let dbPromise: Promise<IDBDatabase> | null = null;
 const openDB = (): Promise<IDBDatabase> => {
   if (dbPromise) return dbPromise;
@@ -108,14 +107,12 @@ const Queue = {
   }
 };
 
-// 🚀 FUNCIÓN PARA BORRAR LA BASE SIN COLGARSE
 export const borrarBaseLocal = () => new Promise<void>((resolve) => {
   const t = setTimeout(resolve, 3000);
   const req = indexedDB.deleteDatabase(DB_NAME);
   req.onsuccess = req.onerror = req.onblocked = () => { clearTimeout(t); resolve(); };
 });
 
-// 🚀 ESTADÍSTICAS REALES DE LA COLA
 export const getQueueStats = async () => {
   const db = await openDB();
   const all: any[] = await new Promise((res, rej) => {
@@ -129,11 +126,31 @@ export const getQueueStats = async () => {
   };
 };
 
-// 🚀 CLASIFICADOR DE ERRORES
+// 🚀 NUEVO: EXPORTAR DATOS MUERTOS A JSON
+export const exportarColaMuerta = async () => {
+  const db = await openDB();
+  const all: any[] = await new Promise((res, rej) => {
+    const r = db.transaction(STORES.queue, 'readonly').objectStore(STORES.queue).getAll();
+    r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error);
+  });
+  const dead = all.filter(o => o.status === 'DEAD');
+  if (dead.length === 0) return;
+  
+  const blob = new Blob([JSON.stringify(dead, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `orion_datos_fallidos_${new Date().toISOString().split('T')[0]}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+};
+
 const clasificar = (err: any): 'RED' | 'AUTH' | 'PERMANENTE' | 'TEMPORAL' => {
   const msg = String(err?.message || ''), code = String(err?.code || '');
   if (/failed to fetch|networkerror|load failed|timeout/i.test(msg)) return 'RED';
   if (err?.status === 401 || code === 'PGRST301' || /jwt/i.test(msg)) return 'AUTH';
+  // 🚀 FIX: El error 23503 (Foreign Key) es temporal, no permanente
+  if (code === '23503') return 'TEMPORAL'; 
   if (code.startsWith('23') || code.startsWith('22') || code === '42501') return 'PERMANENTE';
   return 'TEMPORAL';
 };
@@ -170,7 +187,6 @@ const ejecutarOperacion = async (op: any) => {
 export const syncNow = async () => {
   if (estadoMotor.syncing) return { ok: false, reason: 'already_syncing' };
   
-  // 🚀 VERIFICAR SESIÓN ANTES DE SINCRONIZAR
   const { data: { session } } = await supabase.auth.getSession();
   if (!session) return { ok: false, reason: 'no_session' };
 
@@ -196,13 +212,11 @@ export const syncNow = async () => {
       } catch (err: any) {
         const tipoError = clasificar(err);
         
-        // 🚀 SI ES ERROR DE RED O AUTH, CORTAMOS EL CICLO SIN SUMAR INTENTO
         if (tipoError === 'RED' || tipoError === 'AUTH') {
           estadoMotor.lastError = tipoError === 'RED' ? 'Sin conexión estable' : 'Sesión expirada';
           break; 
         }
 
-        // Si es un error de base de datos, lo mandamos a DEAD inmediatamente
         const nuevoStatus = tipoError === 'PERMANENTE' ? 'DEAD' : 'PENDING';
         const attempts = tipoError === 'PERMANENTE' ? MAX_INTENTOS : (op.attempts || 0) + 1;
         
@@ -238,6 +252,9 @@ const iniciarMotorSync = () => {
     publicarEstado();
     if (online) setTimeout(() => syncNow(), 500);
   });
+
+  // 🚀 FIX: Sincronización inmediata al arrancar
+  setTimeout(() => syncNow(), 1000);
 
   engineInterval = setInterval(async () => {
     const online = await Network.isConnected();
