@@ -12,6 +12,8 @@
   },
   "dependencies": {
     "@sentry/react": "^7.100.0",
+    "@microsoft/clarity": "^0.7.1",
+    "@sentry/react": "^7.100.0",
     "@supabase/supabase-js": "^2.39.0",
     "exceljs": "^4.4.0",
     "file-saver": "^2.0.5",
