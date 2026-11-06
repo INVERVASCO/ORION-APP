@@ -8,7 +8,7 @@ import {
 } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 import { ORION_CONFIG } from '../lib/config';
-import { useSyncStatus } from '../lib/syncManager'; // 🚀 IMPORTAMOS EL SYNC MANAGER
+import { borrarBaseLocal, getQueueStats } from '../lib/syncManager'; // 🚀 IMPORTAMOS LAS NUEVAS FUNCIONES
 
 export default function Layout() {
   const navigate = useNavigate();
@@ -18,9 +18,6 @@ export default function Layout() {
   const [userRole, setUserRole] = useState<string | null>(null);
   const [roleLoading, setRoleLoading] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
-
-  // 🚀 HOOK PARA SABER SI HAY DATOS SIN SINCRONIZAR
-  const { queueSize } = useSyncStatus();
 
   useEffect(() => {
     let cancelled = false;
@@ -34,10 +31,9 @@ export default function Layout() {
         
         if (!cancelled) {
           if (data) {
-            // VALIDACIÓN DE EXPIRACIÓN EN CLIENTE
             if (data.fecha_expiracion && new Date(data.fecha_expiracion) < new Date()) {
               await supabase.auth.signOut();
-              alert('Tu acceso temporal a este sistema ha expirado. Contacta al administrador.');
+              alert('Tu acceso temporal ha expirado.');
               navigate('/login', { replace: true });
               return;
             }
@@ -93,48 +89,50 @@ export default function Layout() {
     setIsSidebarOpen(false);
   };
 
-  const handleCerrarSesion = () => {
-    // 🚀 BLOQUEO LEGAL: Si hay datos pendientes, no dejamos cerrar sesión
-    if (queueSize > 0) {
-      alert(`⚠️ Tienes ${queueSize} registro(s) sin sincronizar en tu dispositivo.\n\nPor seguridad y para evitar pérdida de datos, no puedes cerrar sesión hasta que tengas internet y los datos se suban al servidor.`);
-      return;
-    }
+  const handleCerrarSesion = async () => {
+    try {
+      // 🚀 LEEMOS EL ESTADO REAL DE LA COLA ANTES DE CERRAR
+      const stats = await getQueueStats();
 
-    mostrarConfirm('¿Cerrar sesión?', 'Se cerrará tu sesión actual.', 'warning', async () => {
-      cerrarConfirm();
-      setCerrandoSesion(true);
-      
-      try {
-        // Limpiamos la base de datos local de forma segura (solo si está vacía)
-        const dbRequest = indexedDB.deleteDatabase('orion_db');
-        dbRequest.onsuccess = async () => {
-          await supabase.auth.signOut();
-          navigate('/login', { replace: true });
-          setCerrandoSesion(false);
-        };
-        dbRequest.onerror = async () => {
-          console.warn('No se pudo limpiar IndexedDB, pero cerrando sesión...');
-          await supabase.auth.signOut();
-          navigate('/login', { replace: true });
-          setCerrandoSesion(false);
-        };
-      } catch (e) {
+      if (stats.pending > 0) {
+        alert(`⚠️ Tienes ${stats.pending} registro(s) pendientes de subir.\n\nConéctate a internet y espera a que se sincronicen antes de cerrar sesión para no perder tus datos.`);
+        return; // Bloqueamos
+      }
+
+      if (stats.dead > 0) {
+        const confirmar = window.confirm(`⚠️ Tienes ${stats.dead} registro(s) que el servidor rechazó (datos inválidos).\n\nSi cierras sesión, esos registros se borrarán de este dispositivo para siempre.\n\n¿Deseas salir de todos modos?`);
+        if (!confirmar) return;
+      }
+
+      // Si llegamos aquí, es seguro salir
+      mostrarConfirm('¿Cerrar sesión?', 'Se cerrará tu sesión actual.', 'warning', async () => {
+        cerrarConfirm();
+        setCerrandoSesion(true);
+        
         await supabase.auth.signOut();
+        // 🚀 BORRADO SEGURO (No se cuelga)
+        await borrarBaseLocal();
+        
         navigate('/login', { replace: true });
         setCerrandoSesion(false);
-      }
-    });
+      });
+
+    } catch (error) {
+      console.error("Error al verificar la cola:", error);
+      alert('No se pudo verificar la seguridad de los datos. Por favor, recarga la página.');
+    }
   };
 
   const menuPermitido = userRole ? menuItems.filter(item => item.roles.includes(userRole)) : [];
 
   return (
     <div className="app-container">
+      {/* (El resto del UI de Layout se mantiene igual) */}
       <header className="mobile-header">
         <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} style={{ background: 'none', border: 'none', color: 'white', cursor: 'pointer' }}>
           {isSidebarOpen ? <X size={28} /> : <Menu size={28} />}
         </button>
-        <img src={ORION_CONFIG.organizacionLogo} alt={ORION_CONFIG.organizacionNombre} style={{ height: '35px', borderRadius: '8px' }} />
+        <img src={ORION_CONFIG.organizacionLogo} alt="ORION" style={{ height: '35px', borderRadius: '8px' }} />
         <div style={{ width: '28px' }}></div>
       </header>
 
@@ -142,7 +140,7 @@ export default function Layout() {
 
       <aside className={`sidebar ${isSidebarOpen ? 'open' : ''}`}>
         <div className="sidebar-logo" style={{ padding: '15px', display: 'flex', justifyContent: 'center' }}>
-          <img src={ORION_CONFIG.organizacionLogo} alt={ORION_CONFIG.organizacionNombre} style={{ width: '100%', maxWidth: '200px', height: 'auto', borderRadius: '8px' }} />
+          <img src={ORION_CONFIG.organizacionLogo} alt="ORION" style={{ width: '100%', maxWidth: '200px', height: 'auto', borderRadius: '8px' }} />
         </div>
 
         <nav style={{ marginTop: '10px' }}>
@@ -150,7 +148,7 @@ export default function Layout() {
           
           {!roleLoading && fetchError && (
             <div style={{ padding: '15px', background: 'rgba(244, 63, 94, 0.1)', borderRadius: '8px', margin: '0 10px' }}>
-              <p style={{ color: '#F43F5E', fontSize: '11px', margin: '0 0 10px 0', lineHeight: '1.4' }}>⚠️ Error de permisos: {fetchError}. Contacta a soporte.</p>
+              <p style={{ color: '#F43F5E', fontSize: '11px', margin: '0 0 10px 0', lineHeight: '1.4' }}>⚠️ Error de permisos: {fetchError}.</p>
             </div>
           )}
 
