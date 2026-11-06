@@ -1,3 +1,4 @@
+// src/components/Layout.tsx
 import { useState, useEffect } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import {
@@ -8,7 +9,7 @@ import {
 } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 import { ORION_CONFIG } from '../lib/config';
-import { borrarBaseLocal, getQueueStats } from '../lib/syncManager'; // 🚀 IMPORTAMOS LAS NUEVAS FUNCIONES
+import { borrarBaseLocal, getQueueStats, exportarColaMuerta } from '../lib/syncManager'; // 🚀 IMPORTAMOS EXPORTAR
 
 export default function Layout() {
   const navigate = useNavigate();
@@ -91,28 +92,38 @@ export default function Layout() {
 
   const handleCerrarSesion = async () => {
     try {
-      // 🚀 LEEMOS EL ESTADO REAL DE LA COLA ANTES DE CERRAR
       const stats = await getQueueStats();
 
       if (stats.pending > 0) {
-        alert(`⚠️ Tienes ${stats.pending} registro(s) pendientes de subir.\n\nConéctate a internet y espera a que se sincronicen antes de cerrar sesión para no perder tus datos.`);
-        return; // Bloqueamos
+        alert(`⚠️ Tienes ${stats.pending} registro(s) pendientes de subir.\n\nConéctate a internet y espera a que se sincronicen antes de cerrar sesión.`);
+        return;
       }
 
       if (stats.dead > 0) {
-        const confirmar = window.confirm(`⚠️ Tienes ${stats.dead} registro(s) que el servidor rechazó (datos inválidos).\n\nSi cierras sesión, esos registros se borrarán de este dispositivo para siempre.\n\n¿Deseas salir de todos modos?`);
-        if (!confirmar) return;
+        // 🚀 OFRECER RESPALDO ANTES DE BORRAR
+        const confirmar = window.confirm(`⚠️ Tienes ${stats.dead} registro(s) fallidos que el servidor rechazó.\n\nSi cierras sesión, se borrarán definitivamente.\n\n¿Deseas descargar un respaldo JSON antes de salir? (Presiona Cancelar para no salir y descargar el respaldo).`);
+        
+        if (confirmar) {
+          await exportarColaMuerta();
+        } else {
+          // Si el usuario canceló, le damos la opción de descargar y luego salir
+          await exportarColaMuerta();
+          const salirIgual = window.confirm('Respaldo descargado. ¿Deseas cerrar sesión ahora?');
+          if (!salirIgual) return;
+        }
       }
 
-      // Si llegamos aquí, es seguro salir
       mostrarConfirm('¿Cerrar sesión?', 'Se cerrará tu sesión actual.', 'warning', async () => {
         cerrarConfirm();
         setCerrandoSesion(true);
         
-        await supabase.auth.signOut();
-        // 🚀 BORRADO SEGURO (No se cuelga)
-        await borrarBaseLocal();
+        // 🚀 FIX: Fallback local si no hay internet para que no se quede colgado
+        const { error } = await supabase.auth.signOut();
+        if (error) {
+          await supabase.auth.signOut({ scope: 'local' });
+        }
         
+        await borrarBaseLocal();
         navigate('/login', { replace: true });
         setCerrandoSesion(false);
       });
@@ -127,7 +138,6 @@ export default function Layout() {
 
   return (
     <div className="app-container">
-      {/* (El resto del UI de Layout se mantiene igual) */}
       <header className="mobile-header">
         <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} style={{ background: 'none', border: 'none', color: 'white', cursor: 'pointer' }}>
           {isSidebarOpen ? <X size={28} /> : <Menu size={28} />}
