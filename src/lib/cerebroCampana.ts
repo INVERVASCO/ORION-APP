@@ -32,8 +32,8 @@ export async function recolectarContextoCampana(partidoObjetivo: string = 'todos
     personasRes, activismoRes, problematicasRes, promesasRes, 
     eventosRes, barriosRes, seccionesRes, resultadosRes, inteligenciaRes
   ] = await Promise.all([
-    supabase.from('personas').select('barrio_colonia_id'),
-    supabase.from('activismo').select('barrio_colonia_id'),
+    supabase.from('personas').select('barrio_colonia_id').limit(50000),
+    supabase.from('activismo').select('barrio_colonia_id').limit(50000),
     supabase.from('problematicas').select('tipo, barrio_colonia_id, created_at, barrios_colonias(nombre)').gte('created_at', fecha30DiasAtras),
     supabase.from('promesas').select('titulo, estado, barrio_colonia_id, barrios_colonias(nombre)').in('estado', ['prometida', 'planeacion', 'gestion', 'ejecucion']),
     supabase.from('eventos').select('nombre, fecha, lugar').gte('fecha', fechaISO).order('fecha', { ascending: true }).limit(5),
