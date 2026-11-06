@@ -17,6 +17,7 @@ import RecuperarPassword from './pages/RecuperarPassword';
 import CambiarPassword from './pages/CambiarPassword';
 
 // 🚀 LA MAGIA: Función que recarga si falla el archivo (Chunk Error)
+// (Solo reemplaza la función lazyWithRetry en tu App.tsx)
 const lazyWithRetry = (componentImport: () => Promise<any>) =>
   lazy(async () => {
     const pageHasAlreadyBeenForceRefreshed = JSON.parse(
@@ -29,11 +30,11 @@ const lazyWithRetry = (componentImport: () => Promise<any>) =>
       return component;
     } catch (error) {
       if (!pageHasAlreadyBeenForceRefreshed) {
-        // Si el archivo no se encuentra, guardamos la bandera y recargamos la página
         window.sessionStorage.setItem('page-has-been-force-refreshed', 'true');
-        return window.location.reload();
+        window.location.reload();
+        // 🚀 FIX: Evita que React muestre la pantalla de error mientras recarga
+        return new Promise(() => {}); 
       }
-      // Si ya recargamos y sigue fallando, lanzamos el error real
       throw error;
     }
   });
