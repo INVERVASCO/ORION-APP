@@ -18,7 +18,6 @@ export const ORION_CONFIG = {
   organizacionLogo: env.VITE_ORG_LOGO || '/dossier/orion-logo.png',
   organizacionColorPrimario: env.VITE_ORG_COLOR || '#00D4FF',
   
-  // Para el Dossier
   precioLicencia: env.VITE_PRECIO_LICENCIA || '450,000',
 
   territorio: {
@@ -34,6 +33,8 @@ export const ORION_CONFIG = {
     anioProyeccion: Number(env.VITE_ANIO_PROYECCION || 2027),
     umbralSegura: Number(env.VITE_UMBRAL_SEGURA || 45),
     umbralRiesgo: Number(env.VITE_UMBRAL_RIESGO || 30),
+    // 🚀 FIX: Agregado para evitar error de TypeScript en cerebroCampana
+    partidoOpositor: env.VITE_PARTIDO_OPOSITOR || 'morena',
   },
 
   features: {
@@ -44,3 +45,5 @@ export const ORION_CONFIG = {
     iaActiva: env.VITE_IA_ACTIVA !== 'false',
   },
 };
+
+export const isCampanaElectoral = () => ORION_CONFIG.electoral.activo;
