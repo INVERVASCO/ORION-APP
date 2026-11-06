@@ -107,11 +107,23 @@ const Queue = {
   }
 };
 
-export const borrarBaseLocal = () => new Promise<void>((resolve) => {
-  const t = setTimeout(resolve, 3000);
-  const req = indexedDB.deleteDatabase(DB_NAME);
-  req.onsuccess = req.onerror = req.onblocked = () => { clearTimeout(t); resolve(); };
-});
+export const borrarBaseLocal = async (): Promise<void> => {
+  // 🚀 FIX: Cerrar la conexión abierta antes de borrar
+  if (dbPromise) {
+    try {
+      const db = await dbPromise;
+      db.close();
+    } catch (_) {}
+    dbPromise = null;
+  }
+
+  return new Promise<void>((resolve) => {
+    const t = setTimeout(resolve, 2000);
+    const req = indexedDB.deleteDatabase(DB_NAME);
+    req.onsuccess = () => { clearTimeout(t); resolve(); };
+    req.onerror = req.onblocked = () => { clearTimeout(t); resolve(); };
+  });
+};
 
 export const getQueueStats = async () => {
   const db = await openDB();
