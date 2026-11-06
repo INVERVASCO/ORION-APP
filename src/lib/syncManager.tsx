@@ -1,4 +1,3 @@
-// src/lib/syncManager.tsx
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { supabase } from './supabaseClient';
 
@@ -107,8 +106,8 @@ const Queue = {
   }
 };
 
+// 🚀 FIX: Cerrar la conexión antes de borrar
 export const borrarBaseLocal = async (): Promise<void> => {
-  // 🚀 FIX: Cerrar la conexión abierta antes de borrar
   if (dbPromise) {
     try {
       const db = await dbPromise;
@@ -131,14 +130,9 @@ export const getQueueStats = async () => {
     const r = db.transaction(STORES.queue, 'readonly').objectStore(STORES.queue).getAll();
     r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error);
   });
-  return { 
-    pending: all.filter(o => o.status === 'PENDING').length, 
-    dead: all.filter(o => o.status === 'DEAD').length,
-    total: all.length
-  };
+  return { pending: all.filter(o => o.status === 'PENDING').length, dead: all.filter(o => o.status === 'DEAD').length, total: all.length };
 };
 
-// 🚀 NUEVO: EXPORTAR DATOS MUERTOS A JSON
 export const exportarColaMuerta = async () => {
   const db = await openDB();
   const all: any[] = await new Promise((res, rej) => {
@@ -161,7 +155,6 @@ const clasificar = (err: any): 'RED' | 'AUTH' | 'PERMANENTE' | 'TEMPORAL' => {
   const msg = String(err?.message || ''), code = String(err?.code || '');
   if (/failed to fetch|networkerror|load failed|timeout/i.test(msg)) return 'RED';
   if (err?.status === 401 || code === 'PGRST301' || /jwt/i.test(msg)) return 'AUTH';
-  // 🚀 FIX: El error 23503 (Foreign Key) es temporal, no permanente
   if (code === '23503') return 'TEMPORAL'; 
   if (code.startsWith('23') || code.startsWith('22') || code === '42501') return 'PERMANENTE';
   return 'TEMPORAL';
@@ -172,9 +165,7 @@ let engineInterval: any = null;
 const listeners = new Set<(estado: any) => void>();
 const estadoMotor = { isOnline: true, queueSize: 0, syncing: false, lastSyncAt: null as Date | null, lastError: null as string | null };
 
-const publicarEstado = () => {
-  listeners.forEach((fn) => { try { fn({ ...estadoMotor }); } catch (_) {} });
-};
+const publicarEstado = () => { listeners.forEach((fn) => { try { fn({ ...estadoMotor }); } catch (_) {} }); };
 
 const limpiarPayload = (payload: any) => {
   if (!payload || typeof payload !== 'object') return payload;
@@ -198,7 +189,6 @@ const ejecutarOperacion = async (op: any) => {
 
 export const syncNow = async () => {
   if (estadoMotor.syncing) return { ok: false, reason: 'already_syncing' };
-  
   const { data: { session } } = await supabase.auth.getSession();
   if (!session) return { ok: false, reason: 'no_session' };
 
@@ -213,8 +203,7 @@ export const syncNow = async () => {
     const queue = await Queue.getAll();
     const pendientes = queue.filter((q: any) => q.status === 'PENDING').sort((a: any, b: any) => a.timestamp - b.timestamp);
 
-    let exitos = 0;
-    let fallidos = 0;
+    let exitos = 0, fallidos = 0;
 
     for (const op of pendientes) {
       try {
@@ -223,31 +212,23 @@ export const syncNow = async () => {
         exitos++;
       } catch (err: any) {
         const tipoError = clasificar(err);
-        
         if (tipoError === 'RED' || tipoError === 'AUTH') {
           estadoMotor.lastError = tipoError === 'RED' ? 'Sin conexión estable' : 'Sesión expirada';
           break; 
         }
-
         const nuevoStatus = tipoError === 'PERMANENTE' ? 'DEAD' : 'PENDING';
         const attempts = tipoError === 'PERMANENTE' ? MAX_INTENTOS : (op.attempts || 0) + 1;
         
-        if (tipoError === 'TEMPORAL' && attempts >= MAX_INTENTOS) {
-           await Queue.update(op.id, { attempts, status: 'DEAD', error: err?.message });
-        } else if (tipoError === 'PERMANENTE') {
-           await Queue.update(op.id, { attempts: MAX_INTENTOS, status: 'DEAD', error: err?.message });
-        } else {
-           await Queue.update(op.id, { attempts, status: 'PENDING', error: err?.message });
-        }
+        if (tipoError === 'TEMPORAL' && attempts >= MAX_INTENTOS) await Queue.update(op.id, { attempts, status: 'DEAD', error: err?.message });
+        else if (tipoError === 'PERMANENTE') await Queue.update(op.id, { attempts: MAX_INTENTOS, status: 'DEAD', error: err?.message });
+        else await Queue.update(op.id, { attempts, status: 'PENDING', error: err?.message });
         fallidos++;
       }
     }
-
     estadoMotor.queueSize = await Queue.size();
     estadoMotor.lastSyncAt = new Date();
     return { ok: true, exitos, fallidos };
   } catch (error) {
-    console.error("Error crítico en syncNow:", error);
     return { ok: false, reason: 'error_critico' };
   } finally {
     estadoMotor.syncing = false;
@@ -258,16 +239,11 @@ export const syncNow = async () => {
 const iniciarMotorSync = () => {
   if (engineStarted) return;
   engineStarted = true;
-
   Network.subscribe(async (online) => {
-    estadoMotor.isOnline = online;
-    publicarEstado();
+    estadoMotor.isOnline = online; publicarEstado();
     if (online) setTimeout(() => syncNow(), 500);
   });
-
-  // 🚀 FIX: Sincronización inmediata al arrancar
   setTimeout(() => syncNow(), 1000);
-
   engineInterval = setInterval(async () => {
     const online = await Network.isConnected();
     estadoMotor.isOnline = online;
