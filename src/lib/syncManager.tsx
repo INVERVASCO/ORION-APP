@@ -297,6 +297,11 @@ const iniciarMotorSync = () => {
   engineInterval = setInterval(async () => {
     const online = await Network.isConnected();
     estadoMotor.isOnline = online;
+    
+    // 🚀 FIX: Verificar que haya una sesión activa antes de intentar sincronizar
+    const { data } = await supabase.auth.getSession();
+    if (!data.session) return; 
+    
     if (online && (await Queue.size()) > 0) syncNow();
   }, 30000);
 };
