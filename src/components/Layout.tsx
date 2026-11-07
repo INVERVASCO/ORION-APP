@@ -93,25 +93,30 @@ export default function Layout() {
     try {
       const stats = await getQueueStats();
 
+      if (stats.ajenas > 0) {
+        alert(`⚠️ Hay ${stats.ajenas} registro(s) pendientes de OTRO usuario en este dispositivo.\n\nDebes iniciar sesión con la cuenta de ese usuario y sincronizarlos antes de que puedas cerrar sesión.`);
+        return;
+      }
+
       if (stats.pending > 0) {
         alert(`⚠️ Tienes ${stats.pending} registro(s) pendientes de subir.\n\nConéctate a internet y espera a que se sincronicen antes de cerrar sesión.`);
         return;
       }
 
-      // 🚀 FIX: Lógica clara para datos muertos
       if (stats.dead > 0) {
         const descargar = window.confirm(
           `⚠️ Tienes ${stats.dead} registro(s) fallidos que el servidor rechazó.\n\n` +
           `Si cierras sesión, estos datos se borrarán de este dispositivo.\n\n` +
-          `¿Deseas descargar un respaldo JSON antes de salir?\n\n` +
+          `🚨 ATENCIÓN: El respaldo JSON contiene datos personales SIN CIFRAR. Guárdalo en un lugar seguro y elimínalo cuando lo hayas revisado.\n\n` +
+          `¿Deseas descargar el respaldo y salir?\n\n` +
           `(Aceptar = Descargar y Salir | Cancelar = No salir)`
         );
         
         if (descargar) {
           await exportarColaMuerta();
-          await new Promise(r => setTimeout(r, 1000)); // Pausa para descarga
+          await new Promise(r => setTimeout(r, 1000));
         } else {
-          return; // Si cancela, no lo dejamos salir
+          return;
         }
       }
 
