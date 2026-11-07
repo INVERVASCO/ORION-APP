@@ -1,7 +1,9 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { supabase } from './supabaseClient';
-import React, { createContext, useContext, useEffect, useState } from 'react';
-import { supabase } from './supabaseClient';
+
+const DB_NAME = 'orion_db';
+const DB_VERSION = 1;
+const STORES = { queue: 'queue', cache: 'cache' };
 
 // 🚀 FIX: Guardar el usuario en localStorage para operaciones huérfanas
 const guardarUsuario = (id?: string | null) => { 
@@ -17,10 +19,6 @@ const idUsuario = async () => {
   const { data } = await supabase.auth.getSession();
   return data.session?.user?.id ?? localStorage.getItem('orion_last_user');
 };
-
-const DB_NAME = 'orion_db';
-const DB_VERSION = 1;
-const STORES = { queue: 'queue', cache: 'cache' };
 
 let dbPromise: Promise<IDBDatabase> | null = null;
 const openDB = (): Promise<IDBDatabase> => {
@@ -146,9 +144,13 @@ export const getQueueStats = async () => {
     const r = db.transaction(STORES.queue, 'readonly').objectStore(STORES.queue).getAll();
     r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error);
   });
+  
+  const currentUserId = await idUsuario();
+  
   return { 
-    pending: all.filter(o => o.status === 'PENDING').length, 
-    dead: all.filter(o => o.status === 'DEAD').length, 
+    pending: all.filter(o => o.status === 'PENDING' && (!o.userId || o.userId === currentUserId)).length,
+    dead: all.filter(o => o.status === 'DEAD').length,
+    ajenas: all.filter(o => o.status === 'PENDING' && o.userId && o.userId !== currentUserId).length,
     total: all.length 
   };
 };
@@ -168,7 +170,7 @@ export const exportarColaMuerta = async () => {
   a.href = url;
   a.download = `orion_datos_fallidos_${new Date().toISOString().split('T')[0]}.json`;
   a.click();
-  setTimeout(() => URL.revokeObjectURL(url), 1000); // 🚀 FIX: Retraso para permitir descarga
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
 };
 
 const clasificar = (err: any): 'RED' | 'AUTH' | 'PERMANENTE' | 'TEMPORAL' => {
@@ -196,7 +198,8 @@ const limpiarPayload = (payload: any) => {
 const ejecutarOperacion = async (op: any) => {
   const { type, table, payload, recordId } = op;
   if (type === 'INSERT') {
-    const { error } = await supabase.from(table).upsert([limpiarPayload(payload)], { onConflict: 'id' });
+    // 🚀 FIX: Evitar sobreescribir si ya se sincronizó antes (idempotencia)
+    const { error } = await supabase.from(table).upsert([limpiarPayload(payload)], { onConflict: 'id', ignoreDuplicates: true });
     if (error) throw error;
   } else if (type === 'UPDATE') {
     const { error } = await supabase.from(table).update(limpiarPayload(payload)).eq('id', recordId);
@@ -221,9 +224,9 @@ export const syncNow = async () => {
 
   try {
     const queue = await Queue.getAll();
-    // 🚀 FIX: Filtrar solo las operaciones del usuario actual
+    // 🚀 FIX: Adoptar operaciones huérfanas o propias
     const pendientes = queue
-      .filter((q: any) => q.status === 'PENDING' && q.userId === session.user.id)
+      .filter((q: any) => q.status === 'PENDING' && (!q.userId || q.userId === session.user.id))
       .sort((a: any, b: any) => a.timestamp - b.timestamp);
 
     let exitos = 0, fallidos = 0;
@@ -239,7 +242,7 @@ export const syncNow = async () => {
           estadoMotor.lastError = tipoError === 'RED' ? 'Sin conexión estable' : 'Sesión expirada';
           break; 
         }
-        const nuevoStatus = tipoError === 'PERMANENTE' ? 'DEAD' : 'PENDING';
+        
         const attempts = tipoError === 'PERMANENTE' ? MAX_INTENTOS : (op.attempts || 0) + 1;
         
         if (tipoError === 'TEMPORAL' && attempts >= MAX_INTENTOS) await Queue.update(op.id, { attempts, status: 'DEAD', error: err?.message });
@@ -250,6 +253,7 @@ export const syncNow = async () => {
     }
     estadoMotor.queueSize = await Queue.size();
     estadoMotor.lastSyncAt = new Date();
+    estadoMotor.lastError = null; // 🚀 FIX: Limpiar error al terminar
     return { ok: true, exitos, fallidos };
   } catch (error) {
     return { ok: false, reason: 'error_critico' };
@@ -275,7 +279,7 @@ const iniciarMotorSync = () => {
 };
 
 export const offlineInsert = async (table: string, payload: any) => {
-  const currentUserId = await idUsuario(); // 🚀 USAMOS EL HELPER
+  const currentUserId = await idUsuario();
   const localId = generateUUID();
   const payloadFinal = { ...payload, id: payload.id || localId, _localId: localId };
   
@@ -289,7 +293,7 @@ export const offlineInsert = async (table: string, payload: any) => {
 };
 
 export const offlineUpdate = async (table: string, recordId: string, payload: any) => {
-  const currentUserId = await idUsuario(); // 🚀 USAMOS EL HELPER
+  const currentUserId = await idUsuario();
   await Queue.add({ type: 'UPDATE', table, recordId, payload, userId: currentUserId });
   estadoMotor.queueSize = await Queue.size();
   publicarEstado();
