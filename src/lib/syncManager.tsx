@@ -106,7 +106,6 @@ const Queue = {
   }
 };
 
-// 🚀 FIX: Cerrar la conexión antes de borrar
 export const borrarBaseLocal = async (): Promise<void> => {
   if (dbPromise) {
     try {
@@ -130,7 +129,11 @@ export const getQueueStats = async () => {
     const r = db.transaction(STORES.queue, 'readonly').objectStore(STORES.queue).getAll();
     r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error);
   });
-  return { pending: all.filter(o => o.status === 'PENDING').length, dead: all.filter(o => o.status === 'DEAD').length, total: all.length };
+  return { 
+    pending: all.filter(o => o.status === 'PENDING').length, 
+    dead: all.filter(o => o.status === 'DEAD').length, 
+    total: all.length 
+  };
 };
 
 export const exportarColaMuerta = async () => {
@@ -148,7 +151,7 @@ export const exportarColaMuerta = async () => {
   a.href = url;
   a.download = `orion_datos_fallidos_${new Date().toISOString().split('T')[0]}.json`;
   a.click();
-  URL.revokeObjectURL(url);
+  setTimeout(() => URL.revokeObjectURL(url), 1000); // 🚀 FIX: Retraso para permitir descarga
 };
 
 const clasificar = (err: any): 'RED' | 'AUTH' | 'PERMANENTE' | 'TEMPORAL' => {
@@ -187,8 +190,6 @@ const ejecutarOperacion = async (op: any) => {
   }
 };
 
-// ... (código anterior)
-
 export const syncNow = async () => {
   if (estadoMotor.syncing) return { ok: false, reason: 'already_syncing' };
   const { data: { session } } = await supabase.auth.getSession();
@@ -203,7 +204,7 @@ export const syncNow = async () => {
 
   try {
     const queue = await Queue.getAll();
-    // 🚀 FIX: Solo procesar las operaciones de ESTE usuario
+    // 🚀 FIX: Filtrar solo las operaciones del usuario actual
     const pendientes = queue
       .filter((q: any) => q.status === 'PENDING' && q.userId === session.user.id)
       .sort((a: any, b: any) => a.timestamp - b.timestamp);
@@ -241,29 +242,6 @@ export const syncNow = async () => {
   }
 };
 
-export const offlineInsert = async (table: string, payload: any) => {
-  const { data: { session } } = await supabase.auth.getSession();
-  const localId = generateUUID();
-  const payloadFinal = { ...payload, id: payload.id || localId, _localId: localId };
-  // 🚀 FIX: Agregar el userId a la operación
-  const op = await Queue.add({ type: 'INSERT', table, payload: payloadFinal, localId, userId: session?.user?.id });
-  estadoMotor.queueSize = await Queue.size();
-  publicarEstado();
-  const online = await Network.isConnected();
-  if (online) setTimeout(() => syncNow(), 50);
-  return { ok: true, queued: !online, id: localId, queueId: op.id };
-};
-
-export const offlineUpdate = async (table: string, recordId: string, payload: any) => {
-  const { data: { session } } = await supabase.auth.getSession();
-  await Queue.add({ type: 'UPDATE', table, recordId, payload, userId: session?.user?.id });
-  estadoMotor.queueSize = await Queue.size();
-  publicarEstado();
-  const online = await Network.isConnected();
-  if (online) setTimeout(() => syncNow(), 50);
-  return { ok: true, queued: !online };
-};
-
 const iniciarMotorSync = () => {
   if (engineStarted) return;
   engineStarted = true;
@@ -280,9 +258,13 @@ const iniciarMotorSync = () => {
 };
 
 export const offlineInsert = async (table: string, payload: any) => {
+  const { data: { session } } = await supabase.auth.getSession();
   const localId = generateUUID();
   const payloadFinal = { ...payload, id: payload.id || localId, _localId: localId };
-  const op = await Queue.add({ type: 'INSERT', table, payload: payloadFinal, localId });
+  
+  // 🚀 FIX: Guardar el userId en la operación
+  const op = await Queue.add({ type: 'INSERT', table, payload: payloadFinal, localId, userId: session?.user?.id });
+  
   estadoMotor.queueSize = await Queue.size();
   publicarEstado();
   const online = await Network.isConnected();
@@ -291,7 +273,8 @@ export const offlineInsert = async (table: string, payload: any) => {
 };
 
 export const offlineUpdate = async (table: string, recordId: string, payload: any) => {
-  await Queue.add({ type: 'UPDATE', table, recordId, payload });
+  const { data: { session } } = await supabase.auth.getSession();
+  await Queue.add({ type: 'UPDATE', table, recordId, payload, userId: session?.user?.id });
   estadoMotor.queueSize = await Queue.size();
   publicarEstado();
   const online = await Network.isConnected();
