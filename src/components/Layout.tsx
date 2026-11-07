@@ -1,4 +1,3 @@
-// src/components/Layout.tsx
 import { useState, useEffect } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import {
@@ -9,7 +8,7 @@ import {
 } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 import { ORION_CONFIG } from '../lib/config';
-import { borrarBaseLocal, getQueueStats, exportarColaMuerta } from '../lib/syncManager'; // 🚀 IMPORTAMOS EXPORTAR
+import { borrarBaseLocal, getQueueStats, exportarColaMuerta } from '../lib/syncManager';
 
 export default function Layout() {
   const navigate = useNavigate();
@@ -99,17 +98,20 @@ export default function Layout() {
         return;
       }
 
+      // 🚀 FIX: Lógica clara para datos muertos
       if (stats.dead > 0) {
-        // 🚀 OFRECER RESPALDO ANTES DE BORRAR
-        const confirmar = window.confirm(`⚠️ Tienes ${stats.dead} registro(s) fallidos que el servidor rechazó.\n\nSi cierras sesión, se borrarán definitivamente.\n\n¿Deseas descargar un respaldo JSON antes de salir? (Presiona Cancelar para no salir y descargar el respaldo).`);
+        const descargar = window.confirm(
+          `⚠️ Tienes ${stats.dead} registro(s) fallidos que el servidor rechazó.\n\n` +
+          `Si cierras sesión, estos datos se borrarán de este dispositivo.\n\n` +
+          `¿Deseas descargar un respaldo JSON antes de salir?\n\n` +
+          `(Aceptar = Descargar y Salir | Cancelar = No salir)`
+        );
         
-        if (confirmar) {
+        if (descargar) {
           await exportarColaMuerta();
+          await new Promise(r => setTimeout(r, 1000)); // Pausa para descarga
         } else {
-          // Si el usuario canceló, le damos la opción de descargar y luego salir
-          await exportarColaMuerta();
-          const salirIgual = window.confirm('Respaldo descargado. ¿Deseas cerrar sesión ahora?');
-          if (!salirIgual) return;
+          return; // Si cancela, no lo dejamos salir
         }
       }
 
@@ -117,11 +119,8 @@ export default function Layout() {
         cerrarConfirm();
         setCerrandoSesion(true);
         
-        // 🚀 FIX: Fallback local si no hay internet para que no se quede colgado
         const { error } = await supabase.auth.signOut();
-        if (error) {
-          await supabase.auth.signOut({ scope: 'local' });
-        }
+        if (error) await supabase.auth.signOut({ scope: 'local' });
         
         await borrarBaseLocal();
         navigate('/login', { replace: true });
