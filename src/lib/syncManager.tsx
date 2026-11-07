@@ -187,6 +187,8 @@ const ejecutarOperacion = async (op: any) => {
   }
 };
 
+// ... (código anterior)
+
 export const syncNow = async () => {
   if (estadoMotor.syncing) return { ok: false, reason: 'already_syncing' };
   const { data: { session } } = await supabase.auth.getSession();
@@ -201,7 +203,10 @@ export const syncNow = async () => {
 
   try {
     const queue = await Queue.getAll();
-    const pendientes = queue.filter((q: any) => q.status === 'PENDING').sort((a: any, b: any) => a.timestamp - b.timestamp);
+    // 🚀 FIX: Solo procesar las operaciones de ESTE usuario
+    const pendientes = queue
+      .filter((q: any) => q.status === 'PENDING' && q.userId === session.user.id)
+      .sort((a: any, b: any) => a.timestamp - b.timestamp);
 
     let exitos = 0, fallidos = 0;
 
@@ -234,6 +239,29 @@ export const syncNow = async () => {
     estadoMotor.syncing = false;
     publicarEstado();
   }
+};
+
+export const offlineInsert = async (table: string, payload: any) => {
+  const { data: { session } } = await supabase.auth.getSession();
+  const localId = generateUUID();
+  const payloadFinal = { ...payload, id: payload.id || localId, _localId: localId };
+  // 🚀 FIX: Agregar el userId a la operación
+  const op = await Queue.add({ type: 'INSERT', table, payload: payloadFinal, localId, userId: session?.user?.id });
+  estadoMotor.queueSize = await Queue.size();
+  publicarEstado();
+  const online = await Network.isConnected();
+  if (online) setTimeout(() => syncNow(), 50);
+  return { ok: true, queued: !online, id: localId, queueId: op.id };
+};
+
+export const offlineUpdate = async (table: string, recordId: string, payload: any) => {
+  const { data: { session } } = await supabase.auth.getSession();
+  await Queue.add({ type: 'UPDATE', table, recordId, payload, userId: session?.user?.id });
+  estadoMotor.queueSize = await Queue.size();
+  publicarEstado();
+  const online = await Network.isConnected();
+  if (online) setTimeout(() => syncNow(), 50);
+  return { ok: true, queued: !online };
 };
 
 const iniciarMotorSync = () => {
