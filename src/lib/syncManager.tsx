@@ -1,5 +1,22 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { supabase } from './supabaseClient';
+import React, { createContext, useContext, useEffect, useState } from 'react';
+import { supabase } from './supabaseClient';
+
+// 🚀 FIX: Guardar el usuario en localStorage para operaciones huérfanas
+const guardarUsuario = (id?: string | null) => { 
+  try { id ? localStorage.setItem('orion_last_user', id) : localStorage.removeItem('orion_last_user'); } catch {} 
+};
+
+supabase.auth.onAuthStateChange((e, s) => { 
+  if (e === 'SIGNED_OUT') guardarUsuario(null); 
+  else if (s?.user?.id) guardarUsuario(s.user.id); 
+});
+
+const idUsuario = async () => {
+  const { data } = await supabase.auth.getSession();
+  return data.session?.user?.id ?? localStorage.getItem('orion_last_user');
+};
 
 const DB_NAME = 'orion_db';
 const DB_VERSION = 1;
@@ -258,12 +275,11 @@ const iniciarMotorSync = () => {
 };
 
 export const offlineInsert = async (table: string, payload: any) => {
-  const { data: { session } } = await supabase.auth.getSession();
+  const currentUserId = await idUsuario(); // 🚀 USAMOS EL HELPER
   const localId = generateUUID();
   const payloadFinal = { ...payload, id: payload.id || localId, _localId: localId };
   
-  // 🚀 FIX: Guardar el userId en la operación
-  const op = await Queue.add({ type: 'INSERT', table, payload: payloadFinal, localId, userId: session?.user?.id });
+  const op = await Queue.add({ type: 'INSERT', table, payload: payloadFinal, localId, userId: currentUserId });
   
   estadoMotor.queueSize = await Queue.size();
   publicarEstado();
@@ -273,8 +289,8 @@ export const offlineInsert = async (table: string, payload: any) => {
 };
 
 export const offlineUpdate = async (table: string, recordId: string, payload: any) => {
-  const { data: { session } } = await supabase.auth.getSession();
-  await Queue.add({ type: 'UPDATE', table, recordId, payload, userId: session?.user?.id });
+  const currentUserId = await idUsuario(); // 🚀 USAMOS EL HELPER
+  await Queue.add({ type: 'UPDATE', table, recordId, payload, userId: currentUserId });
   estadoMotor.queueSize = await Queue.size();
   publicarEstado();
   const online = await Network.isConnected();
