@@ -68,14 +68,10 @@ export default function AvisoPrivacidad({ visible, onClose, onAceptar, mostrarBo
           dirección, ocupación, preferencia electoral, temas de interés y demás información que usted 
           proporcione voluntariamente a través de nuestros brigadistas o de esta plataforma digital.</p>
 
-          <p><strong>4. Transferencia de Datos</strong><br />
-          Sus datos personales <strong>NO serán transferidos, vendidos, compartidos ni utilizados</strong> 
-          por terceros ajenos a {ORION_CONFIG.organizacionNombre.toUpperCase()}. 
-          Sin embargo, para los módulos de Inteligencia Artificial, la plataforma utiliza el proveedor 
-          <strong>DeepSeek</strong>, cuyos servidores se encuentran fuera de México. Al aceptar este aviso, 
-          usted consiente la transferencia internacional de datos estrictamente necesaria para el funcionamiento 
-          de los modelos de análisis estratégico, los cuales operan bajo protocolos de confidencialidad y 
-          no son utilizados para entrenar modelos públicos.</p>
+          <p><strong>4. Transferencia de Datos y Encargados del Tratamiento</strong><br />
+          Sus datos personales son almacenados de forma segura a través de proveedores tecnológicos (Supabase, Vercel, Sentry) bajo estrictos contratos de confidencialidad. 
+          Para los módulos de Inteligencia Artificial, la plataforma utiliza el proveedor <strong>DeepSeek</strong>, cuyos servidores se encuentran en la República Popular China. 
+          Usted consiente la transferencia internacional de los datos estrictamente necesarios para el análisis estratégico de la campaña. Asimismo, se le informa que <strong>{ORION_CONFIG.organizacionNombre.toUpperCase()}</strong> actúa como "Encargado del Tratamiento" y su organización contratante como "Responsable", siendo esta última quien define los fines del tratamiento conforme a la LFPDPPP.</p>
 
           <p><strong>5. Derechos ARCO</strong><br />
           Usted tiene derecho a <strong>Acceder, Rectificar, Cancelar u Oponerse</strong> al tratamiento de 
