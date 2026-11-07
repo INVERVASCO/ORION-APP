@@ -70,10 +70,12 @@ export default function AvisoPrivacidad({ visible, onClose, onAceptar, mostrarBo
 
           <p><strong>4. Transferencia de Datos</strong><br />
           Sus datos personales <strong>NO serán transferidos, vendidos, compartidos ni utilizados</strong> 
-          por terceros ajenos a {ORION_CONFIG.organizacionNombre.toUpperCase()}. La plataforma tecnológica es operada por un 
-          proveedor externo (Encargado del Tratamiento) que se compromete contractualmente a no acceder 
-          a la información para fines distintos al mantenimiento técnico del sistema, y que opera bajo 
-          estrictos protocolos de confidencialidad.</p>
+          por terceros ajenos a {ORION_CONFIG.organizacionNombre.toUpperCase()}. 
+          Sin embargo, para los módulos de Inteligencia Artificial, la plataforma utiliza el proveedor 
+          <strong>DeepSeek</strong>, cuyos servidores se encuentran fuera de México. Al aceptar este aviso, 
+          usted consiente la transferencia internacional de datos estrictamente necesaria para el funcionamiento 
+          de los modelos de análisis estratégico, los cuales operan bajo protocolos de confidencialidad y 
+          no son utilizados para entrenar modelos públicos.</p>
 
           <p><strong>5. Derechos ARCO</strong><br />
           Usted tiene derecho a <strong>Acceder, Rectificar, Cancelar u Oponerse</strong> al tratamiento de 
