@@ -44,6 +44,14 @@ export const ORION_CONFIG = {
     mostrarModuloMonitoreo: env.VITE_MONITOREO_ACTIVO !== 'false',
     iaActiva: env.VITE_IA_ACTIVA !== 'false',
   },
+   legal: {
+    responsableNombre: env.VITE_LEGAL_RESPONSABLE || env.VITE_ORG_NOMBRE || 'ORION',
+    responsableDomicilio: env.VITE_LEGAL_DOMICILIO || 'Tula de Allende, Hidalgo, México',
+    responsableContactoARCO: env.VITE_LEGAL_ARCO_EMAIL || 'privacidad@tu-dominio.com',
+    encargadoNombre: env.VITE_LEGAL_ENCARGADO || 'ORION Campaign Intelligence',
+    plazoConservacion: env.VITE_LEGAL_PLAZO || '36 meses posteriores al término del ciclo electoral',
+    proveedorGeocoding: env.VITE_LEGAL_GEOCODING || 'Photon (Komoot GmbH, Alemania)',
+  },
 };
 
 export const isCampanaElectoral = () => ORION_CONFIG.electoral.activo;
