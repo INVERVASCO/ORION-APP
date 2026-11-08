@@ -74,6 +74,7 @@ export default function Layout() {
     };
     fetchRole();
     return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const [confirmModal, setConfirmModal] = useState<any>({ visible: false, titulo: '', mensaje: '', tipo: 'warning', onConfirm: () => {} });
