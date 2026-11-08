@@ -4,3 +4,5 @@ Disallow: /app/
 Disallow: /login
 Disallow: /cambiar-password
 Disallow: /recuperar-password
+
+Sitemap: https://orion-electoral.com/sitemap.xml
