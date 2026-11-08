@@ -1,14 +1,22 @@
+// src/components/Layout.tsx
 import { useState, useEffect } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard, Users, Vote, LogOut, Menu, X, Contact,
   Hash, Upload, PieChart, Shield, Target, TrendingUp,
-  ShieldAlert, AlertTriangle, CheckCircle2, Brain, DollarSign,
+  ShieldAlert, AlertTriangle, Brain, DollarSign,
   Calendar as CalendarIcon, Mic, MessageCircle, Map, MapPin, Globe,
 } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 import { ORION_CONFIG } from '../lib/config';
-import { borrarBaseLocal, getQueueStats, exportarColaMuerta, olvidarUsuario } from '../lib/syncManager';
+import {
+  getQueueStats,
+  exportarColaMuerta,
+  limpiarColaPropia,
+  olvidarUsuario,
+  reintentarMuertas,
+  useSyncStatus,
+} from '../lib/syncManager';
 
 export default function Layout() {
   const navigate = useNavigate();
@@ -19,6 +27,9 @@ export default function Layout() {
   const [roleLoading, setRoleLoading] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
 
+  // Estado de sincronización para el indicador del menú
+  const { queueSize, deadSize, lastError, isOnline, syncing, syncNow } = useSyncStatus();
+
   useEffect(() => {
     let cancelled = false;
     const fetchRole = async () => {
@@ -26,21 +37,33 @@ export default function Layout() {
         const { data: { user }, error: authError } = await supabase.auth.getUser();
         if (authError || !user) throw new Error('No hay sesión activa');
 
-        const { data, error } = await supabase.from('perfiles').select('rol, fecha_expiracion').eq('id', user.id).single();
+        const { data, error } = await supabase
+          .from('perfiles')
+          .select('rol, activo, fecha_expiracion')
+          .eq('id', user.id)
+          .single();
         if (error) throw error;
-        
+
         if (!cancelled) {
-          if (data) {
-            if (data.fecha_expiracion && new Date(data.fecha_expiracion) < new Date()) {
-              await supabase.auth.signOut();
-              alert('Tu acceso temporal ha expirado.');
-              navigate('/login', { replace: true });
-              return;
-            }
-            setUserRole(data.rol);
-          } else {
-            throw new Error('Perfil no encontrado en la base de datos');
+          if (!data) throw new Error('Perfil no encontrado en la base de datos');
+
+          // Cuenta desactivada: se cierra la sesión (la cola local NO se borra aquí)
+          if (data.activo === false) {
+            await supabase.auth.signOut();
+            alert('Tu cuenta ha sido desactivada. Contacta al administrador.');
+            navigate('/login', { replace: true });
+            return;
           }
+
+          // Acceso temporal vencido
+          if (data.fecha_expiracion && new Date(data.fecha_expiracion) < new Date()) {
+            await supabase.auth.signOut();
+            alert('Tu acceso temporal ha expirado.');
+            navigate('/login', { replace: true });
+            return;
+          }
+
+          setUserRole(data.rol);
         }
       } catch (err: any) {
         console.error('Error cargando rol:', err);
@@ -58,7 +81,7 @@ export default function Layout() {
   const mostrarConfirm = (titulo: string, mensaje: string, tipo: string, onConfirm: () => void) => {
     setConfirmModal({ visible: true, titulo, mensaje, tipo, onConfirm });
   };
-  const cerrarConfirm = () => setConfirmModal({ ...confirmModal, visible: false });
+  const cerrarConfirm = () => setConfirmModal((prev: any) => ({ ...prev, visible: false }));
 
   const menuItems = [
     { name: 'Dashboard', path: '/app', icon: <LayoutDashboard size={20} />, roles: ['admin', 'coordinador', 'brigadista', 'consulta'] },
@@ -91,6 +114,7 @@ export default function Layout() {
 
   const handleCerrarSesion = async () => {
     try {
+      // getQueueStats lanza error si IndexedDB falla: en ese caso NO se cierra la sesión
       const stats = await getQueueStats();
 
       if (stats.pending > 0) {
@@ -102,42 +126,56 @@ export default function Layout() {
         const descargar = window.confirm(
           `⚠️ Tienes ${stats.dead} registro(s) fallidos que el servidor rechazó.\n\n` +
           `🚨 ATENCIÓN: El respaldo JSON contiene datos personales SIN CIFRAR. Guárdalo en un lugar seguro y elimínalo cuando termines de revisarlo.\n\n` +
+          `Si continúas, estos registros se borrarán de este dispositivo.\n\n` +
           `¿Deseas descargar el respaldo y continuar con el cierre de sesión?\n\n` +
           `(Aceptar = Descargar y continuar | Cancelar = No cerrar sesión)`
         );
-        
         if (!descargar) return;
         await exportarColaMuerta();
-        await new Promise(r => setTimeout(r, 1000));
+        await new Promise((r) => setTimeout(r, 1000));
       }
 
       const avisoAjenas = stats.ajenas > 0
-        ? `\n\n⚠️ ATENCIÓN: Hay ${stats.ajenas} registro(s) de OTRO usuario en este dispositivo.\n\nNO se borrarán al cerrar sesión. La persona dueña de esos datos debe iniciar sesión aquí para sincronizarlos.\n\nLos datos quedan guardados localmente sin cifrar hasta entonces.`
+        ? `\n\n⚠️ Hay ${stats.ajenas} registro(s) pendientes de OTRO usuario en este dispositivo.\n\nNO se borrarán al cerrar sesión. La persona dueña de esos datos debe iniciar sesión aquí para sincronizarlos.\n\nMientras tanto quedan guardados localmente sin cifrar.`
         : '';
 
       mostrarConfirm('¿Cerrar sesión?', `Se cerrará tu sesión actual.${avisoAjenas}`, 'warning', async () => {
         cerrarConfirm();
         setCerrandoSesion(true);
-        
-        const { error } = await supabase.auth.signOut();
-        if (error) await supabase.auth.signOut({ scope: 'local' });
-        
-        if (stats.ajenas === 0) {
-          await borrarBaseLocal();
-        }
-        
-        olvidarUsuario();
-        navigate('/login', { replace: true });
-        setCerrandoSesion(false);
-      });
+        try {
+          const { data: { session } } = await supabase.auth.getSession();
+          const uid = session?.user?.id ?? null;
 
+          // Lectura nueva: pudieron encolarse registros mientras se decidía
+          const fresh = await getQueueStats();
+          if (fresh.pending > 0) {
+            alert(`Se encolaron ${fresh.pending} registro(s) nuevos. Espera a que se sincronicen antes de cerrar sesión.`);
+            return;
+          }
+
+          // Sin red, signOut puede fallar: se cierra la sesión local
+          const { error } = await supabase.auth.signOut();
+          if (error) await supabase.auth.signOut({ scope: 'local' });
+
+          // Borra solo lo propio; la base completa solo si no queda nada ajeno
+          await limpiarColaPropia(uid);
+          olvidarUsuario();
+          navigate('/login', { replace: true });
+        } catch (e) {
+          console.error('Error al cerrar sesión:', e);
+          alert('No se pudo completar el cierre de sesión de forma segura. Recarga la página e inténtalo de nuevo.');
+        } finally {
+          setCerrandoSesion(false);
+        }
+      });
     } catch (error) {
-      console.error("Error al verificar la cola:", error);
+      console.error('Error al verificar la cola:', error);
       alert('No se pudo verificar la seguridad de los datos. Por favor, recarga la página.');
     }
   };
 
-  const menuPermitido = userRole ? menuItems.filter(item => item.roles.includes(userRole)) : [];
+  const menuPermitido = userRole ? menuItems.filter((item) => item.roles.includes(userRole)) : [];
+  const hayAvisoSync = queueSize > 0 || deadSize > 0 || !isOnline;
 
   return (
     <div className="app-container">
@@ -158,7 +196,7 @@ export default function Layout() {
 
         <nav style={{ marginTop: '10px' }}>
           {roleLoading && <div style={{ padding: '20px', textAlign: 'center', color: '#64748B', fontSize: '12px' }}>Cargando menú...</div>}
-          
+
           {!roleLoading && fetchError && (
             <div style={{ padding: '15px', background: 'rgba(244, 63, 94, 0.1)', borderRadius: '8px', margin: '0 10px' }}>
               <p style={{ color: '#F43F5E', fontSize: '11px', margin: '0 0 10px 0', lineHeight: '1.4' }}>⚠️ Error de permisos: {fetchError}.</p>
@@ -174,6 +212,30 @@ export default function Layout() {
         </nav>
 
         <div style={{ marginTop: 'auto' }}>
+          {hayAvisoSync && (
+            <div style={{ padding: '10px 14px', background: deadSize > 0 ? 'rgba(244, 63, 94, 0.12)' : 'rgba(245, 158, 11, 0.12)', borderRadius: '8px', marginBottom: '10px' }}>
+              <p style={{ margin: 0, fontSize: '11px', color: '#94A3B8' }}>
+                {!isOnline ? 'SIN CONEXIÓN' : syncing ? 'SINCRONIZANDO...' : 'SINCRONIZACIÓN'}
+              </p>
+              <p style={{ margin: '2px 0 0 0', fontSize: '13px', color: deadSize > 0 ? '#F43F5E' : '#F59E0B', fontWeight: 'bold' }}>
+                {queueSize} pendiente(s){deadSize > 0 ? ` · ${deadSize} con error` : ''}
+              </p>
+              {lastError && <p style={{ margin: '4px 0 0 0', fontSize: '11px', color: '#94A3B8' }}>{lastError}</p>}
+              <div style={{ display: 'flex', gap: '6px', marginTop: '8px', flexWrap: 'wrap' }}>
+                {queueSize > 0 && isOnline && !syncing && (
+                  <button onClick={() => { void syncNow(); }} style={{ background: '#00D4FF', color: '#0A1628', border: 'none', borderRadius: '6px', padding: '5px 10px', fontSize: '11px', fontWeight: 'bold', cursor: 'pointer' }}>
+                    Sincronizar ahora
+                  </button>
+                )}
+                {deadSize > 0 && (
+                  <button onClick={() => { void reintentarMuertas(); }} style={{ background: 'transparent', color: '#F43F5E', border: '1px solid #F43F5E', borderRadius: '6px', padding: '5px 10px', fontSize: '11px', fontWeight: 'bold', cursor: 'pointer' }}>
+                    Reintentar fallidos
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+
           <div style={{ padding: '10px 20px', background: 'rgba(0, 212, 255, 0.05)', borderRadius: '8px', marginBottom: '10px' }}>
             <p style={{ margin: 0, fontSize: '11px', color: '#94A3B8' }}>ROL ACTUAL:</p>
             <p style={{ margin: 0, fontSize: '13px', color: '#00D4FF', fontWeight: 'bold', textTransform: 'uppercase' }}>
