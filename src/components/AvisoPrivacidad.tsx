@@ -1,5 +1,5 @@
-import { X, Shield } from 'lucide-react';
-import { ORION_CONFIG } from '../lib/config';
+import { X, Shield, AlertTriangle } from 'lucide-react';
+import { ORION_CONFIG, LEGAL_COMPLETO } from '../lib/config';
 
 interface Props {
   visible: boolean;
@@ -10,6 +10,24 @@ interface Props {
 
 export default function AvisoPrivacidad({ visible, onClose, onAceptar, mostrarBotonAceptar = false }: Props) {
   if (!visible) return null;
+
+  if (!LEGAL_COMPLETO) {
+    return (
+      <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 3000, padding: '15px' }}>
+        <div style={{ background: 'white', padding: '40px', borderRadius: '12px', maxWidth: '500px', textAlign: 'center', borderTop: '5px solid #C62828' }}>
+          <AlertTriangle size={48} color="#C62828" style={{ margin: '0 auto 20px' }} />
+          <h2 style={{ color: '#C62828', marginBottom: '10px' }}>Configuración Legal Incompleta</h2>
+          <p style={{ color: '#555', fontSize: '14px', lineHeight: '1.6' }}>
+            El administrador del sistema no ha configurado los datos legales obligatorios (Responsable, Domicilio, Contacto ARCO).
+            Por seguridad, no se puede mostrar el aviso ni capturar datos personales.
+          </p>
+          <button onClick={onClose} style={{ marginTop: '20px', padding: '10px 20px', background: '#F0F0F0', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>
+            Cerrar
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   const legal = ORION_CONFIG.legal;
   const org = ORION_CONFIG.organizacionNombre;
@@ -37,12 +55,12 @@ export default function AvisoPrivacidad({ visible, onClose, onAceptar, mostrarBo
 
         <div style={{ fontSize: '13px', color: '#333', lineHeight: '1.7' }}>
           <p><strong>1. Responsable del Tratamiento</strong><br />
-          El <strong>RESPONSABLE</strong> del tratamiento de sus datos personales es <strong>{legal?.responsableNombre || org}</strong>,
-          con domicilio en {legal?.responsableDomicilio || 'Tula de Allende, Hidalgo, México'}. Para ejercer sus derechos ARCO o cualquier consulta
-          relacionada con sus datos, puede escribir a <strong>{legal?.responsableContactoARCO || 'privacidad@tu-dominio.com'}</strong>.</p>
+          El <strong>RESPONSABLE</strong> del tratamiento de sus datos personales es <strong>{legal.responsableNombre}</strong>,
+          con domicilio en {legal.responsableDomicilio}. Para ejercer sus derechos ARCO o cualquier consulta
+          relacionada con sus datos, puede escribir a <strong>{legal.responsableContactoARCO}</strong>.</p>
 
           <p><strong>2. Encargado del Tratamiento (Plataforma Tecnológica)</strong><br />
-          La plataforma tecnológica es operada por <strong>{legal?.encargadoNombre || 'ORION Campaign Intelligence'}</strong>, quien actúa
+          La plataforma tecnológica es operada por <strong>{legal.encargadoNombre}</strong>, quien actúa
           como <strong>ENCARGADO</strong> del tratamiento y únicamente procesa los datos conforme a las
           instrucciones del Responsable, sin definir finalidades propias.</p>
 
@@ -75,32 +93,31 @@ export default function AvisoPrivacidad({ visible, onClose, onAceptar, mostrarBo
             <li><strong>Vercel Inc.</strong> (hosting del frontend) — servidores en EE.UU.</li>
             <li><strong>Sentry</strong> (monitoreo de errores) — servidores en EE.UU.</li>
             <li><strong>DeepSeek</strong> (procesamiento de IA) — servidores en la República Popular China.
-              Se envían <strong>respuestas abiertas de encuestas y métricas agregadas</strong>. Aunque se excluye el nombre 
-              del titular, al ser respuestas abiertas, podría contener información contextual que usted haya decidido compartir.</li>
-            <li><strong>{legal?.proveedorGeocoding || 'Photon (Komoot GmbH, Alemania)'}</strong> — recibe las coordenadas GPS para traducirlas a dirección postal.
+              Se envían <strong>respuestas abiertas anonimizadas</strong> (sin nombres ni teléfonos) y métricas agregadas.</li>
+            <li><strong>{legal.proveedorGeocoding}</strong> — recibe las coordenadas GPS para traducirlas a dirección postal.
               Se envían únicamente coordenadas, sin nombre ni otro dato personal.</li>
           </ul>
           <p>La transferencia internacional a DeepSeek se realiza con base en su consentimiento expreso.</p>
 
           <p><strong>6. Plazo de Conservación</strong><br />
-          Sus datos se conservarán durante <strong>{legal?.plazoConservacion || '36 meses posteriores al término del ciclo electoral'}</strong>, salvo que usted
+          Sus datos se conservarán durante <strong>{legal.plazoConservacion}</strong>, salvo que usted
           solicite su eliminación antes o exista una obligación legal de conservarlos por más tiempo.</p>
 
           <p><strong>7. Derechos ARCO</strong><br />
           Usted tiene derecho a <strong>Acceder, Rectificar, Cancelar u Oponerse</strong> al tratamiento
-          de sus datos personales. Para ejercerlos, escriba a <strong>{legal?.responsableContactoARCO || 'privacidad@tu-dominio.com'}</strong>
+          de sus datos personales. Para ejercerlos, escriba a <strong>{legal.responsableContactoARCO}</strong>
           indicando su nombre completo, el derecho que desea ejercer y un documento que acredite su identidad.
           El Responsable responderá en un plazo máximo de 20 días hábiles.</p>
 
           <p><strong>8. Revocación del Consentimiento</strong><br />
           En cualquier momento podrá revocar el consentimiento otorgado, mediante solicitud por escrito
-          a <strong>{legal?.responsableContactoARCO || 'privacidad@tu-dominio.com'}</strong>. La revocación no tendrá efectos retroactivos.</p>
+          a <strong>{legal.responsableContactoARCO}</strong>. La revocación no tendrá efectos retroactivos.</p>
 
           <p><strong>9. Medidas de Seguridad</strong><br />
           El sistema cuenta con medidas técnicas, administrativas y físicas para proteger sus datos:</p>
           <ul style={{ paddingLeft: '25px', marginBottom: '12px' }}>
             <li>Encriptación TLS en tránsito y en reposo en servidores en la nube</li>
-            <li>Control de acceso por roles (RLS) — <strong>los brigadistas solo acceden a los datos de su barrio asignado; coordinadores y administradores tienen acceso ampliado según su función.</strong></li>
+            <li>Control de acceso por roles (RLS) — los brigadistas solo acceden a los datos de su barrio asignado; coordinadores y administradores tienen acceso ampliado según su función.</li>
             <li><strong>Bitácora de cambios</strong> (INSERT/UPDATE/DELETE) con IP y usuario; no se registran consultas de lectura</li>
             <li>Servidores en la nube con altos estándares de seguridad de la industria.</li>
           </ul>
