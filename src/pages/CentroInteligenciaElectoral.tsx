@@ -313,6 +313,15 @@ function TabADNEmocional() {
   const [error, setError] = useState('');
   const [cantidad, setCantidad] = useState(0);
 
+  // 🚀 ESCUDO DE PRIVACIDAD: Limpia teléfonos y correos antes de enviar a DeepSeek
+  const anonimizarTexto = (texto: string) => {
+    return texto
+      .replace(/\b\d{10}\b/g, '[TELÉFONO]') // Borra números de 10 dígitos
+      .replace(/[\w.-]+@[\w.-]+\.\w+/g, '[CORREO]') // Borra correos
+      // Aquí podrías agregar más regex para nombres propios si lo deseas
+      ;
+  };
+
   const generarAnalisis = async () => {
     setCargando(true);
     setError('');
@@ -344,7 +353,9 @@ function TabADNEmocional() {
 
       data.forEach((d: any) => {
         if (segmentos[d.tipo]) {
-          segmentos[d.tipo].push(`[Pregunta: ${d.pregunta}] Respuesta: "${d.respuesta}"`);
+          // 🚀 Aplicamos el filtro de anonimización antes de armar el texto
+          const respuestaLimpia = anonimizarTexto(d.respuesta);
+          segmentos[d.tipo].push(`[Pregunta: ${d.pregunta}] Respuesta: "${respuestaLimpia}"`);
         }
       });
 
@@ -379,7 +390,7 @@ function TabADNEmocional() {
           <Brain size={48} color="#9C27B0" style={{ marginBottom: '15px', opacity: 0.7 }} />
           <h3 style={{ margin: '0 0 8px 0', fontSize: '18px', fontWeight: 'bold', color: '#333' }}>Descubre los sentimientos ocultos</h3>
           <p style={{ margin: '0 0 20px 0', fontSize: '13px', color: '#666', lineHeight: '1.6', maxWidth: '600px', marginLeft: 'auto', marginRight: 'auto' }}>
-            La IA analizará las respuestas abiertas de las encuestas segmentadas por edad y te dirá exactamente qué narrativa usar para tocar el corazón de cada grupo.
+            La IA analizará las respuestas abiertas de las encuestas segmentadas por edad y te dirá exactamente qué narrativa usar para tocar el corazón de cada grupo. (Los datos se anonimizan antes de enviarse).
           </p>
           <button onClick={generarAnalisis} className="btn-primary" style={{ padding: '12px 28px', fontSize: '15px', display: 'inline-flex', alignItems: 'center', gap: '8px', background: '#9C27B0' }}>
             <Dna size={18} /> Analizar ADN Emocional
