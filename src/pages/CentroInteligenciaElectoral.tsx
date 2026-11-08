@@ -313,14 +313,12 @@ function TabADNEmocional() {
   const [error, setError] = useState('');
   const [cantidad, setCantidad] = useState(0);
 
-  // 🚀 ESCUDO DE PRIVACIDAD: Limpia teléfonos y correos antes de enviar a DeepSeek
-  const anonimizarTexto = (texto: string) => {
-    return texto
-      .replace(/\b\d{10}\b/g, '[TELÉFONO]') // Borra números de 10 dígitos
-      .replace(/[\w.-]+@[\w.-]+\.\w+/g, '[CORREO]') // Borra correos
-      // Aquí podrías agregar más regex para nombres propios si lo deseas
-      ;
-  };
+  // 🚀 ESCUDO DE PRIVACIDAD (Regex robusto)
+  const anonimizarTexto = (t: string) => t
+    .replace(/[\w.+-]+@[\w-]+\.[\w.-]+/g, '[CORREO]')
+    .replace(/(?:\+?52[\s.-]?)?(?:\(?\d{2,3}\)?[\s.-]?)\d{3,4}[\s.-]?\d{4}\b/g, '[TELÉFONO]')
+    .replace(/\b[A-Z]{4}\d{6}[A-Z0-9]{8}\b/gi, '[CURP]')
+    .replace(/\b[A-Z]{6}\d{8}[HM]\d{3}\b/gi, '[CLAVE_ELECTOR]');
 
   const generarAnalisis = async () => {
     setCargando(true);
@@ -328,11 +326,14 @@ function TabADNEmocional() {
     setAnalisis('');
 
     try {
+      // 🚀 LÍMITE DE 300 RESPUESTAS
       const { data, error } = await supabase
         .from('encuestas')
-        .select('tipo, pregunta, respuesta')
+        .select('tipo, pregunta, respuesta, created_at')
         .like('tipo', 'adn_%')
-        .not('respuesta', 'is', null);
+        .not('respuesta', 'is', null)
+        .order('created_at', { ascending: false })
+        .limit(300);
 
       if (error) throw new Error(error.message);
       if (!data || data.length === 0) {
@@ -353,15 +354,26 @@ function TabADNEmocional() {
 
       data.forEach((d: any) => {
         if (segmentos[d.tipo]) {
-          // 🚀 Aplicamos el filtro de anonimización antes de armar el texto
           const respuestaLimpia = anonimizarTexto(d.respuesta);
-          segmentos[d.tipo].push(`[Pregunta: ${d.pregunta}] Respuesta: "${respuestaLimpia}"`);
+          segmentos[d.tipo].push(`[${d.pregunta}] "${respuestaLimpia.slice(0, 300)}"`);
         }
       });
 
-      textoParaIA += `--- SEGMENTO 18-30 AÑOS ---\n${segmentos['adn_18_30'].join('\n') || 'Sin datos'}\n\n`;
-      textoParaIA += `--- SEGMENTO 31-50 AÑOS ---\n${segmentos['adn_31_50'].join('\n') || 'Sin datos'}\n\n`;
-      textoParaIA += `--- SEGMENTO 50+ AÑOS ---\n${segmentos['adn_50_mas'].join('\n') || 'Sin datos'}\n\n`;
+      // 🚀 CONTROL DE LÍMITE DE CARACTERES PARA NO ROMPER DEEPSEEK
+      const PRESUPUESTO = 6000; 
+      const armar = (lineas: string[]) => {
+        let total = 0; const out: string[] = [];
+        for (const l of lineas) { 
+          if (total + l.length > PRESUPUESTO) break; 
+          out.push(l); 
+          total += l.length + 1; 
+        }
+        return out.join('\n') || 'Sin datos';
+      };
+
+      textoParaIA += `--- SEGMENTO 18-30 AÑOS ---\n${armar(segmentos['adn_18_30'])}\n\n`;
+      textoParaIA += `--- SEGMENTO 31-50 AÑOS ---\n${armar(segmentos['adn_31_50'])}\n\n`;
+      textoParaIA += `--- SEGMENTO 50+ AÑOS ---\n${armar(segmentos['adn_50_mas'])}\n\n`;
 
       const respuesta = await invocarDeepSeek([
         { role: 'system', content: SYSTEM_PROMPT_ADN },
@@ -390,7 +402,7 @@ function TabADNEmocional() {
           <Brain size={48} color="#9C27B0" style={{ marginBottom: '15px', opacity: 0.7 }} />
           <h3 style={{ margin: '0 0 8px 0', fontSize: '18px', fontWeight: 'bold', color: '#333' }}>Descubre los sentimientos ocultos</h3>
           <p style={{ margin: '0 0 20px 0', fontSize: '13px', color: '#666', lineHeight: '1.6', maxWidth: '600px', marginLeft: 'auto', marginRight: 'auto' }}>
-            La IA analizará las respuestas abiertas de las encuestas segmentadas por edad y te dirá exactamente qué narrativa usar para tocar el corazón de cada grupo. (Los datos se anonimizan antes de enviarse).
+            La IA analizará las respuestas abiertas de las encuestas segmentadas por edad y te dirá exactamente qué narrativa usar para tocar el corazón de cada grupo. <br/><strong>Los datos se anonimizan automáticamente antes de enviarse.</strong>
           </p>
           <button onClick={generarAnalisis} className="btn-primary" style={{ padding: '12px 28px', fontSize: '15px', display: 'inline-flex', alignItems: 'center', gap: '8px', background: '#9C27B0' }}>
             <Dna size={18} /> Analizar ADN Emocional
