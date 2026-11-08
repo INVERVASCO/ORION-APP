@@ -75,12 +75,12 @@ export default function AvisoPrivacidad({ visible, onClose, onAceptar, mostrarBo
             <li><strong>Vercel Inc.</strong> (hosting del frontend) — servidores en EE.UU.</li>
             <li><strong>Sentry</strong> (monitoreo de errores) — servidores en EE.UU.</li>
             <li><strong>DeepSeek</strong> (procesamiento de IA) — servidores en la República Popular China.
-              Solo se envían <strong>datos agregados y anonimizados</strong> (métricas, no datos personales individuales).</li>
+              Se envían <strong>respuestas abiertas de encuestas y métricas agregadas</strong>. Aunque se excluye el nombre 
+              del titular, al ser respuestas abiertas, podría contener información contextual que usted haya decidido compartir.</li>
             <li><strong>{legal?.proveedorGeocoding || 'Photon (Komoot GmbH, Alemania)'}</strong> — recibe las coordenadas GPS para traducirlas a dirección postal.
               Se envían únicamente coordenadas, sin nombre ni otro dato personal.</li>
           </ul>
-          <p>La transferencia internacional a DeepSeek se realiza con base en su consentimiento expreso.
-          Si no desea que sus datos agregados se procesen por IA, puede solicitarlo al Responsable.</p>
+          <p>La transferencia internacional a DeepSeek se realiza con base en su consentimiento expreso.</p>
 
           <p><strong>6. Plazo de Conservación</strong><br />
           Sus datos se conservarán durante <strong>{legal?.plazoConservacion || '36 meses posteriores al término del ciclo electoral'}</strong>, salvo que usted
@@ -100,9 +100,9 @@ export default function AvisoPrivacidad({ visible, onClose, onAceptar, mostrarBo
           El sistema cuenta con medidas técnicas, administrativas y físicas para proteger sus datos:</p>
           <ul style={{ paddingLeft: '25px', marginBottom: '12px' }}>
             <li>Encriptación TLS en tránsito y en reposo en servidores en la nube</li>
-            <li>Control de acceso por roles (RLS) — cada usuario solo ve los datos de su barrio o área asignada</li>
+            <li>Control de acceso por roles (RLS) — <strong>los brigadistas solo acceden a los datos de su barrio asignado; coordinadores y administradores tienen acceso ampliado según su función.</strong></li>
             <li><strong>Bitácora de cambios</strong> (INSERT/UPDATE/DELETE) con IP y usuario; no se registran consultas de lectura</li>
-            <li>Servidores con certificación internacional (SOC 2, ISO 27001)</li>
+            <li>Servidores en la nube con altos estándares de seguridad de la industria.</li>
           </ul>
           <p style={{ background: '#FFF8E1', padding: '10px', borderRadius: '6px', borderLeft: '3px solid #F9A825' }}>
             <strong>⚠️ Almacenamiento local:</strong> Cuando un brigadista captura datos sin conexión,
