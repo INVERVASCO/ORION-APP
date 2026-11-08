@@ -16,14 +16,11 @@ import Login from './pages/Login';
 import RecuperarPassword from './pages/RecuperarPassword';
 import CambiarPassword from './pages/CambiarPassword';
 
-// 🚀 LA MAGIA: Función que recarga si falla el archivo (Chunk Error)
-// (Solo reemplaza la función lazyWithRetry en tu App.tsx)
 const lazyWithRetry = (componentImport: () => Promise<any>) =>
   lazy(async () => {
     const pageHasAlreadyBeenForceRefreshed = JSON.parse(
       window.sessionStorage.getItem('page-has-been-force-refreshed') || 'false'
     );
-
     try {
       const component = await componentImport();
       window.sessionStorage.setItem('page-has-been-force-refreshed', 'false');
@@ -32,7 +29,6 @@ const lazyWithRetry = (componentImport: () => Promise<any>) =>
       if (!pageHasAlreadyBeenForceRefreshed) {
         window.sessionStorage.setItem('page-has-been-force-refreshed', 'true');
         window.location.reload();
-        // 🚀 FIX: Evita que React muestre la pantalla de error mientras recarga
         return new Promise(() => {}); 
       }
       throw error;
@@ -146,46 +142,46 @@ function App() {
         </button>
       </div>
     }>
-      <SyncProvider>
-        <BrowserRouter>
-          <Suspense fallback={<PageLoader />}>
-            <Routes>
-              <Route path="/" element={<LandingPage />} />
-              <Route path="/dossier" element={<DossierPage />} />
-              <Route path="/login" element={!session ? <Login /> : <Navigate to="/app" replace />} />
-              <Route path="/recuperar-password" element={!session ? <RecuperarPassword /> : <Navigate to="/app" replace />} />
-              <Route path="/cambiar-password" element={<CambiarPassword />} />
+      {/* 🚀 FIX: SyncProvider fuera del BrowserRouter general, solo envuelve la ruta /app */}
+      <BrowserRouter>
+        <Suspense fallback={<PageLoader />}>
+          <Routes>
+            <Route path="/" element={<LandingPage />} />
+            <Route path="/dossier" element={<DossierPage />} />
+            <Route path="/login" element={!session ? <Login /> : <Navigate to="/app" replace />} />
+            <Route path="/recuperar-password" element={!session ? <RecuperarPassword /> : <Navigate to="/app" replace />} />
+            <Route path="/cambiar-password" element={<CambiarPassword />} />
 
-              <Route path="/app" element={session ? <Layout /> : <Navigate to="/login" replace />}>
-                <Route index element={<Dashboard />} />
-                <Route path="analisis" element={<ProtectedRoute allowedRoles={['admin','coordinador','consulta']}><Analisis /></ProtectedRoute>} />
-                <Route path="pronostico" element={<ProtectedRoute allowedRoles={['admin','coordinador','consulta']}><Pronostico /></ProtectedRoute>} />
-                <Route path="centro-ia" element={<ProtectedRoute allowedRoles={['admin','coordinador','consulta']}><CentroInteligenciaElectoral /></ProtectedRoute>} />
-                <Route path="municipio" element={<Municipio />} />
-                <Route path="municipio/:barrioId" element={<BarrioDetalle />} />
-                <Route path="personas" element={<ProtectedRoute allowedRoles={['admin','coordinador','brigadista']}><Personas /></ProtectedRoute>} />
-                <Route path="secciones" element={<ProtectedRoute allowedRoles={['admin','coordinador']}><Secciones /></ProtectedRoute>} />
-                <Route path="activismo" element={<ProtectedRoute allowedRoles={['admin','coordinador','brigadista']}><ActivismoGlobal /></ProtectedRoute>} />
-                <Route path="electoral" element={<ElectoralGlobal />} />
-                <Route path="problematicas" element={<ProtectedRoute allowedRoles={['admin','coordinador','brigadista']}><Problematicas /></ProtectedRoute>} />
-                <Route path="gastos" element={<ProtectedRoute allowedRoles={['admin','coordinador']}><Gastos /></ProtectedRoute>} />
-                <Route path="eventos" element={<ProtectedRoute allowedRoles={['admin','coordinador']}><Eventos /></ProtectedRoute>} />
-                <Route path="promesas" element={<ProtectedRoute allowedRoles={['admin','coordinador']}><Promesas /></ProtectedRoute>} />
-                <Route path="encuestas" element={<ProtectedRoute allowedRoles={['admin','coordinador','brigadista']}><Encuestas /></ProtectedRoute>} />
-                <Route path="monitoreo-redes" element={<ProtectedRoute allowedRoles={['admin','coordinador']}><MonitoreoRedes /></ProtectedRoute>} />
-                <Route path="reportes" element={<ProtectedRoute allowedRoles={['admin','coordinador','consulta']}><Reportes /></ProtectedRoute>} />
-                <Route path="importar" element={<ProtectedRoute allowedRoles={['admin','coordinador']}><Importar /></ProtectedRoute>} />
-                <Route path="usuarios" element={<ProtectedRoute allowedRoles={['admin']}><Usuarios /></ProtectedRoute>} />
-                <Route path="auditoria" element={<ProtectedRoute allowedRoles={['admin']}><Auditoria /></ProtectedRoute>} />
-                <Route path="auditoria-campo" element={<ProtectedRoute allowedRoles={['admin','coordinador']}><AuditoriaCampo /></ProtectedRoute>} />
-                <Route path="admin-geocode" element={<ProtectedRoute allowedRoles={['admin']}><AdminGeocode /></ProtectedRoute>} />
-              </Route>
+            {/* 🚀 FIX: Aquí se inyecta el SyncProvider, solo para usuarios logueados */}
+            <Route path="/app" element={session ? <SyncProvider><Layout /></SyncProvider> : <Navigate to="/login" replace />}>
+              <Route index element={<Dashboard />} />
+              <Route path="analisis" element={<ProtectedRoute allowedRoles={['admin','coordinador','consulta']}><Analisis /></ProtectedRoute>} />
+              <Route path="pronostico" element={<ProtectedRoute allowedRoles={['admin','coordinador','consulta']}><Pronostico /></ProtectedRoute>} />
+              <Route path="centro-ia" element={<ProtectedRoute allowedRoles={['admin','coordinador','consulta']}><CentroInteligenciaElectoral /></ProtectedRoute>} />
+              <Route path="municipio" element={<Municipio />} />
+              <Route path="municipio/:barrioId" element={<BarrioDetalle />} />
+              <Route path="personas" element={<ProtectedRoute allowedRoles={['admin','coordinador','brigadista']}><Personas /></ProtectedRoute>} />
+              <Route path="secciones" element={<ProtectedRoute allowedRoles={['admin','coordinador']}><Secciones /></ProtectedRoute>} />
+              <Route path="activismo" element={<ProtectedRoute allowedRoles={['admin','coordinador','brigadista']}><ActivismoGlobal /></ProtectedRoute>} />
+              <Route path="electoral" element={<ElectoralGlobal />} />
+              <Route path="problematicas" element={<ProtectedRoute allowedRoles={['admin','coordinador','brigadista']}><Problematicas /></ProtectedRoute>} />
+              <Route path="gastos" element={<ProtectedRoute allowedRoles={['admin','coordinador']}><Gastos /></ProtectedRoute>} />
+              <Route path="eventos" element={<ProtectedRoute allowedRoles={['admin','coordinador']}><Eventos /></ProtectedRoute>} />
+              <Route path="promesas" element={<ProtectedRoute allowedRoles={['admin','coordinador']}><Promesas /></ProtectedRoute>} />
+              <Route path="encuestas" element={<ProtectedRoute allowedRoles={['admin','coordinador','brigadista']}><Encuestas /></ProtectedRoute>} />
+              <Route path="monitoreo-redes" element={<ProtectedRoute allowedRoles={['admin','coordinador']}><MonitoreoRedes /></ProtectedRoute>} />
+              <Route path="reportes" element={<ProtectedRoute allowedRoles={['admin','coordinador','consulta']}><Reportes /></ProtectedRoute>} />
+              <Route path="importar" element={<ProtectedRoute allowedRoles={['admin','coordinador']}><Importar /></ProtectedRoute>} />
+              <Route path="usuarios" element={<ProtectedRoute allowedRoles={['admin']}><Usuarios /></ProtectedRoute>} />
+              <Route path="auditoria" element={<ProtectedRoute allowedRoles={['admin']}><Auditoria /></ProtectedRoute>} />
+              <Route path="auditoria-campo" element={<ProtectedRoute allowedRoles={['admin','coordinador']}><AuditoriaCampo /></ProtectedRoute>} />
+              <Route path="admin-geocode" element={<ProtectedRoute allowedRoles={['admin']}><AdminGeocode /></ProtectedRoute>} />
+            </Route>
 
-              <Route path="*" element={<Navigate to="/" replace />} />
-            </Routes>
-          </Suspense>
-        </BrowserRouter>
-      </SyncProvider>
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </Suspense>
+      </BrowserRouter>
     </Sentry.ErrorBoundary>
   );
 }
