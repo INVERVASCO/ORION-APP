@@ -12,6 +12,19 @@ export const PARTIDOS_DB = [
   { key: 'otro', nombre: 'Otro / No definido', color: '#64748B' },
 ];
 
+const legalEnv = {
+  responsableNombre: env.VITE_LEGAL_RESPONSABLE,
+  responsableDomicilio: env.VITE_LEGAL_DOMICILIO,
+  responsableContactoARCO: env.VITE_LEGAL_ARCO_EMAIL,
+  encargadoNombre: env.VITE_LEGAL_ENCARGADO,
+  plazoConservacion: env.VITE_LEGAL_PLAZO,
+  proveedorGeocoding: env.VITE_LEGAL_GEOCODING,
+};
+
+export const LEGAL_COMPLETO = Object.values(legalEnv).every(
+  (v) => typeof v === 'string' && v.trim().length > 0
+);
+
 export const ORION_CONFIG = {
   organizacionNombre: env.VITE_ORG_NOMBRE || 'ORION',
   organizacionSubtitulo: env.VITE_ORG_SUBTITULO || 'Campaign Intelligence',
@@ -33,9 +46,10 @@ export const ORION_CONFIG = {
     anioProyeccion: Number(env.VITE_ANIO_PROYECCION || 2027),
     umbralSegura: Number(env.VITE_UMBRAL_SEGURA || 45),
     umbralRiesgo: Number(env.VITE_UMBRAL_RIESGO || 30),
-    // 🚀 FIX: Agregado para evitar error de TypeScript en cerebroCampana
     partidoOpositor: env.VITE_PARTIDO_OPOSITOR || 'morena',
   },
+
+  legal: legalEnv,
 
   features: {
     mostrarModuloElectoral: env.VITE_ELECTORAL_ACTIVO !== 'false',
@@ -43,14 +57,6 @@ export const ORION_CONFIG = {
     mostrarModuloPromesas: env.VITE_PROMESAS_ACTIVO !== 'false',
     mostrarModuloMonitoreo: env.VITE_MONITOREO_ACTIVO !== 'false',
     iaActiva: env.VITE_IA_ACTIVA !== 'false',
-  },
-   legal: {
-    responsableNombre: env.VITE_LEGAL_RESPONSABLE || env.VITE_ORG_NOMBRE || 'ORION',
-    responsableDomicilio: env.VITE_LEGAL_DOMICILIO || 'Tula de Allende, Hidalgo, México',
-    responsableContactoARCO: env.VITE_LEGAL_ARCO_EMAIL || 'privacidad@tu-dominio.com',
-    encargadoNombre: env.VITE_LEGAL_ENCARGADO || 'ORION Campaign Intelligence',
-    plazoConservacion: env.VITE_LEGAL_PLAZO || '36 meses posteriores al término del ciclo electoral',
-    proveedorGeocoding: env.VITE_LEGAL_GEOCODING || 'Photon (Komoot GmbH, Alemania)',
   },
 };
 
