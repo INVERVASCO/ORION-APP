@@ -74,7 +74,7 @@ export default function Layout() {
     };
     fetchRole();
     return () => { cancelled = true; };
-  }, [navigate]);
+  }, []);
 
   const [confirmModal, setConfirmModal] = useState<any>({ visible: false, titulo: '', mensaje: '', tipo: 'warning', onConfirm: () => {} });
 
