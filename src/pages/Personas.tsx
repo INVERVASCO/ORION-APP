@@ -100,45 +100,41 @@ export default function Personas() {
   };
 
   const handleGenerarTarjeta = (tipo: string, eventoData: any) => {
-    setTarjetaVisible(false); // Cerramos el selector
-    setDatosTarjeta({ tipo, eventoData }); // Esto dispara el useEffect de abajo
+    setTarjetaVisible(false); 
+    setDatosTarjeta({ tipo, eventoData }); 
     setToastMensaje('🎨 Generando imagen premium...');
     setToastVisible(true);
   };
 
-  // 🚀 EFECTO PARA CAPTURAR LA IMAGEN
+  // 🚀 EFECTO PARA CAPTURAR LA IMAGEN (CON FIX PARA PC Y CELULAR)
   useEffect(() => {
     if (!datosTarjeta || !tarjetaRef.current || !personaSeleccionada) return;
 
     const ejecutarCaptura = async () => {
       try {
-        // 1. Esperamos a que las imágenes dentro de la tarjeta carguen
         const images = Array.from(tarjetaRef.current!.querySelectorAll('img'));
         await Promise.all(images.map(img => {
           if (img.complete) return Promise.resolve();
           return new Promise(resolve => { img.onload = resolve; img.onerror = resolve; });
         }));
 
-        // 2. Tomamos la captura
         const canvas = await html2canvas(tarjetaRef.current!, { 
-          scale: 2, 
-          useCORS: true, 
-          backgroundColor: null,
-          logging: false 
+          scale: 2, useCORS: true, backgroundColor: null, logging: false 
         });
         
-        // 3. Compartimos o descargamos
         canvas.toBlob(async (blob) => {
           if (!blob) {
             setToastMensaje('❌ Error al crear el archivo de imagen.');
-            setToastVisible(true);
-            setDatosTarjeta(null);
-            return;
+            setToastVisible(true); setDatosTarjeta(null); return;
           }
 
           const file = new File([blob], `tarjeta_${datosTarjeta.tipo}.png`, { type: 'image/png' });
           
-          if (navigator.canShare && navigator.canShare({ files: [file] })) {
+          // 🚀 FIX: DETECTAMOS SI ES CELULAR O PC
+          const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+
+          if (isMobile && navigator.canShare && navigator.canShare({ files: [file] })) {
+            // CELULAR: Menú nativo de compartir (WhatsApp)
             await navigator.share({
               files: [file],
               title: 'Una tarjeta para ti',
@@ -146,27 +142,26 @@ export default function Personas() {
             });
             setToastMensaje('✅ Tarjeta compartida con éxito');
           } else {
+            // PC: Descarga directa
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
             a.download = `tarjeta_${datosTarjeta.tipo}_${personaSeleccionada.nombre_completo.replace(/\s+/g, '_')}.png`;
             a.click();
             URL.revokeObjectURL(url);
-            setToastMensaje('📥 Tarjeta descargada. Revisa tus descargas.');
+            setToastMensaje('📥 Tarjeta descargada. Ábrela y envíala por WhatsApp Web.');
           }
           setToastVisible(true);
-          setDatosTarjeta(null); // Limpiamos
+          setDatosTarjeta(null); 
         }, 'image/png');
 
       } catch (error) {
         console.error('Error generando tarjeta:', error);
         setToastMensaje('❌ Error al generar la imagen. Revisa la consola (F12).');
-        setToastVisible(true);
-        setDatosTarjeta(null);
+        setToastVisible(true); setDatosTarjeta(null);
       }
     };
 
-    // Pequeño delay para asegurar que el navegador ya pintó el HTML
     const timer = setTimeout(ejecutarCaptura, 200);
     return () => clearTimeout(timer);
   }, [datosTarjeta, personaSeleccionada]);
