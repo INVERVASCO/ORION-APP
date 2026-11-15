@@ -1,13 +1,15 @@
 import { useEffect, useState } from 'react';
 import { 
   Search, User, Phone, Briefcase, MapPin, Download, Edit3, Trash2, 
-  X, Loader2, Users, CheckCircle2, AlertTriangle, Shield, Plus, ChevronLeft, ChevronRight
+  X, Loader2, Users, CheckCircle2, AlertTriangle, Shield, Plus, ChevronLeft, ChevronRight,
+  Send
 } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 import Toast from '../components/Toast';
 import AvisoPrivacidad from '../components/AvisoPrivacidad';
+import TarjetaSelector from '../components/TarjetaSelector'; // 🚀 NUEVO COMPONENTE
 import { offlineInsert } from '../lib/syncManager';
-import { PARTIDOS_DB } from '../lib/config'; // 🚀 IMPORTAMOS LOS PARTIDOS
+import { PARTIDOS_DB } from '../lib/config';
 
 interface Persona {
   id: string; nombre_completo: string; telefono: string | null; ocupacion: string | null;
@@ -40,6 +42,10 @@ export default function Personas() {
 
   const [avisoVisible, setAvisoVisible] = useState(false);
   const [aceptoAviso, setAceptoAviso] = useState(false);
+
+  // 🚀 ESTADOS PARA EL SELECTOR DE TARJETAS
+  const [tarjetaVisible, setTarjetaVisible] = useState(false);
+  const [personaSeleccionada, setPersonaSeleccionada] = useState<any>(null);
 
   const [confirmModal, setConfirmModal] = useState<ConfirmModalData>({ visible: false, titulo: '', mensaje: '', tipo: 'warning', onConfirm: () => {} });
   const mostrarConfirm = (titulo: string, mensaje: string, tipo: 'danger' | 'success' | 'warning', onConfirm: () => void) => setConfirmModal({ visible: true, titulo, mensaje, tipo, onConfirm });
@@ -84,6 +90,21 @@ export default function Personas() {
   useEffect(() => { if (personaEditar || personaNueva) setAceptoAviso(false); }, [personaEditar, personaNueva]);
 
   const abrirModalNueva = () => { setPersonaNueva({ nombre_completo: '', telefono: '', correo_electronico: '', ocupacion: '', direccion: '', barrio_colonia_id: '', preferencia_voto: '' }); };
+
+  // 🚀 FUNCIONES PARA EL SELECTOR DE TARJETAS
+  const abrirSelectorTarjeta = (persona: any) => {
+    setPersonaSeleccionada(persona);
+    setTarjetaVisible(true);
+  };
+
+  const handleGenerarTarjeta = (tipo: string, eventoData: any) => {
+    // Aquí conectaremos la generación de la imagen después
+    console.log("Generar tarjeta de tipo:", tipo, "para:", personaSeleccionada);
+    console.log("Datos del evento:", eventoData);
+    
+    setToastMensaje(`Preparando tarjeta de ${tipo}...`);
+    setToastVisible(true);
+  };
 
   const handleCrearPersona = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -175,7 +196,6 @@ export default function Personas() {
         </select>
         <select value={filtroVoto} onChange={(e) => setFiltroVoto(e.target.value)} style={{ padding: '11px', borderRadius: '6px', border: '1px solid #E2E8F0', fontSize: '14px', background: 'white' }}>
           <option value="">Todas las preferencias</option>
-          {/* 🚀 DINÁMICO */}
           {PARTIDOS_DB.map(p => <option key={p.key} value={p.nombre}>{p.nombre}</option>)}
           <option value="Indeciso">Indeciso</option>
           <option value="Otro">Otro</option>
@@ -190,7 +210,6 @@ export default function Personas() {
         <>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '15px', marginBottom: '20px' }}>
             {personas.map(p => {
-              // 🚀 BUSCAMOS EL COLOR DINÁMICO
               const partidoInfo = PARTIDOS_DB.find(part => part.nombre === p.preferencia_voto);
               const colorBadge = partidoInfo ? partidoInfo.color : '#64748B';
               
@@ -209,7 +228,12 @@ export default function Personas() {
                 </div>
                 {p.telefono && <div style={{ fontSize: '13px', color: '#475569', display: 'flex', alignItems: 'center', gap: '6px' }}><Phone size={14} color="#00D4FF" /> {p.telefono}</div>}
                 {p.barrios_colonias?.nombre && <div style={{ fontSize: '13px', color: '#475569', display: 'flex', alignItems: 'center', gap: '6px' }}><MapPin size={14} color="#00D4FF" /> {p.barrios_colonias.nombre}</div>}
+                
+                {/* 🚀 AQUÍ ESTÁ EL NUEVO BOTÓN DE TARJETA */}
                 <div style={{ display: 'flex', gap: '8px', marginTop: '8px', paddingTop: '10px', borderTop: '1px solid #E2E8F0' }}>
+                  <button onClick={() => abrirSelectorTarjeta(p)} style={{ flex: 1, padding: '8px', background: '#E0F2FE', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '13px', fontWeight: 'bold', color: '#0284C7', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '5px' }}>
+                    <Send size={14} /> Tarjeta
+                  </button>
                   <button onClick={() => setPersonaEditar(p)} style={{ flex: 1, padding: '8px', background: '#F1F5F9', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '13px', fontWeight: 'bold', color: '#0F172A', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '5px' }}><Edit3 size={14} /> Editar</button>
                   <button onClick={() => handleEliminar(p.id, p.nombre_completo)} style={{ padding: '8px 12px', background: '#FFE4E6', border: 'none', borderRadius: '6px', cursor: 'pointer', color: '#F43F5E', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Trash2 size={14} /></button>
                 </div>
@@ -227,7 +251,7 @@ export default function Personas() {
         </>
       )}
 
-      {/* MODALES DINÁMICOS */}
+      {/* MODALES */}
       {personaNueva && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000, padding: '15px' }}>
           <div style={{ background: 'white', padding: '25px', borderRadius: '12px', width: '100%', maxWidth: '550px', maxHeight: '90vh', overflowY: 'auto' }}>
@@ -244,7 +268,6 @@ export default function Personas() {
               </div>
               <div>
                 <label style={labelStyle}>Preferencia de voto</label>
-                {/* 🚀 DINÁMICO */}
                 <select value={personaNueva.preferencia_voto} onChange={(e) => setPersonaNueva({...personaNueva, preferencia_voto: e.target.value})} style={inputStyle}>
                   <option value="">Sin definir</option>
                   {PARTIDOS_DB.map(p => <option key={p.key} value={p.nombre}>{p.nombre}</option>)}
@@ -281,7 +304,6 @@ export default function Personas() {
               </div>
               <div>
                 <label style={labelStyle}>Preferencia de voto</label>
-                {/* 🚀 DINÁMICO */}
                 <select value={personaEditar.preferencia_voto || ''} onChange={(e) => setPersonaEditar({...personaEditar, preferencia_voto: e.target.value})} style={inputStyle}>
                   <option value="">Sin definir</option>
                   {PARTIDOS_DB.map(p => <option key={p.key} value={p.nombre}>{p.nombre}</option>)}
@@ -322,6 +344,15 @@ export default function Personas() {
       )}
 
       <AvisoPrivacidad visible={avisoVisible} onClose={() => setAvisoVisible(false)} onAceptar={() => setAceptoAviso(true)} mostrarBotonAceptar={true} />
+      
+      {/* 🚀 MODAL SELECTOR DE TARJETAS */}
+      <TarjetaSelector 
+        visible={tarjetaVisible} 
+        onClose={() => setTarjetaVisible(false)} 
+        persona={personaSeleccionada} 
+        onGenerarTarjeta={handleGenerarTarjeta}
+      />
+
       <Toast mensaje={toastMensaje} visible={toastVisible} onClose={() => setToastVisible(false)} />
     </div>
   );
