@@ -7,14 +7,12 @@ interface Props {
   eventoData?: { nombre: string; fecha: string; hora: string | null; lugar: string | null } | null;
 }
 
-// Usamos forwardRef para que el componente padre (Personas.tsx) pueda acceder al DOM y tomar la foto
 const TarjetaPremium = forwardRef<HTMLDivElement, Props>(({ tipo, persona, eventoData }, ref) => {
   if (!persona) return null;
 
-  const nombre = persona.nombre_completo.split(' ')[0]; // Solo el primer nombre para que se vea más personal
+  const nombre = persona.nombre_completo.split(' ')[0]; 
   const colorPrimario = ORION_CONFIG.organizacionColorPrimario || '#00D4FF';
 
-  // Formatear la fecha del evento
   let fechaFormateada = '';
   if (eventoData?.fecha) {
     const [year, month, day] = eventoData.fecha.split('-');
@@ -24,29 +22,27 @@ const TarjetaPremium = forwardRef<HTMLDivElement, Props>(({ tipo, persona, event
   }
 
   return (
-    <div style={{ position: 'absolute', top: '-9999px', left: '-9999px' }}>
+    // 🚀 FIX: Lo ocultamos con opacity y z-index, pero lo dejamos en el DOM para que html2canvas lo vea
+    <div style={{ position: 'fixed', top: 0, left: 0, zIndex: -9999, opacity: 0, pointerEvents: 'none' }}>
       <div 
         ref={ref} 
         style={{ 
-          width: '600px', height: '800px', // Tamaño vertical ideal para estados de WhatsApp
+          width: '600px', height: '800px', 
           background: 'linear-gradient(135deg, #0A1628 0%, #111827 100%)', 
           borderRadius: '24px', padding: '40px', boxSizing: 'border-box',
           display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'space-between',
           fontFamily: 'system-ui, -apple-system, sans-serif', overflow: 'hidden', position: 'relative'
         }}
       >
-        {/* Adornos de fondo */}
         <div style={{ position: 'absolute', top: '-10%', right: '-20%', width: '400px', height: '400px', background: `radial-gradient(circle, ${colorPrimario}33 0%, transparent 70%)`, borderRadius: '50%' }} />
         <div style={{ position: 'absolute', bottom: '-10%', left: '-20%', width: '400px', height: '400px', background: `radial-gradient(circle, #F59E0B33 0%, transparent 70%)`, borderRadius: '50%' }} />
 
-        {/* Logo Superior */}
         <div style={{ textAlign: 'center', zIndex: 1 }}>
-          <img src={ORION_CONFIG.organizacionLogo} alt="Logo" style={{ height: '80px', objectFit: 'contain' }} />
+          {/* 🚀 FIX: crossOrigin para evitar el error de CORS */}
+          <img src={ORION_CONFIG.organizacionLogo} alt="Logo" crossOrigin="anonymous" style={{ height: '80px', objectFit: 'contain' }} />
         </div>
 
-        {/* Contenido Central */}
         <div style={{ textAlign: 'center', zIndex: 1, width: '100%' }}>
-          
           {tipo === 'bienvenida' && (
             <>
               <h1 style={{ color: 'white', fontSize: '46px', fontWeight: '900', margin: '0 0 15px 0', lineHeight: '1.1' }}>¡Bienvenido,<br/>{nombre}!</h1>
@@ -74,10 +70,8 @@ const TarjetaPremium = forwardRef<HTMLDivElement, Props>(({ tipo, persona, event
               </div>
             </div>
           )}
-
         </div>
 
-        {/* Footer */}
         <div style={{ zIndex: 1, textAlign: 'center' }}>
           <div style={{ display: 'inline-block', background: 'rgba(255,255,255,0.1)', padding: '10px 20px', borderRadius: '50px', border: '1px solid rgba(255,255,255,0.2)' }}>
             <p style={{ color: 'white', fontSize: '16px', fontWeight: 'bold', margin: 0 }}>
@@ -86,7 +80,6 @@ const TarjetaPremium = forwardRef<HTMLDivElement, Props>(({ tipo, persona, event
           </div>
           <p style={{ color: '#64748B', fontSize: '14px', marginTop: '15px', letterSpacing: '1px' }}>{ORION_CONFIG.organizacionNombre.toUpperCase()}</p>
         </div>
-
       </div>
     </div>
   );
