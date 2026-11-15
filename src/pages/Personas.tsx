@@ -1,13 +1,15 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { 
   Search, User, Phone, Briefcase, MapPin, Download, Edit3, Trash2, 
   X, Loader2, Users, CheckCircle2, AlertTriangle, Shield, Plus, ChevronLeft, ChevronRight,
   Send
 } from 'lucide-react';
+import html2canvas from 'html2canvas';
 import { supabase } from '../lib/supabaseClient';
 import Toast from '../components/Toast';
 import AvisoPrivacidad from '../components/AvisoPrivacidad';
-import TarjetaSelector from '../components/TarjetaSelector'; // 🚀 NUEVO COMPONENTE
+import TarjetaSelector from '../components/TarjetaSelector';
+import TarjetaPremium from '../components/TarjetaPremium';
 import { offlineInsert } from '../lib/syncManager';
 import { PARTIDOS_DB } from '../lib/config';
 
@@ -43,9 +45,11 @@ export default function Personas() {
   const [avisoVisible, setAvisoVisible] = useState(false);
   const [aceptoAviso, setAceptoAviso] = useState(false);
 
-  // 🚀 ESTADOS PARA EL SELECTOR DE TARJETAS
+  // 🚀 ESTADOS PARA EL SELECTOR Y GENERADOR DE TARJETAS
   const [tarjetaVisible, setTarjetaVisible] = useState(false);
   const [personaSeleccionada, setPersonaSeleccionada] = useState<any>(null);
+  const [datosTarjeta, setDatosTarjeta] = useState<{ tipo: string; eventoData: any } | null>(null);
+  const tarjetaRef = useRef<HTMLDivElement>(null);
 
   const [confirmModal, setConfirmModal] = useState<ConfirmModalData>({ visible: false, titulo: '', mensaje: '', tipo: 'warning', onConfirm: () => {} });
   const mostrarConfirm = (titulo: string, mensaje: string, tipo: 'danger' | 'success' | 'warning', onConfirm: () => void) => setConfirmModal({ visible: true, titulo, mensaje, tipo, onConfirm });
@@ -91,19 +95,58 @@ export default function Personas() {
 
   const abrirModalNueva = () => { setPersonaNueva({ nombre_completo: '', telefono: '', correo_electronico: '', ocupacion: '', direccion: '', barrio_colonia_id: '', preferencia_voto: '' }); };
 
-  // 🚀 FUNCIONES PARA EL SELECTOR DE TARJETAS
+  // 🚀 LÓGICA PARA GENERAR LA IMAGEN Y COMPARTIRLA
   const abrirSelectorTarjeta = (persona: any) => {
     setPersonaSeleccionada(persona);
     setTarjetaVisible(true);
   };
 
-  const handleGenerarTarjeta = (tipo: string, eventoData: any) => {
-    // Aquí conectaremos la generación de la imagen después
-    console.log("Generar tarjeta de tipo:", tipo, "para:", personaSeleccionada);
-    console.log("Datos del evento:", eventoData);
-    
-    setToastMensaje(`Preparando tarjeta de ${tipo}...`);
+  const handleGenerarTarjeta = async (tipo: string, eventoData: any) => {
+    setDatosTarjeta({ tipo, eventoData });
+    setToastMensaje('🎨 Generando imagen premium...');
     setToastVisible(true);
+
+    // Esperamos 500ms para que React renderice el componente oculto
+    setTimeout(async () => {
+      if (!tarjetaRef.current || !personaSeleccionada) return;
+
+      try {
+        // Convertimos el HTML a un lienzo (canvas) con alta resolución
+        const canvas = await html2canvas(tarjetaRef.current, { scale: 2, useCORS: true, backgroundColor: null });
+        
+        canvas.toBlob(async (blob) => {
+          if (!blob) return;
+
+          const file = new File([blob], `tarjeta_${tipo}.png`, { type: 'image/png' });
+          
+          // Verificamos si el dispositivo soporta compartir archivos nativos (Móviles)
+          if (navigator.canShare && navigator.canShare({ files: [file] })) {
+            await navigator.share({
+              files: [file],
+              title: 'Una tarjeta para ti',
+              text: tipo === 'bienvenida' ? `¡Bienvenido ${personaSeleccionada.nombre_completo}!` : '¡Te esperamos!'
+            });
+            setToastMensaje('✅ Tarjeta compartida con éxito');
+          } else {
+            // Fallback para computadoras: Descarga la imagen automáticamente
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `tarjeta_${tipo}_${personaSeleccionada.nombre_completo.replace(/\s+/g, '_')}.png`;
+            a.click();
+            URL.revokeObjectURL(url);
+            setToastMensaje('📥 Tarjeta descargada. Ábrela y envíala por WhatsApp.');
+          }
+        }, 'image/png');
+
+      } catch (error) {
+        console.error('Error generando tarjeta:', error);
+        setToastMensaje('❌ Error al generar la imagen.');
+      } finally {
+        setDatosTarjeta(null); // Limpiamos el estado
+        setToastVisible(true);
+      }
+    }, 500); 
   };
 
   const handleCrearPersona = async (e: React.FormEvent) => {
@@ -229,7 +272,6 @@ export default function Personas() {
                 {p.telefono && <div style={{ fontSize: '13px', color: '#475569', display: 'flex', alignItems: 'center', gap: '6px' }}><Phone size={14} color="#00D4FF" /> {p.telefono}</div>}
                 {p.barrios_colonias?.nombre && <div style={{ fontSize: '13px', color: '#475569', display: 'flex', alignItems: 'center', gap: '6px' }}><MapPin size={14} color="#00D4FF" /> {p.barrios_colonias.nombre}</div>}
                 
-                {/* 🚀 AQUÍ ESTÁ EL NUEVO BOTÓN DE TARJETA */}
                 <div style={{ display: 'flex', gap: '8px', marginTop: '8px', paddingTop: '10px', borderTop: '1px solid #E2E8F0' }}>
                   <button onClick={() => abrirSelectorTarjeta(p)} style={{ flex: 1, padding: '8px', background: '#E0F2FE', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '13px', fontWeight: 'bold', color: '#0284C7', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '5px' }}>
                     <Send size={14} /> Tarjeta
@@ -345,13 +387,22 @@ export default function Personas() {
 
       <AvisoPrivacidad visible={avisoVisible} onClose={() => setAvisoVisible(false)} onAceptar={() => setAceptoAviso(true)} mostrarBotonAceptar={true} />
       
-      {/* 🚀 MODAL SELECTOR DE TARJETAS */}
       <TarjetaSelector 
         visible={tarjetaVisible} 
         onClose={() => setTarjetaVisible(false)} 
         persona={personaSeleccionada} 
         onGenerarTarjeta={handleGenerarTarjeta}
       />
+
+      {/* 🚀 COMPONENTE OCULTO QUE SE CONVIERTE EN IMAGEN */}
+      {datosTarjeta && (
+        <TarjetaPremium 
+          ref={tarjetaRef} 
+          tipo={datosTarjeta.tipo as any} 
+          persona={personaSeleccionada} 
+          eventoData={datosTarjeta.eventoData} 
+        />
+      )}
 
       <Toast mensaje={toastMensaje} visible={toastVisible} onClose={() => setToastVisible(false)} />
     </div>
