@@ -13,6 +13,9 @@ const TarjetaPremium = forwardRef<HTMLDivElement, Props>(({ tipo, persona, event
   const nombre = persona.nombre_completo.split(' ')[0]; 
   const colorPrimario = ORION_CONFIG.organizacionColorPrimario || '#00D4FF';
 
+  // 🚀 FIX: Limpiamos los guiones bajos del nombre del evento
+  const nombreEventoLimpio = eventoData?.nombre ? eventoData.nombre.replace(/_/g, ' ') : '';
+
   let fechaFormateada = '';
   if (eventoData?.fecha) {
     const [year, month, day] = eventoData.fecha.split('-');
@@ -21,8 +24,10 @@ const TarjetaPremium = forwardRef<HTMLDivElement, Props>(({ tipo, persona, event
     fechaFormateada = fechaFormateada.charAt(0).toUpperCase() + fechaFormateada.slice(1);
   }
 
+  // 🚀 FIX: Formatear la hora (quitar los segundos)
+  const horaLimpia = eventoData?.hora ? eventoData.hora.substring(0, 5) : null;
+
   return (
-    // 🚀 FIX: Lo ocultamos con opacity y z-index, pero lo dejamos en el DOM para que html2canvas lo vea
     <div style={{ position: 'fixed', top: 0, left: 0, zIndex: -9999, opacity: 0, pointerEvents: 'none' }}>
       <div 
         ref={ref} 
@@ -38,7 +43,6 @@ const TarjetaPremium = forwardRef<HTMLDivElement, Props>(({ tipo, persona, event
         <div style={{ position: 'absolute', bottom: '-10%', left: '-20%', width: '400px', height: '400px', background: `radial-gradient(circle, #F59E0B33 0%, transparent 70%)`, borderRadius: '50%' }} />
 
         <div style={{ textAlign: 'center', zIndex: 1 }}>
-          {/* 🚀 FIX: crossOrigin para evitar el error de CORS */}
           <img src={ORION_CONFIG.organizacionLogo} alt="Logo" crossOrigin="anonymous" style={{ height: '80px', objectFit: 'contain' }} />
         </div>
 
@@ -61,11 +65,11 @@ const TarjetaPremium = forwardRef<HTMLDivElement, Props>(({ tipo, persona, event
           {tipo === 'evento' && eventoData && (
             <div style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '20px', padding: '30px', backdropFilter: 'blur(10px)' }}>
               <p style={{ color: colorPrimario, fontSize: '16px', fontWeight: 'bold', letterSpacing: '3px', textTransform: 'uppercase', margin: '0 0 10px 0' }}>Invitación Especial</p>
-              <h1 style={{ color: 'white', fontSize: '36px', fontWeight: '900', margin: '0 0 20px 0', lineHeight: '1.2' }}>{eventoData.nombre}</h1>
+              <h1 style={{ color: 'white', fontSize: '32px', fontWeight: '900', margin: '0 0 20px 0', lineHeight: '1.2' }}>{nombreEventoLimpio}</h1>
               
               <div style={{ borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '20px', marginTop: '20px' }}>
                 <p style={{ color: '#CBD5E1', fontSize: '18px', margin: '0 0 10px 0' }}>📅 {fechaFormateada}</p>
-                {eventoData.hora && <p style={{ color: '#CBD5E1', fontSize: '18px', margin: '0 0 10px 0' }}>🕒 {eventoData.hora} hrs</p>}
+                {horaLimpia && <p style={{ color: '#CBD5E1', fontSize: '18px', margin: '0 0 10px 0' }}>🕒 {horaLimpia} hrs</p>}
                 {eventoData.lugar && <p style={{ color: '#CBD5E1', fontSize: '18px', margin: 0 }}>📍 {eventoData.lugar}</p>}
               </div>
             </div>
