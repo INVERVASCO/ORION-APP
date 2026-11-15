@@ -106,7 +106,7 @@ export default function Personas() {
     setToastVisible(true);
   };
 
-  // 🚀 EFECTO PARA CAPTURAR LA IMAGEN (CON FIX PARA PC Y CELULAR)
+  // 🚀 EFECTO PARA CAPTURAR LA IMAGEN
   useEffect(() => {
     if (!datosTarjeta || !tarjetaRef.current || !personaSeleccionada) return;
 
@@ -130,8 +130,8 @@ export default function Personas() {
 
           const file = new File([blob], `tarjeta_${datosTarjeta.tipo}.png`, { type: 'image/png' });
           
-          // 🚀 FIX: DETECTAMOS SI ES CELULAR O PC
-          const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+          // 🚀 FIX ESTRICTO: Revisamos si es celular O si la pantalla es menor a 768px
+          const isMobile = /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || window.innerWidth < 768;
 
           if (isMobile && navigator.canShare && navigator.canShare({ files: [file] })) {
             // CELULAR: Menú nativo de compartir (WhatsApp)
@@ -142,14 +142,19 @@ export default function Personas() {
             });
             setToastMensaje('✅ Tarjeta compartida con éxito');
           } else {
-            // PC: Descarga directa
+            // PC: Descarga directa forzada
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
             a.download = `tarjeta_${datosTarjeta.tipo}_${personaSeleccionada.nombre_completo.replace(/\s+/g, '_')}.png`;
+            
+            // 🚀 FIX: Truco para forzar la descarga en Windows/Chrome
+            document.body.appendChild(a);
             a.click();
-            URL.revokeObjectURL(url);
-            setToastMensaje('📥 Tarjeta descargada. Ábrela y envíala por WhatsApp Web.');
+            document.body.removeChild(a);
+            
+            setTimeout(() => URL.revokeObjectURL(url), 100);
+            setToastMensaje('📥 Tarjeta descargada. Revisa tus descargas.');
           }
           setToastVisible(true);
           setDatosTarjeta(null); 
