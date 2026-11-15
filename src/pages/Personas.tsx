@@ -45,7 +45,6 @@ export default function Personas() {
   const [avisoVisible, setAvisoVisible] = useState(false);
   const [aceptoAviso, setAceptoAviso] = useState(false);
 
-  // 🚀 ESTADOS PARA EL SELECTOR Y GENERADOR DE TARJETAS
   const [tarjetaVisible, setTarjetaVisible] = useState(false);
   const [personaSeleccionada, setPersonaSeleccionada] = useState<any>(null);
   const [datosTarjeta, setDatosTarjeta] = useState<{ tipo: string; eventoData: any } | null>(null);
@@ -95,59 +94,83 @@ export default function Personas() {
 
   const abrirModalNueva = () => { setPersonaNueva({ nombre_completo: '', telefono: '', correo_electronico: '', ocupacion: '', direccion: '', barrio_colonia_id: '', preferencia_voto: '' }); };
 
-  // 🚀 LÓGICA PARA GENERAR LA IMAGEN Y COMPARTIRLA
   const abrirSelectorTarjeta = (persona: any) => {
     setPersonaSeleccionada(persona);
     setTarjetaVisible(true);
   };
 
-  const handleGenerarTarjeta = async (tipo: string, eventoData: any) => {
-    setDatosTarjeta({ tipo, eventoData });
+  const handleGenerarTarjeta = (tipo: string, eventoData: any) => {
+    setTarjetaVisible(false); // Cerramos el selector
+    setDatosTarjeta({ tipo, eventoData }); // Esto dispara el useEffect de abajo
     setToastMensaje('🎨 Generando imagen premium...');
     setToastVisible(true);
+  };
 
-    // Esperamos 500ms para que React renderice el componente oculto
-    setTimeout(async () => {
-      if (!tarjetaRef.current || !personaSeleccionada) return;
+  // 🚀 EFECTO PARA CAPTURAR LA IMAGEN
+  useEffect(() => {
+    if (!datosTarjeta || !tarjetaRef.current || !personaSeleccionada) return;
 
+    const ejecutarCaptura = async () => {
       try {
-        // Convertimos el HTML a un lienzo (canvas) con alta resolución
-        const canvas = await html2canvas(tarjetaRef.current, { scale: 2, useCORS: true, backgroundColor: null });
-        
-        canvas.toBlob(async (blob) => {
-          if (!blob) return;
+        // 1. Esperamos a que las imágenes dentro de la tarjeta carguen
+        const images = Array.from(tarjetaRef.current!.querySelectorAll('img'));
+        await Promise.all(images.map(img => {
+          if (img.complete) return Promise.resolve();
+          return new Promise(resolve => { img.onload = resolve; img.onerror = resolve; });
+        }));
 
-          const file = new File([blob], `tarjeta_${tipo}.png`, { type: 'image/png' });
+        // 2. Tomamos la captura
+        const canvas = await html2canvas(tarjetaRef.current!, { 
+          scale: 2, 
+          useCORS: true, 
+          backgroundColor: null,
+          logging: false 
+        });
+        
+        // 3. Compartimos o descargamos
+        canvas.toBlob(async (blob) => {
+          if (!blob) {
+            setToastMensaje('❌ Error al crear el archivo de imagen.');
+            setToastVisible(true);
+            setDatosTarjeta(null);
+            return;
+          }
+
+          const file = new File([blob], `tarjeta_${datosTarjeta.tipo}.png`, { type: 'image/png' });
           
-          // Verificamos si el dispositivo soporta compartir archivos nativos (Móviles)
           if (navigator.canShare && navigator.canShare({ files: [file] })) {
             await navigator.share({
               files: [file],
               title: 'Una tarjeta para ti',
-              text: tipo === 'bienvenida' ? `¡Bienvenido ${personaSeleccionada.nombre_completo}!` : '¡Te esperamos!'
+              text: '¡Hola! Te compartimos esta tarjeta especial.'
             });
             setToastMensaje('✅ Tarjeta compartida con éxito');
           } else {
-            // Fallback para computadoras: Descarga la imagen automáticamente
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = `tarjeta_${tipo}_${personaSeleccionada.nombre_completo.replace(/\s+/g, '_')}.png`;
+            a.download = `tarjeta_${datosTarjeta.tipo}_${personaSeleccionada.nombre_completo.replace(/\s+/g, '_')}.png`;
             a.click();
             URL.revokeObjectURL(url);
-            setToastMensaje('📥 Tarjeta descargada. Ábrela y envíala por WhatsApp.');
+            setToastMensaje('📥 Tarjeta descargada. Revisa tus descargas.');
           }
+          setToastVisible(true);
+          setDatosTarjeta(null); // Limpiamos
         }, 'image/png');
 
       } catch (error) {
         console.error('Error generando tarjeta:', error);
-        setToastMensaje('❌ Error al generar la imagen.');
-      } finally {
-        setDatosTarjeta(null); // Limpiamos el estado
+        setToastMensaje('❌ Error al generar la imagen. Revisa la consola (F12).');
         setToastVisible(true);
+        setDatosTarjeta(null);
       }
-    }, 500); 
-  };
+    };
+
+    // Pequeño delay para asegurar que el navegador ya pintó el HTML
+    const timer = setTimeout(ejecutarCaptura, 200);
+    return () => clearTimeout(timer);
+  }, [datosTarjeta, personaSeleccionada]);
+
 
   const handleCrearPersona = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -196,7 +219,7 @@ export default function Personas() {
   };
 
   const handleExportarCSV = async () => {
-    if (userRole !== 'admin' && userRole !== 'coordinador') { setToastMensaje('⚠️ Permiso denegado. Solo administradores pueden exportar bases de datos.'); setToastVisible(true); return; }
+    if (userRole !== 'admin' && userRole !== 'coordinador') { setToastMensaje('⚠️ Permiso denegado.'); setToastVisible(true); return; }
     setToastMensaje('Generando CSV...'); setToastVisible(true);
     const { data } = await supabase.from('personas').select('*, barrios_colonias(nombre)');
     if (!data || data.length === 0) return;
@@ -293,7 +316,6 @@ export default function Personas() {
         </>
       )}
 
-      {/* MODALES */}
       {personaNueva && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000, padding: '15px' }}>
           <div style={{ background: 'white', padding: '25px', borderRadius: '12px', width: '100%', maxWidth: '550px', maxHeight: '90vh', overflowY: 'auto' }}>
@@ -394,7 +416,6 @@ export default function Personas() {
         onGenerarTarjeta={handleGenerarTarjeta}
       />
 
-      {/* 🚀 COMPONENTE OCULTO QUE SE CONVIERTE EN IMAGEN */}
       {datosTarjeta && (
         <TarjetaPremium 
           ref={tarjetaRef} 
