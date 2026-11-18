@@ -48,96 +48,27 @@ export default function Dashboard() {
   const pdfRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const fetchMetricas = async () => {
-      setLoading(true);
-      
-      try {
-        const [personasRes, casillasRes, funcRes, barriosRes, activismoRes, seccionesRes, resultadosRes] = await Promise.all([
-          supabase.from('personas').select('*', { count: 'exact', head: true }),
-          supabase.from('casillas').select('*', { count: 'exact', head: true }),
-          supabase.from('funcionarios_casilla').select('casilla_id'),
-          supabase.from('barrios_colonias').select('*', { count: 'exact', head: true }),
-          supabase.from('activismo').select('barrio_colonia_id'),
-          supabase.from('secciones_electorales').select('id, numero_seccion, barrio_colonia_id'),
-          supabase.from('resultados_casilla').select('*').eq('tipo_eleccion', 'Presidencial')
-        ]);
-
-        const totalPersonas = personasRes?.count || 0;
-        const totalCasillas = casillasRes?.count || 0;
-        const totalBarrios = barriosRes?.count || 0;
-        
-        const funcData = funcRes?.data || [];
-        const casillasCubiertas = new Set(funcData.map((f: any) => f.casilla_id)).size;
-        const totalFuncionarios = funcData.length;
-
-        const activismoData = activismoRes?.data || [];
-        const barriosConActivismo = new Set(activismoData.map((a: any) => a.barrio_colonia_id)).size;
-
-        const seccionesData = seccionesRes?.data || [];
-        const resultadosData = resultadosRes?.data || [];
-
-        if (seccionesData.length > 0 && resultadosData.length > 0) {
-          let totalVotosProyectados = 0;
-          let seguras = 0, disputa = 0, riesgo = 0;
-          const enRiesgo: SeccionRiesgo[] = [];
-          const datosTemporales: Record<number, { pct: number, riesgo: 'alto' | 'medio' | 'bajo' }> = {};
-
-          const getVotos = (res: any[]) => {
-            return res.reduce((sum, r) => {
-              if (partidoObjetivo === 'todos') return sum + (Number(r.total_votos) || 0);
-              if (partidoObjetivo === 'oposicion') return sum + ((Number(r.total_votos) || 0) - (Number(r.morena) || 0));
-              return sum + (Number(r[partidoObjetivo]) || 0);
-            }, 0);
-          };
-
-          seccionesData.forEach((sec: any) => {
-            if (!sec || !sec.numero_seccion) return;
-
-            const numSeccion = Number(sec.numero_seccion);
-            const res2018 = resultadosData.filter((r: any) => Number(r?.seccion) === numSeccion && r?.anio === 2018);
-            const res2024 = resultadosData.filter((r: any) => Number(r?.seccion) === numSeccion && r?.anio === 2024);
-
-            const votos2018 = getVotos(res2018);
-            const votos2024 = getVotos(res2024);
-            const lista2024 = res2024.reduce((s: number, r: any) => s + (Number(r?.lista_nominal) || 0), 0);
-
-            let proyeccionVotos = votos2024;
-            if (votos2018 > 0) {
-              const tendenciaAnual = (votos2024 - votos2018) / 6;
-              proyeccionVotos = Math.round(votos2024 + (tendenciaAnual * 3));
-            } else {
-              proyeccionVotos = Math.round(votos2024 * 1.05);
-            }
-
-            const proyeccionPct = lista2024 > 0 ? (proyeccionVotos / lista2024) * 100 : 0;
-            totalVotosProyectados += proyeccionVotos;
-
-            let nivelRiesgo: 'alto' | 'medio' | 'bajo' = 'bajo';
-            if (proyeccionPct >= ORION_CONFIG.electoral.umbralSegura) { seguras++; nivelRiesgo = 'bajo'; }
-            else if (proyeccionPct < ORION_CONFIG.electoral.umbralRiesgo) { 
-              riesgo++; nivelRiesgo = 'alto'; 
-              enRiesgo.push({ seccion: numSeccion, pct: proyeccionPct, votos: proyeccionVotos }); 
-            }
-            else { disputa++; nivelRiesgo = 'medio'; }
-
-            datosTemporales[numSeccion] = { pct: proyeccionPct, riesgo: nivelRiesgo };
-          });
-
-          enRiesgo.sort((a, b) => b.votos - a.votos);
-          setPronostico({ totalVotos: totalVotosProyectados, seguras, disputa, riesgo, seccionesEnRiesgo: enRiesgo.slice(0, 5) });
-          setDatosMapa(datosTemporales);
-        }
-
-        setMetricas({
-          totalPersonas, totalCasillas, casillasCubiertas,
-          totalBarrios, barriosConActivismo, totalFuncionarios
-        });
-      } catch (error) {
-        console.error("🚨 Error crítico cargando Dashboard:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
+const fetchMetricas = async () => {
+  setLoading(true);
+  try {
+    const { data, error } = await supabase.rpc('obtener_metricas_dashboard');
+    if (error) throw error;
+    if (data) {
+      setMetricas({
+        totalPersonas: data.totalPersonas,
+        totalCasillas: data.totalCasillas,
+        casillasCubiertas: data.casillasCubiertas,
+        totalBarrios: data.totalBarrios,
+        barriosConActivismo: data.barriosConActivismo,
+        totalFuncionarios: data.totalFuncionarios,
+      });
+    }
+  } catch (err) {
+    console.error("Error crítico cargando Dashboard:", err);
+  } finally {
+    setLoading(false);
+  }
+};
     fetchMetricas();
   }, [partidoObjetivo]);
 
