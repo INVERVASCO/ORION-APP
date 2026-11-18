@@ -25,124 +25,24 @@ export default function Reportes() {
   });
 
   useEffect(() => {
-    const fetchData = async () => {
-      setLoading(true);
-
-      try {
-        // 1. Personas por barrio
-        const { data: personasData } = await supabase
-          .from('personas').select('barrio_colonia_id, barrios_colonias(nombre)').not('barrio_colonia_id', 'is', null);
-
-        if (personasData) {
-          const conteo: Record<string, { nombre: string; total: number }> = {};
-          personasData.forEach((p: any) => {
-            const id = p.barrio_colonia_id;
-            // 🚀 FIX: Normalizar arreglo vs objeto
-            const barrioObj = Array.isArray(p.barrios_colonias) ? p.barrios_colonias[0] : p.barrios_colonias;
-            const nombre = barrioObj?.nombre || 'Sin nombre';
-            
-            if (!conteo[id]) conteo[id] = { nombre, total: 0 };
-            conteo[id].total++;
-          });
-          const top10 = Object.values(conteo).sort((a, b) => b.total - a.total).slice(0, 10)
-            .map(v => ({ barrio: v.nombre.length > 20 ? v.nombre.substring(0, 18) + '…' : v.nombre, personas: v.total }));
-          setPersonasPorBarrio(top10);
-          setStats(prev => ({ ...prev, barriosConGente: Object.keys(conteo).length }));
-        }
-
-        // 2. Preferencia de voto
-        const { data: votoData } = await supabase.from('personas').select('preferencia_voto');
-        if (votoData) {
-          const conteoVoto: Record<string, number> = { 'MORENA': 0, 'PAN': 0, 'PRI': 0, 'Indeciso': 0, 'Otro': 0, 'Sin definir': 0 };
-          votoData.forEach((p: any) => {
-            const pref = p.preferencia_voto || 'Sin definir';
-            if (conteoVoto[pref] !== undefined) conteoVoto[pref]++;
-            else conteoVoto['Otro']++;
-          });
-          const colores: Record<string, string> = {
-            'MORENA': '#9E9E9E', 'PAN': '#0066CC', 'PRI': '#E53935',
-            'Indeciso': '#F9A825', 'Otro': '#00A651', 'Sin definir': '#CCCCCC',
-          };
-          const dataVoto = Object.entries(conteoVoto).filter(([_, v]) => v > 0).map(([name, value]) => ({ name, value, color: colores[name] || '#999' }));
-          setPreferenciaVoto(dataVoto);
-          setStats(prev => ({ ...prev, totalPersonas: votoData.length }));
-        }
-
-        // 3. Casillas por sección
-        const { data: casillasData } = await supabase.from('casillas').select('id, secciones_electorales(numero_seccion)');
-        const { data: funcData } = await supabase.from('funcionarios_casilla').select('casilla_id');
-
-        if (casillasData) {
-          const casillasCubiertasIds = new Set(funcData?.map(f => f.casilla_id) || []);
-          const porSeccion: Record<number, { cubiertas: number; sinCubrir: number }> = {};
-          
-          casillasData.forEach((c: any) => {
-            // 🚀 FIX: Normalizar arreglo vs objeto
-            const seccionObj = Array.isArray(c.secciones_electorales) ? c.secciones_electorales[0] : c.secciones_electorales;
-            const numSeccion = seccionObj?.numero_seccion;
-            
-            if (!numSeccion) return;
-            if (!porSeccion[numSeccion]) porSeccion[numSeccion] = { cubiertas: 0, sinCubrir: 0 };
-            if (casillasCubiertasIds.has(c.id)) porSeccion[numSeccion].cubiertas++;
-            else porSeccion[numSeccion].sinCubrir++;
-          });
-          
-          const dataSecciones = Object.entries(porSeccion).sort((a, b) => Number(a[0]) - Number(b[0])).slice(0, 15)
-            .map(([seccion, data]) => ({ seccion: `S${seccion}`, cubiertas: data.cubiertas, sinCubrir: data.sinCubrir }));
-          setCasillasPorSeccion(dataSecciones);
-          setStats(prev => ({ ...prev, totalCasillas: casillasData.length, casillasCubiertas: casillasCubiertasIds.size }));
-        }
-
-        // 4. Activismo por barrio
-        const { data: activismoData } = await supabase.from('activismo').select('tipo_cargo, barrio_colonia_id, barrios_colonias(nombre)');
-        if (activismoData) {
-          const conteoActivismo: Record<string, { barrio: string; presidentes: number; secretarios: number; vocales: number }> = {};
-          activismoData.forEach((a: any) => {
-            const id = a.barrio_colonia_id;
-            // 🚀 FIX: Normalizar arreglo vs objeto
-            const barrioObj = Array.isArray(a.barrios_colonias) ? a.barrios_colonias[0] : a.barrios_colonias;
-            const nombre = barrioObj?.nombre || 'Sin nombre';
-            
-            if (!conteoActivismo[id]) conteoActivismo[id] = { barrio: nombre, presidentes: 0, secretarios: 0, vocales: 0 };
-            if (a.tipo_cargo === 'Presidente') conteoActivismo[id].presidentes++;
-            else if (a.tipo_cargo === 'Secretario') conteoActivismo[id].secretarios++;
-            else if (a.tipo_cargo === 'Vocal') conteoActivismo[id].vocales++;
-          });
-          const top10Activismo = Object.values(conteoActivismo)
-            .sort((a, b) => (b.presidentes + b.secretarios + b.vocales) - (a.presidentes + a.secretarios + a.vocales)).slice(0, 10)
-            .map(v => ({ barrio: v.barrio.length > 18 ? v.barrio.substring(0, 16) + '…' : v.barrio, presidentes: v.presidentes, secretarios: v.secretarios, vocales: v.vocales }));
-          setActivismoPorBarrio(top10Activismo);
-          setStats(prev => ({ ...prev, totalActivismo: activismoData.length }));
-        }
-
-        // 5. Capturas en el tiempo
-        const { data: fechasData } = await supabase.from('personas').select('created_at').order('created_at', { ascending: true });
-        if (fechasData) {
-          const hace30Dias = new Date(); hace30Dias.setDate(hace30Dias.getDate() - 30);
-          const conteoPorDia: Record<string, number> = {};
-          for (let i = 29; i >= 0; i--) {
-            const d = new Date(); d.setDate(d.getDate() - i);
-            conteoPorDia[d.toISOString().split('T')[0]] = 0;
-          }
-          fechasData.forEach((p: any) => {
-            const fecha = new Date(p.created_at);
-            if (fecha >= hace30Dias) {
-              const key = fecha.toISOString().split('T')[0];
-              if (conteoPorDia[key] !== undefined) conteoPorDia[key]++;
-            }
-          });
-          const dataTiempo = Object.entries(conteoPorDia).map(([fecha, capturas]) => {
-            const [, mes, dia] = fecha.split('-');
-            return { fecha: `${dia}/${mes}`, capturas };
-          });
-          setCapturasTiempo(dataTiempo);
-        }
-      } catch (error) {
-        console.error("Error cargando reportes:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
+const fetchData = async () => {
+  setLoading(true);
+  try {
+    const { data, error } = await supabase.rpc('obtener_resumen_reportes');
+    if (error) throw error;
+    if (data) {
+      setPersonasPorBarrio(data.topBarrios);
+      setPreferenciaVoto(data.preferencias);
+      setActivismoPorBarrio(data.activismoBarrios);
+      setCapturasTiempo(data.capturasTiempo);
+      // Nota: Los KPIs superiores de Reportes (stats) ahora los puedes calcular sumando los arrays o dejarlos fijos si prefieres.
+    }
+  } catch (err) {
+    console.error("Error cargando reportes:", err);
+  } finally {
+    setLoading(false);
+  }
+};
     fetchData();
   }, []);
 
