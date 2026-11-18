@@ -2,7 +2,6 @@ import { useEffect, useState, useRef } from 'react';
 import { Upload, Loader2, CheckCircle2, AlertTriangle, Database, Trash2, ArrowRight, Download, X, FileSpreadsheet, Shield } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 import Toast from '../components/Toast';
-import * as XLSX from 'xlsx';
 import ExcelJS from 'exceljs';
 import { saveAs } from 'file-saver';
 import { PARTIDOS_DB } from '../lib/config'; // 🚀 IMPORTAMOS LOS PARTIDOS
@@ -57,12 +56,26 @@ function parsearArchivo(contenido: string) {
 
 async function parsearXLSX(file: File) {
   const arrayBuffer = await file.arrayBuffer();
-  const workbook = XLSX.read(arrayBuffer, { type: 'array' });
-  const primeraHoja = workbook.Sheets[workbook.SheetNames[0]];
-  const jsonData = XLSX.utils.sheet_to_json(primeraHoja, { header: 1, defval: '' });
+  const workbook = new ExcelJS.Workbook();
+  await workbook.xlsx.load(arrayBuffer);
+  
+  const worksheet = workbook.worksheets[0];
+  if (!worksheet) return { error: 'El archivo está vacío' };
+
+  const jsonData: any[][] = [];
+  worksheet.eachRow((row, rowNumber) => {
+    const rowData: any[] = [];
+    row.eachCell({ includeEmpty: true }, (cell) => {
+      rowData.push(cell.value);
+    });
+    jsonData.push(rowData);
+  });
+
   if (jsonData.length < 2) return { error: 'El archivo está vacío' };
+  
   const encabezados = (jsonData[0] as any[]).map(h => String(h).trim()).filter(h => h !== '');
   const indices: Record<string, number> = {};
+  
   encabezados.forEach((h, i) => {
     const hn = h.toLowerCase();
     if (indices.nombre === undefined && hn.includes('nombre')) indices.nombre = i;
@@ -73,10 +86,13 @@ async function parsearXLSX(file: File) {
     else if (indices.preferencia_voto === undefined && (hn.includes('voto') || hn.includes('preferencia'))) indices.preferencia_voto = i;
     else if (indices.barrio === undefined && (hn.includes('barrio') || hn.includes('colonia'))) indices.barrio = i;
   });
+
   if (indices.nombre === undefined) return { error: `No se detectó la columna "Nombre". Encabezados: ${encabezados.join(' | ')}` };
+  
   const filas: any[] = [];
   for (let i = 1; i < jsonData.length; i++) {
-    const valores = jsonData[i] as any[]; if (!valores || valores.every(v => String(v).trim() === '')) continue;
+    const valores = jsonData[i] as any[]; 
+    if (!valores || valores.every(v => String(v || '').trim() === '')) continue;
     filas.push({
       nombre_completo: String(valores[indices.nombre!] || '').trim() || 'Sin nombre',
       telefono: indices.telefono !== undefined ? String(valores[indices.telefono] || '').trim() || null : null,
