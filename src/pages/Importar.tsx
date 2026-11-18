@@ -4,7 +4,7 @@ import { supabase } from '../lib/supabaseClient';
 import Toast from '../components/Toast';
 import ExcelJS from 'exceljs';
 import { saveAs } from 'file-saver';
-import { PARTIDOS_DB } from '../lib/config'; // 🚀 IMPORTAMOS LOS PARTIDOS
+import { PARTIDOS_DB } from '../lib/config';
 
 interface PersonaStaging {
   id: string; nombre_completo: string; telefono: string | null;
@@ -112,9 +112,7 @@ export default function Importar() {
   const [loading, setLoading] = useState(false);
   const [publicando, setPublicando] = useState(false);
   
-  // 🚀 NUEVO ESTADO PARA EL CONSENTIMIENTO LEGAL
   const [aceptoConsentimiento, setAceptoConsentimiento] = useState(false);
-  
   const [progreso, setProgreso] = useState({ actual: 0, total: 0, mensaje: '' });
   
   const [toastVisible, setToastVisible] = useState(false);
@@ -244,8 +242,20 @@ export default function Importar() {
           direccion: v.direccion, preferencia_voto: v.preferencia_voto, barrio_colonia_id: v.barrio_colonia_id,
           consentimiento_aceptado: true, fecha_consentimiento: new Date().toISOString(), origen_captura: 'Importación masiva',
         }));
+        
+        // 🚀 FIX: Capturar el error y mostrarlo
         const { error } = await supabase.from('personas').insert(payload);
-        if (error) fallidos += lote.length; else { exitosos += lote.length; idsExitosos.push(...lote.map(v => v.id)); }
+        
+        if (error) {
+          console.error("Error insertando en personas:", error);
+          setToastMensaje(`Error al publicar: ${error.message}`);
+          setToastVisible(true);
+          fallidos += lote.length;
+        } else {
+          exitosos += lote.length;
+          idsExitosos.push(...lote.map(v => v.id));
+        }
+        
         setProgreso({ actual: i + lote.length, total: validos.length, mensaje: 'Publicando al sistema online...' });
         await new Promise(r => setTimeout(r, 50));
       }
@@ -255,8 +265,9 @@ export default function Importar() {
         setStaging(staging.filter(s => !idsExitosos.includes(s.id)));
       }
 
-      if (fallidos > 0) setToastMensaje(`Publicados ${exitosos}, fallaron ${fallidos}.`);
+      if (fallidos > 0) setToastMensaje(`Publicados ${exitosos}, fallaron ${fallidos}. Revisa la consola (F12) para más detalles.`);
       else setToastMensaje(`¡${exitosos} registros publicados con éxito!`);
+      
       setToastVisible(true); setPublicando(false); setProgreso({ actual: 0, total: 0, mensaje: '' });
     });
   };
@@ -292,7 +303,6 @@ export default function Importar() {
 
       const listSheet = workbook.addWorksheet('Listas');
       
-      // 🚀 FIX: GENERACIÓN DINÁMICA DE PARTIDOS
       const opcionesVoto = [...PARTIDOS_DB.map(p => p.nombre), 'Indeciso', 'Otro'];
       opcionesVoto.forEach((p, i) => { listSheet.getCell(`A${i + 1}`).value = p; });
       
@@ -352,7 +362,6 @@ export default function Importar() {
         </div>
       </div>
 
-      {/* 🚀 NUEVO CHECKBOX DE CONSENTIMIENTO */}
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', padding: '15px', background: '#FFF8E1', borderRadius: '8px', borderLeft: '4px solid #F9A825', marginBottom: '20px' }}>
         <input 
           type="checkbox" 
@@ -371,7 +380,7 @@ export default function Importar() {
         <button 
           onClick={() => fileInputRef.current?.click()} 
           className="btn-primary" 
-          disabled={loading || !aceptoConsentimiento} // Bloqueado si no acepta
+          disabled={loading || !aceptoConsentimiento}
           style={{ display: 'flex', alignItems: 'center', gap: '8px', opacity: !aceptoConsentimiento ? 0.5 : 1 }}
         >
           <Upload size={16} /> Subir archivo
