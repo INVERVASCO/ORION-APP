@@ -66,14 +66,22 @@ async function parsearXLSX(file: File) {
   worksheet.eachRow((row, rowNumber) => {
     const rowData: any[] = [];
     row.eachCell({ includeEmpty: true }, (cell) => {
-      rowData.push(cell.value);
+      let val = cell.value;
+      // 🚀 FIX: Manejo de objetos de Excel (hipervínculos, textos enriquecidos)
+      if (val && typeof val === 'object') {
+        if ('text' in val) val = val.text; // Hipervínculos (ej. correos)
+        else if ('result' in val) val = val.result; // Fórmulas
+        else if ('richText' in val) val = (val as any).richText.map((rt: any) => rt.text).join(''); // Texto con formato
+        else val = ''; // Si es un objeto raro, lo dejamos vacío
+      }
+      rowData.push(val);
     });
     jsonData.push(rowData);
   });
 
   if (jsonData.length < 2) return { error: 'El archivo está vacío' };
   
-  const encabezados = (jsonData[0] as any[]).map(h => String(h).trim()).filter(h => h !== '');
+  const encabezados = (jsonData[0] as any[]).map(h => String(h || '').trim()).filter(h => h !== '');
   const indices: Record<string, number> = {};
   
   encabezados.forEach((h, i) => {
@@ -243,7 +251,6 @@ export default function Importar() {
           consentimiento_aceptado: true, fecha_consentimiento: new Date().toISOString(), origen_captura: 'Importación masiva',
         }));
         
-        // 🚀 FIX: Capturar el error y mostrarlo
         const { error } = await supabase.from('personas').insert(payload);
         
         if (error) {
