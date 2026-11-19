@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from 'react';
-import { Upload, Loader2, CheckCircle2, AlertTriangle, Database, Trash2, ArrowRight, Download, X, FileSpreadsheet, Shield } from 'lucide-react';
+import { Upload, Loader2, CheckCircle2, AlertTriangle, Database, Trash2, ArrowRight, X, FileSpreadsheet } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 import Toast from '../components/Toast';
 import ExcelJS from 'exceljs';
@@ -17,6 +17,7 @@ interface Barrio { id: string; nombre: string; }
 interface ConfirmModalData { visible: boolean; titulo: string; mensaje: string; tipo: 'danger' | 'success' | 'warning'; onConfirm: () => void; }
 
 function parsearArchivo(contenido: string) {
+  // ... (La misma lógica de siempre para CSV)
   const lineas = contenido.split('\n').filter(l => l.trim() !== '');
   if (lineas.length < 2) return { error: 'El archivo está vacío o no tiene filas de datos' };
   const muestras = lineas.slice(0, Math.min(5, lineas.length));
@@ -37,7 +38,7 @@ function parsearArchivo(contenido: string) {
     else if (indices.preferencia_voto === undefined && (hn.includes('voto') || hn.includes('preferencia'))) indices.preferencia_voto = i;
     else if (indices.barrio === undefined && (hn.includes('barrio') || hn.includes('colonia'))) indices.barrio = i;
   });
-  if (indices.nombre === undefined) return { error: `No se detectó la columna "Nombre". Encabezados leídos: ${encabezados.join(' | ')}` };
+  if (indices.nombre === undefined) return { error: `No se detectó la columna "Nombre". Encabezados: ${encabezados.join(' | ')}` };
   const filas: any[] = [];
   for (let i = 1; i < lineas.length; i++) {
     const valores = parseLinea(lineas[i]); if (valores.every(v => v === '')) continue;
@@ -63,16 +64,15 @@ async function parsearXLSX(file: File) {
   if (!worksheet) return { error: 'El archivo está vacío' };
 
   const jsonData: any[][] = [];
-  worksheet.eachRow((row, rowNumber) => {
+  worksheet.eachRow((row) => {
     const rowData: any[] = [];
     row.eachCell({ includeEmpty: true }, (cell) => {
       let val = cell.value;
-      // 🚀 FIX: Manejo de objetos de Excel (hipervínculos, textos enriquecidos)
       if (val && typeof val === 'object') {
-        if ('text' in val) val = val.text; // Hipervínculos (ej. correos)
-        else if ('result' in val) val = val.result; // Fórmulas
-        else if ('richText' in val) val = (val as any).richText.map((rt: any) => rt.text).join(''); // Texto con formato
-        else val = ''; // Si es un objeto raro, lo dejamos vacío
+        if ('text' in val) val = val.text;
+        else if ('result' in val) val = val.result;
+        else if ('richText' in val) val = (val as any).richText.map((rt: any) => rt.text).join('');
+        else val = ''; 
       }
       rowData.push(val);
     });
@@ -119,10 +119,8 @@ export default function Importar() {
   const [barrios, setBarrios] = useState<Barrio[]>([]);
   const [loading, setLoading] = useState(false);
   const [publicando, setPublicando] = useState(false);
-  
   const [aceptoConsentimiento, setAceptoConsentimiento] = useState(false);
   const [progreso, setProgreso] = useState({ actual: 0, total: 0, mensaje: '' });
-  
   const [toastVisible, setToastVisible] = useState(false);
   const [toastMensaje, setToastMensaje] = useState('');
   const [tabVista, setTabVista] = useState<'todas' | 'validas' | 'errores'>('todas');
@@ -209,14 +207,22 @@ export default function Importar() {
     const actualizados = staging.map(s => {
       const errores: string[] = [];
       if (!s.nombre_completo || s.nombre_completo === 'Sin nombre' || s.nombre_completo.trim() === '') errores.push('Falta el nombre completo');
+      
       if (s.telefono && s.telefono.trim() !== '') {
         const soloDigitos = s.telefono.replace(/\D/g, '');
         if (soloDigitos.length !== 10) errores.push(`Teléfono inválido: "${s.telefono}" (se esperaban 10 dígitos)`);
       }
+      
       if (s.correo_electronico && s.correo_electronico.trim() !== '') {
         const email = s.correo_electronico.trim(); const partes = email.split('@');
         if (partes.length !== 2 || !partes[1].includes('.')) errores.push(`Correo inválido: "${email}"`);
       }
+
+      // 🚀 FIX: Validar que el barrio exista y esté asignado
+      if (!s.barrio_colonia_id) {
+        errores.push(`El barrio "${s.barrio_colonia_id || 'Desconocido'}" no se encontró en la base de datos o no tienes permisos para él.`);
+      }
+
       return { ...s, estado: errores.length === 0 ? 'validado' : 'error', errores: errores.length > 0 ? errores : null };
     });
 
@@ -255,7 +261,7 @@ export default function Importar() {
         
         if (error) {
           console.error("Error insertando en personas:", error);
-          setToastMensaje(`Error al publicar: ${error.message}`);
+          setToastMensaje(`Error del servidor: ${error.message}`);
           setToastVisible(true);
           fallidos += lote.length;
         } else {
@@ -272,8 +278,11 @@ export default function Importar() {
         setStaging(staging.filter(s => !idsExitosos.includes(s.id)));
       }
 
-      if (fallidos > 0) setToastMensaje(`Publicados ${exitosos}, fallaron ${fallidos}. Revisa la consola (F12) para más detalles.`);
-      else setToastMensaje(`¡${exitosos} registros publicados con éxito!`);
+      if (fallidos > 0) {
+        setToastMensaje(`Publicados ${exitosos}, fallaron ${fallidos}. Revisa la consola (F12) para más detalles.`);
+      } else {
+        setToastMensaje(`¡${exitosos} registros publicados con éxito!`);
+      }
       
       setToastVisible(true); setPublicando(false); setProgreso({ actual: 0, total: 0, mensaje: '' });
     });
@@ -295,6 +304,7 @@ export default function Importar() {
   };
 
   const descargarPlantillaXLSX = async () => {
+    // ... (Misma lógica de descarga de plantilla)
     try {
       const workbook = new ExcelJS.Workbook();
       const sheet = workbook.addWorksheet('Personas', { views: [{ state: 'frozen', ySplit: 1 }] });
@@ -309,10 +319,8 @@ export default function Importar() {
       headerRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF9F2241' } };
 
       const listSheet = workbook.addWorksheet('Listas');
-      
       const opcionesVoto = [...PARTIDOS_DB.map(p => p.nombre), 'Indeciso', 'Otro'];
       opcionesVoto.forEach((p, i) => { listSheet.getCell(`A${i + 1}`).value = p; });
-      
       barrios.forEach((b, i) => { listSheet.getCell(`B${i + 1}`).value = b.nombre; });
       listSheet.state = 'veryHidden';
 
