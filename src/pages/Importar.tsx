@@ -249,45 +249,50 @@ export default function Importar() {
       cerrarConfirm(); setPublicando(true); setProgreso({ actual: 0, total: validos.length, mensaje: 'Publicando...' });
       let exitosos = 0, fallidos = 0; const idsExitosos: string[] = []; const CHUNK_SIZE = 500;
 
-      for (let i = 0; i < validos.length; i += CHUNK_SIZE) {
-        const lote = validos.slice(i, i + CHUNK_SIZE);
-        const payload = lote.map(v => ({
-          nombre_completo: v.nombre_completo, telefono: v.telefono, ocupacion: v.ocupacion, correo_electronico: v.correo_electronico,
-          direccion: v.direccion, preferencia_voto: v.preferencia_voto, barrio_colonia_id: v.barrio_colonia_id,
-          consentimiento_aceptado: true, fecha_consentimiento: new Date().toISOString(), origen_captura: 'Importación masiva',
-        }));
-        
-        const { error } = await supabase.from('personas').insert(payload);
-        
-        if (error) {
-          console.error("Error insertando en personas:", error);
-          setToastMensaje(`Error del servidor: ${error.message}`);
-          setToastVisible(true);
-          fallidos += lote.length;
-        } else {
-          exitosos += lote.length;
-          idsExitosos.push(...lote.map(v => v.id));
+      try {
+        for (let i = 0; i < validos.length; i += CHUNK_SIZE) {
+          const lote = validos.slice(i, i + CHUNK_SIZE);
+          const payload = lote.map(v => ({
+            nombre_completo: v.nombre_completo, telefono: v.telefono, ocupacion: v.ocupacion, correo_electronico: v.correo_electronico,
+            direccion: v.direccion, preferencia_voto: v.preferencia_voto, barrio_colonia_id: v.barrio_colonia_id,
+            consentimiento_aceptado: true, fecha_consentimiento: new Date().toISOString(), origen_captura: 'Importación masiva',
+          }));
+          
+          const { error } = await supabase.from('personas').insert(payload);
+          
+          if (error) {
+            console.error("Error insertando en personas:", error);
+            // 🚀 AQUI MOSTRAMOS EL ERROR EXACTO
+            setToastMensaje(`Error del servidor: ${error.message || error.details || 'Revisa la consola F12'}`);
+            setToastVisible(true);
+            fallidos += lote.length;
+            break; // Detenemos el bucle si hay error de base de datos
+          } else {
+            exitosos += lote.length;
+            idsExitosos.push(...lote.map(v => v.id));
+          }
+          
+          setProgreso({ actual: i + lote.length, total: validos.length, mensaje: 'Publicando al sistema online...' });
+          await new Promise(r => setTimeout(r, 50));
         }
+      } catch (err: any) {
+        setToastMensaje('Error crítico: ' + err.message);
+        setToastVisible(true);
+      } finally {
+        if (idsExitosos.length > 0) {
+          await supabase.from('personas_staging').delete().in('id', idsExitosos);
+          setStaging(staging.filter(s => !idsExitosos.includes(s.id)));
+        }
+
+        if (fallidos > 0) setToastMensaje(`Publicados ${exitosos}, fallaron ${fallidos}. Revisa el mensaje de error.`);
+        else setToastMensaje(`¡${exitosos} registros publicados con éxito!`);
         
-        setProgreso({ actual: i + lote.length, total: validos.length, mensaje: 'Publicando al sistema online...' });
-        await new Promise(r => setTimeout(r, 50));
+        setToastVisible(true); 
+        setPublicando(false); 
+        setProgreso({ actual: 0, total: 0, mensaje: '' });
       }
-
-      if (idsExitosos.length > 0) {
-        await supabase.from('personas_staging').delete().in('id', idsExitosos);
-        setStaging(staging.filter(s => !idsExitosos.includes(s.id)));
-      }
-
-      if (fallidos > 0) {
-        setToastMensaje(`Publicados ${exitosos}, fallaron ${fallidos}. Revisa la consola (F12) para más detalles.`);
-      } else {
-        setToastMensaje(`¡${exitosos} registros publicados con éxito!`);
-      }
-      
-      setToastVisible(true); setPublicando(false); setProgreso({ actual: 0, total: 0, mensaje: '' });
     });
   };
-
   const eliminarStaging = (id: string, nombre: string) => {
     mostrarConfirm('¿Eliminar este registro?', `Se eliminará "${nombre}" del arenero.`, 'danger', async () => {
       cerrarConfirm(); await supabase.from('personas_staging').delete().eq('id', id);
