@@ -138,7 +138,6 @@ export default function Eventos() {
     setFiltroConvocatoriaEstado('todos');
 
     try {
-      // 1. Obtener las personas a las que tiene acceso el usuario logueado (RLS)
       const [personasRes, enviosRes] = await Promise.all([
         supabase
           .from('personas')
@@ -176,7 +175,7 @@ export default function Eventos() {
     }
   };
 
-  // --- DESPACHAR INVITACIÓN RÁPIDA POR WHATSAPP ---
+  // --- DESPACHAR INVITACIÓN SOLO TEXTO POR WHATSAPP (VELOCIDAD PURA) ---
   const handleDespacharWhatsApp = async (p: PersonaConvocatoria) => {
     if (!eventoConvocatoria) return;
     if (!p.telefono) {
@@ -207,7 +206,6 @@ export default function Eventos() {
 
     const mensaje = `¡Hola ${primerNombre}! 👋\n\nTe hacemos llegar esta cordial invitación para nuestro gran encuentro ciudadano:\n\n⭐ *${eventoConvocatoria.nombre.replace(/_/g, ' ')}*\n📅 *Fecha:* ${fechaTxt}\n${horaTxt ? `🕒 *Hora:* ${horaTxt} hrs\n` : ''}${eventoConvocatoria.lugar ? `📍 *Sede:* ${eventoConvocatoria.lugar}\n` : ''}\n¡Tu presencia y liderazgo son el motor de este movimiento! 🌟\n\n_Por favor confírmanos tu asistencia respondiendo a este mensaje._`;
 
-    // Registrar en auditoría de comunicaciones
     try {
       const { data: { user } } = await supabase.auth.getUser();
       await supabase.from('comunicaciones_enviadas').insert([{
@@ -217,14 +215,12 @@ export default function Eventos() {
         enviado_por: user?.id
       }]);
 
-      // Marcar como invitado en la vista local inmediatamente
       setPersonasConvocatoria(prev => prev.map(item => 
         item.id === p.id 
           ? { ...item, invitado: true, envioInfo: { created_at: new Date().toISOString() } } 
           : item
       ));
 
-      // Abrir WhatsApp Web o App
       const url = `https://wa.me/${telefonoFinal}?text=${encodeURIComponent(mensaje)}`;
       window.open(url, '_blank');
 
@@ -236,7 +232,7 @@ export default function Eventos() {
     }
   };
 
-  // --- DESCARGAR PASE VIP GRÁFICO (HTML2CANVAS) ---
+  // --- TRUCO PRO: PASE VIP CON COPIADO DIRECTO O COMPARTIR MÓVIL ---
   const handleDescargarPaseGrafico = (p: PersonaConvocatoria) => {
     setPersonaParaTarjeta(p);
     setGenerandoTarjeta(true);
@@ -247,7 +243,7 @@ export default function Eventos() {
   useEffect(() => {
     if (!generandoTarjeta || !personaParaTarjeta || !tarjetaRef.current || !eventoConvocatoria) return;
 
-    const capturar = async () => {
+    const capturarYDespachar = async () => {
       try {
         const images = Array.from(tarjetaRef.current!.querySelectorAll('img'));
         await Promise.all(images.map(img => {
@@ -259,7 +255,7 @@ export default function Eventos() {
           scale: 2, useCORS: true, backgroundColor: null, logging: false
         });
 
-        canvas.toBlob(blob => {
+        canvas.toBlob(async (blob) => {
           if (!blob) {
             setToastMensaje('Error al generar imagen');
             setToastVisible(true);
@@ -268,29 +264,107 @@ export default function Eventos() {
             return;
           }
 
-          const url = URL.createObjectURL(blob);
-          const a = document.createElement('a');
-          a.href = url;
-          a.download = `PASE_VIP_${eventoConvocatoria.nombre.replace(/\s+/g, '_')}_${personaParaTarjeta.nombre_completo.replace(/\s+/g, '_')}.png`;
-          document.body.appendChild(a);
-          a.click();
-          document.body.removeChild(a);
-          setTimeout(() => URL.revokeObjectURL(url), 100);
+          const primerNombre = personaParaTarjeta.nombre_completo.split(' ')[0];
+          let fechaTxt = eventoConvocatoria.fecha;
+          try {
+            const [y, m, d] = eventoConvocatoria.fecha.split('-');
+            const dt = new Date(Number(y), Number(m) - 1, Number(d));
+            fechaTxt = dt.toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'long' });
+            fechaTxt = fechaTxt.charAt(0).toUpperCase() + fechaTxt.slice(1);
+          } catch {}
+          const horaTxt = eventoConvocatoria.hora ? eventoConvocatoria.hora.substring(0, 5) : '';
 
-          setToastMensaje('📥 Pase VIP descargado con éxito');
+          const mensaje = `¡Hola ${primerNombre}! 👋\n\nTe compartimos tu *Pase Oficial de Acceso VIP* para nuestro gran encuentro:\n\n⭐ *${eventoConvocatoria.nombre.replace(/_/g, ' ')}*\n📅 *Fecha:* ${fechaTxt}\n${horaTxt ? `🕒 *Hora:* ${horaTxt} hrs\n` : ''}${eventoConvocatoria.lugar ? `📍 *Sede:* ${eventoConvocatoria.lugar}\n` : ''}\n¡Tu presencia y liderazgo son el motor de este movimiento! 🌟\n\n_Presenta este pase digital en el acceso principal._`;
+
+          const fileName = `PASE_VIP_${eventoConvocatoria.nombre.replace(/\s+/g, '_')}_${personaParaTarjeta.nombre_completo.replace(/\s+/g, '_')}.png`;
+          const file = new File([blob], fileName, { type: 'image/png' });
+
+          // Auto-registro en Supabase (Semáforo a verde)
+          try {
+            const { data: { user } } = await supabase.auth.getUser();
+            await supabase.from('comunicaciones_enviadas').insert([{
+              persona_id: personaParaTarjeta.id,
+              evento_id: eventoConvocatoria.id,
+              tipo_tarjeta: 'evento',
+              enviado_por: user?.id
+            }]);
+
+            setPersonasConvocatoria(prev => prev.map(item => 
+              item.id === personaParaTarjeta.id 
+                ? { ...item, invitado: true, envioInfo: { created_at: new Date().toISOString() } } 
+                : item
+            ));
+          } catch (e) {
+            console.error('Error registrando comunicación:', e);
+          }
+
+          const isMobile = /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || window.innerWidth < 768;
+
+          // 1. EN CELULAR: Si soporta compartir archivos, abre directamente WhatsApp con imagen + texto
+          if (isMobile && navigator.canShare && navigator.canShare({ files: [file] })) {
+            try {
+              await navigator.share({
+                files: [file],
+                title: `Pase VIP - ${eventoConvocatoria.nombre.replace(/_/g, ' ')}`,
+                text: mensaje
+              });
+              setToastMensaje('✅ Pase VIP compartido con éxito');
+            } catch (shareErr) {
+              // Si cancela compartir, no emitimos error
+            }
+          } else {
+            // 2. EN COMPUTADORA (EL TRUCO): Copiar imagen al portapapeles + Abrir WhatsApp + Descarga
+            let copiadoExitoso = false;
+            try {
+              if (navigator.clipboard && (window as any).ClipboardItem) {
+                await navigator.clipboard.write([
+                  new (window as any).ClipboardItem({ 'image/png': blob })
+                ]);
+                copiadoExitoso = true;
+              }
+            } catch (clipErr) {
+              console.log('Permiso de portapapeles no disponible:', clipErr);
+            }
+
+            // Descarga de respaldo en PC
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = fileName;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            setTimeout(() => URL.revokeObjectURL(url), 100);
+
+            // Abrir WhatsApp Web con el chat y texto precargado
+            if (personaParaTarjeta.telefono) {
+              const telLimpio = personaParaTarjeta.telefono.replace(/[^0-9]/g, '');
+              const telefonoFinal = telLimpio.length === 10 ? `52${telLimpio}` : telLimpio;
+              const waUrl = `https://wa.me/${telefonoFinal}?text=${encodeURIComponent(mensaje)}`;
+              window.open(waUrl, '_blank');
+            }
+
+            if (copiadoExitoso) {
+              setToastMensaje('📋 ¡Pase VIP copiado! En WhatsApp presiona Ctrl + V para pegarlo.');
+            } else {
+              setToastMensaje('📥 Pase VIP descargado y WhatsApp abierto.');
+            }
+          }
+
           setToastVisible(true);
           setGenerandoTarjeta(false);
           setPersonaParaTarjeta(null);
         }, 'image/png');
+
       } catch (e) {
-        setToastMensaje('Error capturando el pase VIP');
+        setToastMensaje('Error al generar el Pase VIP');
         setToastVisible(true);
         setGenerandoTarjeta(false);
         setPersonaParaTarjeta(null);
       }
     };
 
-    const timer = setTimeout(capturar, 250);
+    const timer = setTimeout(capturarYDespachar, 250);
     return () => clearTimeout(timer);
   }, [generandoTarjeta, personaParaTarjeta, eventoConvocatoria]);
 
@@ -535,7 +609,7 @@ export default function Eventos() {
                     }}>
                       {tipoInfo.icono} {tipoInfo.label}
                     </span>
-                    <h3 style={{ margin: 0, fontSize: '16px', color: '#1E293B' }}>{ev.nombre}</h3>
+                    <h3 style={{ margin: 0, fontSize: '16px', color: '#1E293B' }}>{ev.nombre.replace(/_/g, ' ')}</h3>
                   </div>
                   {esPasado && (
                     <span style={{ 
@@ -649,7 +723,7 @@ export default function Eventos() {
                   CENTRO DE CONVOCATORIA ELECTORAL
                 </span>
                 <h2 style={{ margin: '4px 0 0 0', fontSize: '20px', fontWeight: '800' }}>
-                  {eventoConvocatoria.nombre}
+                  {eventoConvocatoria.nombre.replace(/_/g, ' ')}
                 </h2>
                 <div style={{ display: 'flex', gap: '15px', marginTop: '6px', fontSize: '13px', color: '#94A3B8' }}>
                   <span>📅 {eventoConvocatoria.fecha}</span>
@@ -804,10 +878,10 @@ export default function Eventos() {
                             {p.invitado ? 'Invitado' : 'Pendiente'}
                           </span>
 
-                          {/* Botón Descargar Tarjeta VIP */}
+                          {/* Botón Pase VIP con Magia Portapapeles/Compartir */}
                           <button
                             onClick={() => handleDescargarPaseGrafico(p)}
-                            title="Descargar Pase VIP Gráfico (PNG)"
+                            title="Generar Pase VIP, copiar al portapapeles y abrir WhatsApp"
                             style={{
                               padding: '8px 12px', background: '#F1F5F9', border: '1px solid #CBD5E1',
                               borderRadius: '8px', cursor: 'pointer', color: '#334155',
@@ -817,7 +891,7 @@ export default function Eventos() {
                             <Image size={14} /> Pase VIP
                           </button>
 
-                          {/* Botón 1-Click WhatsApp */}
+                          {/* Botón 1-Click WhatsApp Solo Texto */}
                           <button
                             onClick={() => handleDespacharWhatsApp(p)}
                             disabled={!p.telefono}
