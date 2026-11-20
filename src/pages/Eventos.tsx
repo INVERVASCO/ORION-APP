@@ -1,11 +1,13 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { 
   Search, Trash2, Edit3, Plus, X, Loader2, 
   AlertTriangle, CheckCircle2, Calendar as CalendarIcon, 
-  MapPin, Users, DollarSign, Clock
+  MapPin, Users, DollarSign, Clock, Send, Image, ExternalLink, Check
 } from 'lucide-react';
+import html2canvas from 'html2canvas';
 import { supabase } from '../lib/supabaseClient';
 import Toast from '../components/Toast';
+import TarjetaPremium from '../components/TarjetaPremium';
 
 interface Evento {
   id: string;
@@ -20,6 +22,16 @@ interface Evento {
   costo: number;
   notas: string | null;
   barrios_colonias: { nombre: string } | null;
+}
+
+interface PersonaConvocatoria {
+  id: string;
+  nombre_completo: string;
+  telefono: string | null;
+  barrio_colonia_id: string | null;
+  barrios_colonias: { nombre: string } | null;
+  invitado: boolean;
+  envioInfo?: { created_at: string } | null;
 }
 
 interface ConfirmModalData {
@@ -52,6 +64,19 @@ export default function Eventos() {
   const [eventoEditar, setEventoEditar] = useState<Evento | null>(null);
   const [eventoNuevo, setEventoNuevo] = useState<any | null>(null);
   
+  // --- MÓDULO DE CONVOCATORIA Y ENVÍO RÁPIDO DE INVITACIONES ---
+  const [eventoConvocatoria, setEventoConvocatoria] = useState<Evento | null>(null);
+  const [personasConvocatoria, setPersonasConvocatoria] = useState<PersonaConvocatoria[]>([]);
+  const [cargandoConvocatoria, setCargandoConvocatoria] = useState(false);
+  const [filtroConvocatoriaBarrio, setFiltroConvocatoriaBarrio] = useState('');
+  const [filtroConvocatoriaEstado, setFiltroConvocatoriaEstado] = useState<'todos' | 'pendientes' | 'enviados'>('todos');
+  const [busquedaConvocatoria, setBusquedaConvocatoria] = useState('');
+
+  // Generación de Tarjeta Gráfica en Segundo Plano
+  const [personaParaTarjeta, setPersonaParaTarjeta] = useState<PersonaConvocatoria | null>(null);
+  const [generandoTarjeta, setGenerandoTarjeta] = useState(false);
+  const tarjetaRef = useRef<HTMLDivElement>(null);
+
   const [toastVisible, setToastVisible] = useState(false);
   const [toastMensaje, setToastMensaje] = useState('');
 
@@ -64,25 +89,26 @@ export default function Eventos() {
   };
   const cerrarConfirm = () => setConfirmModal({ ...confirmModal, visible: false });
 
+  const fetchEventos = async () => {
+    setLoading(true);
+    const [eventosRes, barriosRes] = await Promise.all([
+      supabase
+        .from('eventos')
+        .select('*, barrios_colonias(nombre)')
+        .order('fecha', { ascending: true }),
+      supabase.from('barrios_colonias').select('id, nombre').order('nombre'),
+    ]);
+    
+    if (eventosRes.data) {
+      setEventos(eventosRes.data as any);
+      setFiltrados(eventosRes.data as any);
+    }
+    if (barriosRes.data) setBarrios(barriosRes.data);
+    setLoading(false);
+  };
+
   useEffect(() => {
-    const fetchData = async () => {
-      setLoading(true);
-      const [eventosRes, barriosRes] = await Promise.all([
-        supabase
-          .from('eventos')
-          .select('*, barrios_colonias(nombre)')
-          .order('fecha', { ascending: true }),
-        supabase.from('barrios_colonias').select('id, nombre').order('nombre'),
-      ]);
-      
-      if (eventosRes.data) {
-        setEventos(eventosRes.data as any);
-        setFiltrados(eventosRes.data as any);
-      }
-      if (barriosRes.data) setBarrios(barriosRes.data);
-      setLoading(false);
-    };
-    fetchData();
+    fetchEventos();
   }, []);
 
   useEffect(() => {
@@ -103,50 +129,215 @@ export default function Eventos() {
     setFiltrados(resultado);
   }, [busqueda, filtroTipo, filtroPeriodo, eventos]);
 
-  const abrirModalNuevo = () => {
-    const hoy = new Date();
-    setEventoNuevo({
-      nombre: '',
-      tipo: 'mitin',
-      fecha: hoy.toISOString().split('T')[0],
-      hora: '18:00',
-      lugar: '',
-      barrio_colonia_id: '',
-      asistentes_estimados: '',
-      asistentes_reales: 0,
-      costo: '',
-      notas: '',
-    });
+  // --- ABRIR MODAL DE CONVOCATORIA (Respeta RLS de Supabase automáticamente) ---
+  const abrirConvocatoria = async (ev: Evento) => {
+    setEventoConvocatoria(ev);
+    setCargandoConvocatoria(true);
+    setBusquedaConvocatoria('');
+    setFiltroConvocatoriaBarrio('');
+    setFiltroConvocatoriaEstado('todos');
+
+    try {
+      // 1. Obtener las personas a las que tiene acceso el usuario logueado (RLS)
+      const [personasRes, enviosRes] = await Promise.all([
+        supabase
+          .from('personas')
+          .select('id, nombre_completo, telefono, barrio_colonia_id, barrios_colonias(nombre)')
+          .order('nombre_completo', { ascending: true }),
+        supabase
+          .from('comunicaciones_enviadas')
+          .select('persona_id, created_at, enviado_por')
+          .eq('evento_id', ev.id)
+      ]);
+
+      const enviosMap = new Map<string, any>();
+      if (enviosRes.data) {
+        enviosRes.data.forEach((item: any) => {
+          enviosMap.set(item.persona_id, item);
+        });
+      }
+
+      const listado: PersonaConvocatoria[] = (personasRes.data || []).map((p: any) => ({
+        id: p.id,
+        nombre_completo: p.nombre_completo,
+        telefono: p.telefono,
+        barrio_colonia_id: p.barrio_colonia_id,
+        barrios_colonias: p.barrios_colonias,
+        invitado: enviosMap.has(p.id),
+        envioInfo: enviosMap.get(p.id) || null
+      }));
+
+      setPersonasConvocatoria(listado);
+    } catch (err: any) {
+      setToastMensaje('Error al cargar convocatoria: ' + err.message);
+      setToastVisible(true);
+    } finally {
+      setCargandoConvocatoria(false);
+    }
   };
 
-  const handleCrear = async (e: React.FormEvent) => {
+  // --- DESPACHAR INVITACIÓN RÁPIDA POR WHATSAPP ---
+  const handleDespacharWhatsApp = async (p: PersonaConvocatoria) => {
+    if (!eventoConvocatoria) return;
+    if (!p.telefono) {
+      setToastMensaje(`⚠️ ${p.nombre_completo} no tiene teléfono registrado.`);
+      setToastVisible(true);
+      return;
+    }
+
+    const telLimpio = p.telefono.replace(/[^0-9]/g, '');
+    if (telLimpio.length < 10) {
+      setToastMensaje(`⚠️ El teléfono de ${p.nombre_completo} no parece válido.`);
+      setToastVisible(true);
+      return;
+    }
+
+    const telefonoFinal = telLimpio.length === 10 ? `52${telLimpio}` : telLimpio;
+    const primerNombre = p.nombre_completo.split(' ')[0];
+
+    let fechaTxt = eventoConvocatoria.fecha;
+    try {
+      const [y, m, d] = eventoConvocatoria.fecha.split('-');
+      const dt = new Date(Number(y), Number(m) - 1, Number(d));
+      fechaTxt = dt.toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'long' });
+      fechaTxt = fechaTxt.charAt(0).toUpperCase() + fechaTxt.slice(1);
+    } catch {}
+
+    const horaTxt = eventoConvocatoria.hora ? eventoConvocatoria.hora.substring(0, 5) : '';
+
+    const mensaje = `¡Hola ${primerNombre}! 👋\n\nTe hacemos llegar esta cordial invitación para nuestro gran encuentro ciudadano:\n\n⭐ *${eventoConvocatoria.nombre.replace(/_/g, ' ')}*\n📅 *Fecha:* ${fechaTxt}\n${horaTxt ? `🕒 *Hora:* ${horaTxt} hrs\n` : ''}${eventoConvocatoria.lugar ? `📍 *Sede:* ${eventoConvocatoria.lugar}\n` : ''}\n¡Tu presencia y liderazgo son el motor de este movimiento! 🌟\n\n_Por favor confírmanos tu asistencia respondiendo a este mensaje._`;
+
+    // Registrar en auditoría de comunicaciones
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      await supabase.from('comunicaciones_enviadas').insert([{
+        persona_id: p.id,
+        evento_id: eventoConvocatoria.id,
+        tipo_tarjeta: 'evento',
+        enviado_por: user?.id
+      }]);
+
+      // Marcar como invitado en la vista local inmediatamente
+      setPersonasConvocatoria(prev => prev.map(item => 
+        item.id === p.id 
+          ? { ...item, invitado: true, envioInfo: { created_at: new Date().toISOString() } } 
+          : item
+      ));
+
+      // Abrir WhatsApp Web o App
+      const url = `https://wa.me/${telefonoFinal}?text=${encodeURIComponent(mensaje)}`;
+      window.open(url, '_blank');
+
+      setToastMensaje(`✅ Invitación despachada a ${primerNombre}`);
+      setToastVisible(true);
+    } catch (err: any) {
+      setToastMensaje('Error al registrar envío: ' + err.message);
+      setToastVisible(true);
+    }
+  };
+
+  // --- DESCARGAR PASE VIP GRÁFICO (HTML2CANVAS) ---
+  const handleDescargarPaseGrafico = (p: PersonaConvocatoria) => {
+    setPersonaParaTarjeta(p);
+    setGenerandoTarjeta(true);
+    setToastMensaje(`🎨 Generando Pase VIP para ${p.nombre_completo.split(' ')[0]}...`);
+    setToastVisible(true);
+  };
+
+  useEffect(() => {
+    if (!generandoTarjeta || !personaParaTarjeta || !tarjetaRef.current || !eventoConvocatoria) return;
+
+    const capturar = async () => {
+      try {
+        const images = Array.from(tarjetaRef.current!.querySelectorAll('img'));
+        await Promise.all(images.map(img => {
+          if (img.complete) return Promise.resolve();
+          return new Promise(resolve => { img.onload = resolve; img.onerror = resolve; });
+        }));
+
+        const canvas = await html2canvas(tarjetaRef.current!, {
+          scale: 2, useCORS: true, backgroundColor: null, logging: false
+        });
+
+        canvas.toBlob(blob => {
+          if (!blob) {
+            setToastMensaje('Error al generar imagen');
+            setToastVisible(true);
+            setGenerandoTarjeta(false);
+            setPersonaParaTarjeta(null);
+            return;
+          }
+
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `PASE_VIP_${eventoConvocatoria.nombre.replace(/\s+/g, '_')}_${personaParaTarjeta.nombre_completo.replace(/\s+/g, '_')}.png`;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          setTimeout(() => URL.revokeObjectURL(url), 100);
+
+          setToastMensaje('📥 Pase VIP descargado con éxito');
+          setToastVisible(true);
+          setGenerandoTarjeta(false);
+          setPersonaParaTarjeta(null);
+        }, 'image/png');
+      } catch (e) {
+        setToastMensaje('Error capturando el pase VIP');
+        setToastVisible(true);
+        setGenerandoTarjeta(false);
+        setPersonaParaTarjeta(null);
+      }
+    };
+
+    const timer = setTimeout(capturar, 250);
+    return () => clearTimeout(timer);
+  }, [generandoTarjeta, personaParaTarjeta, eventoConvocatoria]);
+
+  // Filtros de la Convocatoria
+  const personasConvocatoriaFiltradas = personasConvocatoria.filter(p => {
+    if (filtroConvocatoriaBarrio && p.barrio_colonia_id !== filtroConvocatoriaBarrio) return false;
+    if (filtroConvocatoriaEstado === 'pendientes' && p.invitado) return false;
+    if (filtroConvocatoriaEstado === 'enviados' && !p.invitado) return false;
+    if (busquedaConvocatoria.trim()) {
+      const q = busquedaConvocatoria.toLowerCase();
+      const matchNombre = p.nombre_completo.toLowerCase().includes(q);
+      const matchTel = (p.telefono || '').includes(q);
+      if (!matchNombre && !matchTel) return false;
+    }
+    return true;
+  });
+
+  const totalConvocados = personasConvocatoria.length;
+  const totalEnviados = personasConvocatoria.filter(p => p.invitado).length;
+  const totalPendientes = totalConvocados - totalEnviados;
+  const porcentajeEnviado = totalConvocados > 0 ? Math.round((totalEnviados / totalConvocados) * 100) : 0;
+
+  // Manejadores CRUD Eventos
+  const handleGuardarNuevo = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!eventoNuevo) return;
     setGuardando(true);
 
-    const { data, error } = await supabase
-      .from('eventos')
-      .insert([{
-        nombre: eventoNuevo.nombre,
-        tipo: eventoNuevo.tipo,
-        fecha: eventoNuevo.fecha,
-        hora: eventoNuevo.hora || null,
-        lugar: eventoNuevo.lugar || null,
-        barrio_colonia_id: eventoNuevo.barrio_colonia_id || null,
-        asistentes_estimados: parseInt(eventoNuevo.asistentes_estimados) || 0,
-        asistentes_reales: 0,
-        costo: parseFloat(eventoNuevo.costo) || 0,
-        notas: eventoNuevo.notas || null,
-      }])
-      .select('*, barrios_colonias(nombre)')
-      .single();
+    const { error } = await supabase.from('eventos').insert([{
+      nombre: eventoNuevo.nombre,
+      tipo: eventoNuevo.tipo || 'reunion',
+      fecha: eventoNuevo.fecha,
+      hora: eventoNuevo.hora || null,
+      lugar: eventoNuevo.lugar || null,
+      barrio_colonia_id: eventoNuevo.barrio_colonia_id || null,
+      asistentes_estimados: parseInt(eventoNuevo.asistentes_estimados) || 0,
+      asistentes_reales: parseInt(eventoNuevo.asistentes_reales) || 0,
+      costo: parseFloat(eventoNuevo.costo) || 0,
+      notas: eventoNuevo.notas || null,
+    }]);
 
     if (error) {
       setToastMensaje('Error al crear: ' + error.message);
       setToastVisible(true);
-    } else if (data) {
-      setEventos([...eventos, data as any].sort((a, b) => a.fecha.localeCompare(b.fecha)));
+    } else {
       setEventoNuevo(null);
+      fetchEventos();
       setToastMensaje('¡Evento creado con éxito!');
       setToastVisible(true);
     }
@@ -223,12 +414,27 @@ export default function Eventos() {
 
   return (
     <div>
-      <h1 className="header-title">Eventos de Campaña</h1>
-      <p style={{ marginBottom: '20px', color: '#666', fontSize: '14px' }}>
-        Calendario y seguimiento de todos los eventos de la campaña.
-      </p>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
+        <div>
+          <h1 className="header-title" style={{ margin: 0 }}>Eventos de Campaña</h1>
+          <p style={{ margin: '4px 0 0 0', color: '#666', fontSize: '14px' }}>
+            Calendario oficial, seguimiento de asistencia y centro de convocatoria.
+          </p>
+        </div>
+        <button 
+          onClick={() => setEventoNuevo({
+            nombre: '', tipo: 'reunion', fecha: new Date().toISOString().split('T')[0],
+            hora: '17:00', lugar: '', barrio_colonia_id: '',
+            asistentes_estimados: 50, asistentes_reales: 0, costo: 0, notas: ''
+          })}
+          className="btn-primary" 
+          style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
+        >
+          <Plus size={18} /> Nuevo Evento
+        </button>
+      </div>
 
-      {/* KPIs */}
+      {/* KPIS */}
       <div style={{
         display: 'grid',
         gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
@@ -253,101 +459,88 @@ export default function Eventos() {
         <div className="card" style={{ padding: '18px', borderTop: '4px solid #F44336', borderLeft: 'none', textAlign: 'center' }}>
           <DollarSign size={22} color="#F44336" style={{ marginBottom: '6px' }} />
           <div style={{ fontSize: '26px', fontWeight: 'bold', color: '#F44336' }}>${totalCosto.toLocaleString('es-MX')}</div>
-          <div style={{ fontSize: '12px', color: '#666', fontWeight: 'bold' }}>Inversión Total</div>
+          <div style={{ fontSize: '12px', color: '#666', fontWeight: 'bold' }}>Presupuesto Total</div>
         </div>
       </div>
 
-      {/* Botón + Filtros */}
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', marginBottom: '20px', alignItems: 'center', justifyContent: 'space-between' }}>
-        <p style={{ margin: 0, fontSize: '15px', fontWeight: 'bold', color: '#00A651' }}>
-          <CalendarIcon size={18} style={{ verticalAlign: 'middle', marginRight: '6px' }} />
-          {filtrados.length} {filtrados.length === 1 ? 'evento' : 'eventos'}
-          {eventos.length !== filtrados.length && <span style={{ color: '#999', fontWeight: 'normal' }}> (de {eventos.length})</span>}
-        </p>
-        <button onClick={abrirModalNuevo} className="btn-primary"
-          style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '14px' }}>
-          <Plus size={16} /> Nuevo Evento
-        </button>
-      </div>
-
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '10px', marginBottom: '25px' }}>
-        <div style={{ position: 'relative' }}>
-          <Search size={18} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#999' }} />
-          <input
-            type="text"
-            placeholder="Buscar evento o lugar..."
-            value={busqueda}
-            onChange={(e) => setBusqueda(e.target.value)}
-            style={{ width: '100%', padding: '11px 11px 11px 40px', borderRadius: '6px', border: '1px solid #E0E0E0', fontSize: '14px', boxSizing: 'border-box' }}
-          />
+      {/* FILTROS Y BÚSQUEDA */}
+      <div className="card" style={{ padding: '15px', marginBottom: '20px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px' }}>
+          <div style={{ position: 'relative' }}>
+            <Search size={16} color="#999" style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)' }} />
+            <input
+              type="text"
+              placeholder="Buscar evento o lugar..."
+              value={busqueda}
+              onChange={(e) => setBusqueda(e.target.value)}
+              style={{ width: '100%', padding: '10px 10px 10px 36px', borderRadius: '6px', border: '1px solid #DDD', fontSize: '14px', boxSizing: 'border-box' }}
+            />
+          </div>
+          <div>
+            <select
+              value={filtroTipo}
+              onChange={(e) => setFiltroTipo(e.target.value)}
+              style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #DDD', fontSize: '14px' }}
+            >
+              <option value="">Todos los tipos</option>
+              {TIPOS_EVENTO.map(t => (
+                <option key={t.value} value={t.value}>{t.icono} {t.label}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <select
+              value={filtroPeriodo}
+              onChange={(e) => setFiltroPeriodo(e.target.value as any)}
+              style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #DDD', fontSize: '14px' }}
+            >
+              <option value="todos">Todos los periodos</option>
+              <option value="proximos">📅 Próximos</option>
+              <option value="pasados">⌛ Pasados</option>
+            </select>
+          </div>
         </div>
-        <select value={filtroTipo} onChange={(e) => setFiltroTipo(e.target.value)}
-          style={{ padding: '11px', borderRadius: '6px', border: '1px solid #E0E0E0', fontSize: '14px', background: 'white' }}>
-          <option value="">Todos los tipos</option>
-          {TIPOS_EVENTO.map(t => <option key={t.value} value={t.value}>{t.icono} {t.label}</option>)}
-        </select>
-        <select value={filtroPeriodo} onChange={(e) => setFiltroPeriodo(e.target.value as any)}
-          style={{ padding: '11px', borderRadius: '6px', border: '1px solid #E0E0E0', fontSize: '14px', background: 'white' }}>
-          <option value="todos">Todos</option>
-          <option value="proximos">Próximos</option>
-          <option value="pasados">Pasados</option>
-        </select>
       </div>
 
-      {/* Lista */}
+      {/* LISTA DE EVENTOS */}
       {filtrados.length === 0 ? (
-        <div className="card" style={{ textAlign: 'center', padding: '40px 20px' }}>
-          <CalendarIcon size={40} color="#00A651" style={{ opacity: 0.5, marginBottom: '15px' }} />
-          <p style={{ color: '#666', fontSize: '15px' }}>
-            {eventos.length === 0 ? 'Aún no hay eventos. Presiona "Nuevo Evento" para comenzar.' : 'No se encontraron resultados.'}
-          </p>
+        <div className="card" style={{ padding: '40px', textAlign: 'center', color: '#666' }}>
+          No se encontraron eventos con los filtros seleccionados.
         </div>
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: '15px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '16px' }}>
           {filtrados.map(ev => {
             const tipoInfo = getTipoInfo(ev.tipo);
             const esPasado = ev.fecha < hoy;
-            const cumplimiento = ev.asistentes_estimados > 0 
-              ? Math.round((ev.asistentes_reales / ev.asistentes_estimados) * 100) 
-              : 0;
-            
+
             return (
-              <div key={ev.id} style={{
-                background: 'white', borderRadius: '10px', padding: '18px',
-                boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
-                borderLeft: `4px solid ${tipoInfo.color}`,
-                opacity: esPasado ? 0.85 : 1,
-                display: 'flex', flexDirection: 'column', gap: '10px'
-              }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: 1, minWidth: 0 }}>
-                    <div style={{
-                      background: `${tipoInfo.color}20`,
-                      color: tipoInfo.color,
-                      width: '40px', height: '40px', borderRadius: '50%',
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      fontSize: '18px', flexShrink: 0
+              <div 
+                key={ev.id} 
+                className="card" 
+                style={{ 
+                  padding: '18px', 
+                  borderLeft: `5px solid ${tipoInfo.color}`,
+                  display: 'flex', flexDirection: 'column', gap: '10px',
+                  background: esPasado ? '#FAFAFA' : 'white',
+                  opacity: esPasado ? 0.9 : 1
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                  <div style={{ flex: 1 }}>
+                    <span style={{ 
+                      display: 'inline-flex', alignItems: 'center', gap: '4px',
+                      background: `${tipoInfo.color}15`, color: tipoInfo.color,
+                      fontSize: '11px', fontWeight: 'bold', padding: '3px 8px', borderRadius: '4px',
+                      marginBottom: '6px'
                     }}>
-                      {tipoInfo.icono}
-                    </div>
-                    <div style={{ minWidth: 0, flex: 1 }}>
-                      <h3 style={{ margin: 0, fontSize: '14px', color: '#333', fontWeight: 'bold', wordBreak: 'break-word' }}>
-                        {ev.nombre}
-                      </h3>
-                      <span style={{
-                        display: 'inline-block', marginTop: '3px', padding: '2px 8px',
-                        background: `${tipoInfo.color}20`, color: tipoInfo.color,
-                        borderRadius: '10px', fontSize: '10px', fontWeight: 'bold'
-                      }}>
-                        {tipoInfo.label}
-                      </span>
-                    </div>
+                      {tipoInfo.icono} {tipoInfo.label}
+                    </span>
+                    <h3 style={{ margin: 0, fontSize: '16px', color: '#1E293B' }}>{ev.nombre}</h3>
                   </div>
                   {esPasado && (
-                    <span style={{
-                      background: '#EEE', color: '#666',
-                      padding: '3px 8px', borderRadius: '8px',
-                      fontSize: '10px', fontWeight: 'bold'
+                    <span style={{ 
+                      background: '#EEE', color: '#666', padding: '2px 6px', borderRadius: '4px', 
+                      fontSize: '10px', fontWeight: 'bold' 
                     }}>
                       PASADO
                     </span>
@@ -377,13 +570,8 @@ export default function Eventos() {
                 </div>
 
                 <div style={{
-                  display: 'grid',
-                  gridTemplateColumns: '1fr 1fr 1fr',
-                  gap: '8px',
-                  marginTop: '6px',
-                  padding: '10px',
-                  background: '#F9F9F9',
-                  borderRadius: '8px'
+                  display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px',
+                  marginTop: '6px', padding: '10px', background: '#F8FAFC', borderRadius: '8px'
                 }}>
                   <div style={{ textAlign: 'center' }}>
                     <div style={{ fontSize: '16px', fontWeight: 'bold', color: '#2196F3' }}>{ev.asistentes_estimados}</div>
@@ -399,37 +587,37 @@ export default function Eventos() {
                   </div>
                 </div>
 
-                {ev.asistentes_estimados > 0 && (
-                  <div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: '#666', marginBottom: '4px' }}>
-                      <span>Cumplimiento de asistencia</span>
-                      <strong style={{ color: cumplimiento >= 80 ? '#00A651' : cumplimiento >= 50 ? '#F9A825' : '#C62828' }}>
-                        {cumplimiento}%
-                      </strong>
-                    </div>
-                    <div style={{ height: '4px', background: '#EEE', borderRadius: '2px', overflow: 'hidden' }}>
-                      <div style={{
-                        width: `${Math.min(cumplimiento, 100)}%`,
-                        height: '100%',
-                        background: cumplimiento >= 80 ? '#00A651' : cumplimiento >= 50 ? '#F9A825' : '#C62828'
-                      }} />
-                    </div>
-                  </div>
-                )}
-
-                <div style={{ display: 'flex', gap: '8px', marginTop: '6px', paddingTop: '10px', borderTop: '1px solid #EEE' }}>
-                  <button onClick={() => setEventoEditar(ev)} style={{
-                    flex: 1, padding: '8px', background: '#F4F4F4', border: 'none', borderRadius: '6px',
-                    cursor: 'pointer', fontSize: '13px', fontWeight: 'bold', color: '#333',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '5px'
-                  }}>
+                {/* BOTONES DE ACCIÓN: CONVOCATORIA DESTACADA */}
+                <div style={{ display: 'flex', gap: '8px', marginTop: '8px', paddingTop: '10px', borderTop: '1px solid #E2E8F0' }}>
+                  <button 
+                    onClick={() => abrirConvocatoria(ev)} 
+                    style={{
+                      flex: 2, padding: '8px', background: '#E0F2FE', border: '1px solid #BAE6FD', borderRadius: '6px',
+                      cursor: 'pointer', fontSize: '13px', fontWeight: 'bold', color: '#0284C7',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
+                      transition: 'all 0.2s'
+                    }}
+                  >
+                    <Send size={14} color="#0284C7" /> Convocatoria
+                  </button>
+                  <button 
+                    onClick={() => setEventoEditar(ev)} 
+                    style={{
+                      flex: 1, padding: '8px', background: '#F1F5F9', border: 'none', borderRadius: '6px',
+                      cursor: 'pointer', fontSize: '13px', fontWeight: 'bold', color: '#334155',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px'
+                    }}
+                  >
                     <Edit3 size={14} /> Editar
                   </button>
-                  <button onClick={() => handleEliminar(ev.id, ev.nombre)} style={{
-                    padding: '8px 12px', background: '#FFEBEE', border: 'none', borderRadius: '6px',
-                    cursor: 'pointer', color: '#C62828',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center'
-                  }}>
+                  <button 
+                    onClick={() => handleEliminar(ev.id, ev.nombre)} 
+                    style={{
+                      padding: '8px 12px', background: '#FFE4E6', border: 'none', borderRadius: '6px',
+                      cursor: 'pointer', color: '#E11D48',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center'
+                    }}
+                  >
                     <Trash2 size={14} />
                   </button>
                 </div>
@@ -437,6 +625,249 @@ export default function Eventos() {
             );
           })}
         </div>
+      )}
+
+      {/* ======================================================== */}
+      {/* MODAL MAESTRO: CONVOCATORIA Y DESPACHO RÁPIDO WHATSAPP  */}
+      {/* ======================================================== */}
+      {eventoConvocatoria && (
+        <div style={{ 
+          position: 'fixed', inset: 0, background: 'rgba(15, 23, 42, 0.75)', 
+          backdropFilter: 'blur(5px)', display: 'flex', justifyContent: 'center', 
+          alignItems: 'center', zIndex: 3000, padding: '16px' 
+        }}>
+          <div style={{ 
+            background: 'white', borderRadius: '18px', width: '100%', maxWidth: '820px', 
+            maxHeight: '92vh', display: 'flex', flexDirection: 'column', 
+            boxShadow: '0 25px 60px rgba(0,0,0,0.4)', overflow: 'hidden' 
+          }}>
+            
+            {/* Header Convocatoria */}
+            <div style={{ padding: '20px 24px', background: '#0F172A', color: 'white', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <span style={{ fontSize: '11px', color: '#00D4FF', fontWeight: 'bold', letterSpacing: '2px', textTransform: 'uppercase' }}>
+                  CENTRO DE CONVOCATORIA ELECTORAL
+                </span>
+                <h2 style={{ margin: '4px 0 0 0', fontSize: '20px', fontWeight: '800' }}>
+                  {eventoConvocatoria.nombre}
+                </h2>
+                <div style={{ display: 'flex', gap: '15px', marginTop: '6px', fontSize: '13px', color: '#94A3B8' }}>
+                  <span>📅 {eventoConvocatoria.fecha}</span>
+                  {eventoConvocatoria.hora && <span>🕒 {eventoConvocatoria.hora} hrs</span>}
+                  {eventoConvocatoria.lugar && <span>📍 {eventoConvocatoria.lugar}</span>}
+                </div>
+              </div>
+              <button 
+                onClick={() => setEventoConvocatoria(null)} 
+                style={{ background: 'rgba(255,255,255,0.1)', border: 'none', borderRadius: '50%', width: '36px', height: '36px', color: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Barra de Estadísticas de Avance */}
+            <div style={{ padding: '16px 24px', background: '#F8FAFC', borderBottom: '1px solid #E2E8F0' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                <div style={{ fontSize: '13px', color: '#475569' }}>
+                  Avance de Invitaciones: <strong>{totalEnviados}</strong> de <strong>{totalConvocados}</strong> personas ({porcentajeEnviado}%)
+                </div>
+                <div style={{ display: 'flex', gap: '12px', fontSize: '12px' }}>
+                  <span style={{ color: '#059669', fontWeight: 'bold' }}>🟢 Enviados: {totalEnviados}</span>
+                  <span style={{ color: '#D97706', fontWeight: 'bold' }}>🟡 Pendientes: {totalPendientes}</span>
+                </div>
+              </div>
+              <div style={{ width: '100%', height: '8px', background: '#E2E8F0', borderRadius: '4px', overflow: 'hidden' }}>
+                <div style={{ width: `${porcentajeEnviado}%`, height: '100%', background: '#00D4FF', transition: 'width 0.4s ease' }} />
+              </div>
+            </div>
+
+            {/* Filtros de la Convocatoria */}
+            <div style={{ padding: '14px 24px', display: 'flex', gap: '10px', flexWrap: 'wrap', background: 'white', borderBottom: '1px solid #F1F5F9' }}>
+              <div style={{ flex: 2, minWidth: '180px', position: 'relative' }}>
+                <Search size={15} color="#94A3B8" style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)' }} />
+                <input
+                  type="text"
+                  placeholder="Buscar por nombre o teléfono..."
+                  value={busquedaConvocatoria}
+                  onChange={(e) => setBusquedaConvocatoria(e.target.value)}
+                  style={{ width: '100%', padding: '8px 8px 8px 32px', borderRadius: '8px', border: '1px solid #CBD5E1', fontSize: '13px', boxSizing: 'border-box' }}
+                />
+              </div>
+
+              <div style={{ flex: 1, minWidth: '160px' }}>
+                <select
+                  value={filtroConvocatoriaBarrio}
+                  onChange={(e) => setFiltroConvocatoriaBarrio(e.target.value)}
+                  style={{ width: '100%', padding: '8px 10px', borderRadius: '8px', border: '1px solid #CBD5E1', fontSize: '13px' }}
+                >
+                  <option value="">Todas las colonias</option>
+                  {barrios.map(b => (
+                    <option key={b.id} value={b.id}>{b.nombre}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Botones de Estado */}
+              <div style={{ display: 'flex', gap: '4px', background: '#F1F5F9', padding: '3px', borderRadius: '8px' }}>
+                <button
+                  onClick={() => setFiltroConvocatoriaEstado('todos')}
+                  style={{
+                    padding: '6px 12px', border: 'none', borderRadius: '6px', fontSize: '12px', fontWeight: 'bold', cursor: 'pointer',
+                    background: filtroConvocatoriaEstado === 'todos' ? 'white' : 'transparent',
+                    color: filtroConvocatoriaEstado === 'todos' ? '#0F172A' : '#64748B',
+                    boxShadow: filtroConvocatoriaEstado === 'todos' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none'
+                  }}
+                >
+                  Todos ({personasConvocatoria.length})
+                </button>
+                <button
+                  onClick={() => setFiltroConvocatoriaEstado('pendientes')}
+                  style={{
+                    padding: '6px 12px', border: 'none', borderRadius: '6px', fontSize: '12px', fontWeight: 'bold', cursor: 'pointer',
+                    background: filtroConvocatoriaEstado === 'pendientes' ? 'white' : 'transparent',
+                    color: filtroConvocatoriaEstado === 'pendientes' ? '#D97706' : '#64748B',
+                    boxShadow: filtroConvocatoriaEstado === 'pendientes' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none'
+                  }}
+                >
+                  Pendientes ({totalPendientes})
+                </button>
+                <button
+                  onClick={() => setFiltroConvocatoriaEstado('enviados')}
+                  style={{
+                    padding: '6px 12px', border: 'none', borderRadius: '6px', fontSize: '12px', fontWeight: 'bold', cursor: 'pointer',
+                    background: filtroConvocatoriaEstado === 'enviados' ? 'white' : 'transparent',
+                    color: filtroConvocatoriaEstado === 'enviados' ? '#059669' : '#64748B',
+                    boxShadow: filtroConvocatoriaEstado === 'enviados' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none'
+                  }}
+                >
+                  Enviados ({totalEnviados})
+                </button>
+              </div>
+            </div>
+
+            {/* Lista de Convocados con Despacho 1-Click */}
+            <div style={{ flex: 1, overflowY: 'auto', padding: '16px 24px' }}>
+              {cargandoConvocatoria ? (
+                <div style={{ display: 'flex', justifyContent: 'center', padding: '40px', gap: '10px', color: '#0284C7' }}>
+                  <Loader2 size={24} className="animate-spin" /> Cargando listado de ciudadanos...
+                </div>
+              ) : personasConvocatoriaFiltradas.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '40px', color: '#94A3B8', fontSize: '14px' }}>
+                  No se encontraron ciudadanos con los filtros seleccionados.
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  {personasConvocatoriaFiltradas.map(p => {
+                    const iniciales = p.nombre_completo.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
+
+                    return (
+                      <div 
+                        key={p.id}
+                        style={{
+                          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                          padding: '12px 16px', borderRadius: '12px',
+                          background: p.invitado ? '#F0FDF4' : 'white',
+                          border: `1px solid ${p.invitado ? '#BBF7D0' : '#E2E8F0'}`,
+                          transition: 'all 0.15s'
+                        }}
+                      >
+                        {/* Info Ciudadano */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1 }}>
+                          <div style={{
+                            width: '38px', height: '38px', borderRadius: '50%',
+                            background: p.invitado ? '#DCFCE7' : '#E0F2FE',
+                            color: p.invitado ? '#16A34A' : '#0284C7',
+                            fontWeight: 'bold', fontSize: '13px',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0
+                          }}>
+                            {p.invitado ? <Check size={18} /> : iniciales}
+                          </div>
+                          <div>
+                            <div style={{ fontWeight: 'bold', fontSize: '14px', color: '#0F172A' }}>
+                              {p.nombre_completo}
+                            </div>
+                            <div style={{ display: 'flex', gap: '12px', fontSize: '12px', color: '#64748B', marginTop: '2px' }}>
+                              <span>📞 {p.telefono || 'Sin teléfono'}</span>
+                              {p.barrios_colonias?.nombre && <span>📍 {p.barrios_colonias.nombre}</span>}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Estado y Acciones Rápidas */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          {/* Badge de Estado */}
+                          <span style={{
+                            padding: '4px 10px', borderRadius: '50px', fontSize: '11px', fontWeight: 'bold',
+                            background: p.invitado ? '#DCFCE7' : '#FEF3C7',
+                            color: p.invitado ? '#15803D' : '#B45309'
+                          }}>
+                            {p.invitado ? 'Invitado' : 'Pendiente'}
+                          </span>
+
+                          {/* Botón Descargar Tarjeta VIP */}
+                          <button
+                            onClick={() => handleDescargarPaseGrafico(p)}
+                            title="Descargar Pase VIP Gráfico (PNG)"
+                            style={{
+                              padding: '8px 12px', background: '#F1F5F9', border: '1px solid #CBD5E1',
+                              borderRadius: '8px', cursor: 'pointer', color: '#334155',
+                              display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px', fontWeight: 'bold'
+                            }}
+                          >
+                            <Image size={14} /> Pase VIP
+                          </button>
+
+                          {/* Botón 1-Click WhatsApp */}
+                          <button
+                            onClick={() => handleDespacharWhatsApp(p)}
+                            disabled={!p.telefono}
+                            style={{
+                              padding: '8px 14px',
+                              background: p.invitado ? '#16A34A' : '#25D366',
+                              color: 'white', border: 'none', borderRadius: '8px',
+                              cursor: p.telefono ? 'pointer' : 'not-allowed',
+                              fontSize: '12px', fontWeight: 'bold',
+                              display: 'flex', alignItems: 'center', gap: '6px',
+                              opacity: p.telefono ? 1 : 0.5,
+                              boxShadow: '0 2px 4px rgba(37, 211, 102, 0.2)'
+                            }}
+                          >
+                            <ExternalLink size={14} /> {p.invitado ? 'Reenviar WA' : 'Enviar WA'}
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Footer Modal Convocatoria */}
+            <div style={{ padding: '14px 24px', background: '#F8FAFC', borderTop: '1px solid #E2E8F0', display: 'flex', justifyContent: 'flex-end' }}>
+              <button
+                onClick={() => setEventoConvocatoria(null)}
+                style={{ padding: '10px 20px', background: '#0F172A', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px' }}
+              >
+                Cerrar Centro de Convocatoria
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Renderizado Oculto de la Tarjeta para Captura HTML2Canvas */}
+      {personaParaTarjeta && eventoConvocatoria && (
+        <TarjetaPremium
+          ref={tarjetaRef}
+          tipo="evento"
+          persona={personaParaTarjeta}
+          eventoData={{
+            nombre: eventoConvocatoria.nombre,
+            fecha: eventoConvocatoria.fecha,
+            hora: eventoConvocatoria.hora,
+            lugar: eventoConvocatoria.lugar
+          }}
+        />
       )}
 
       {/* MODAL: NUEVO EVENTO */}
@@ -450,41 +881,40 @@ export default function Eventos() {
               </button>
             </div>
 
-            <form onSubmit={handleCrear} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+            <form onSubmit={handleGuardarNuevo} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
               <div>
-                <label style={labelStyle}>Nombre del evento *</label>
-                <input required type="text" placeholder="Ej. Mitin en Plaza Principal"
+                <label style={labelStyle}>Nombre del Evento *</label>
+                <input required type="text" placeholder="Ej. Mitin de Arranque"
                   value={eventoNuevo.nombre}
-                  onChange={(e) => setEventoNuevo({...eventoNuevo, nombre: e.target.value})}
-                  style={inputStyle} />
-              </div>
-
-              <div>
-                <label style={labelStyle}>Tipo de evento *</label>
-                <select value={eventoNuevo.tipo}
-                  onChange={(e) => setEventoNuevo({...eventoNuevo, tipo: e.target.value})} style={inputStyle}>
-                  {TIPOS_EVENTO.map(t => <option key={t.value} value={t.value}>{t.icono} {t.label}</option>)}
-                </select>
+                  onChange={(e) => setEventoNuevo({...eventoNuevo, nombre: e.target.value})} style={inputStyle} />
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                <div>
+                  <label style={labelStyle}>Tipo</label>
+                  <select value={eventoNuevo.tipo}
+                    onChange={(e) => setEventoNuevo({...eventoNuevo, tipo: e.target.value})} style={inputStyle}>
+                    {TIPOS_EVENTO.map(t => <option key={t.value} value={t.value}>{t.icono} {t.label}</option>)}
+                  </select>
+                </div>
                 <div>
                   <label style={labelStyle}>Fecha *</label>
                   <input required type="date" value={eventoNuevo.fecha}
                     onChange={(e) => setEventoNuevo({...eventoNuevo, fecha: e.target.value})} style={inputStyle} />
                 </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
                 <div>
                   <label style={labelStyle}>Hora</label>
                   <input type="time" value={eventoNuevo.hora}
                     onChange={(e) => setEventoNuevo({...eventoNuevo, hora: e.target.value})} style={inputStyle} />
                 </div>
-              </div>
-
-              <div>
-                <label style={labelStyle}>Lugar</label>
-                <input type="text" placeholder="Ej. Plaza Principal"
-                  value={eventoNuevo.lugar}
-                  onChange={(e) => setEventoNuevo({...eventoNuevo, lugar: e.target.value})} style={inputStyle} />
+                <div>
+                  <label style={labelStyle}>Lugar</label>
+                  <input type="text" placeholder="Ej. Plaza Principal" value={eventoNuevo.lugar}
+                    onChange={(e) => setEventoNuevo({...eventoNuevo, lugar: e.target.value})} style={inputStyle} />
+                </div>
               </div>
 
               <div>
@@ -496,26 +926,33 @@ export default function Eventos() {
                 </select>
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px' }}>
                 <div>
-                  <label style={labelStyle}>Asistentes estimados</label>
-                  <input type="text" inputMode="numeric" placeholder="0"
+                  <label style={labelStyle}>Estimados</label>
+                  <input type="text" inputMode="numeric"
                     value={eventoNuevo.asistentes_estimados}
-                    onChange={(e) => setEventoNuevo({...eventoNuevo, asistentes_estimados: e.target.value.replace(/[^0-9]/g, '')})}
+                    onChange={(e) => setEventoNuevo({...eventoNuevo, asistentes_estimados: parseInt(e.target.value.replace(/[^0-9]/g, '')) || 0})}
                     style={inputStyle} />
                 </div>
                 <div>
-                  <label style={labelStyle}>Costo estimado (MXN)</label>
-                  <input type="text" inputMode="decimal" placeholder="0.00"
+                  <label style={labelStyle}>Reales</label>
+                  <input type="text" inputMode="numeric"
+                    value={eventoNuevo.asistentes_reales}
+                    onChange={(e) => setEventoNuevo({...eventoNuevo, asistentes_reales: parseInt(e.target.value.replace(/[^0-9]/g, '')) || 0})}
+                    style={inputStyle} />
+                </div>
+                <div>
+                  <label style={labelStyle}>Costo</label>
+                  <input type="text" inputMode="decimal"
                     value={eventoNuevo.costo}
-                    onChange={(e) => setEventoNuevo({...eventoNuevo, costo: e.target.value.replace(/[^0-9.]/g, '')})}
+                    onChange={(e) => setEventoNuevo({...eventoNuevo, costo: parseFloat(e.target.value.replace(/[^0-9.]/g, '')) || 0})}
                     style={inputStyle} />
                 </div>
               </div>
 
               <div>
                 <label style={labelStyle}>Notas</label>
-                <textarea rows={2} placeholder="Detalles adicionales..."
+                <textarea rows={2} placeholder="Detalles de logística..."
                   value={eventoNuevo.notas}
                   onChange={(e) => setEventoNuevo({...eventoNuevo, notas: e.target.value})}
                   style={{...inputStyle, resize: 'vertical', fontFamily: 'inherit'}} />
@@ -523,10 +960,8 @@ export default function Eventos() {
 
               <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
                 <button type="button" onClick={() => setEventoNuevo(null)} style={btnSecundario}>Cancelar</button>
-                <button type="submit" className="btn-primary"
-                  style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
-                  disabled={guardando}>
-                  {guardando ? <><Loader2 size={16} className="animate-spin" /> Guardando...</> : <><CheckCircle2 size={16} /> Crear Evento</>}
+                <button type="submit" className="btn-primary" style={{ flex: 1 }} disabled={guardando}>
+                  {guardando ? 'Guardando...' : 'Crear Evento'}
                 </button>
               </div>
             </form>
@@ -547,36 +982,38 @@ export default function Eventos() {
 
             <form onSubmit={handleGuardarEdicion} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
               <div>
-                <label style={labelStyle}>Nombre *</label>
-                <input required type="text" value={eventoEditar.nombre}
+                <label style={labelStyle}>Nombre del Evento *</label>
+                <input required type="text"
+                  value={eventoEditar.nombre}
                   onChange={(e) => setEventoEditar({...eventoEditar, nombre: e.target.value})} style={inputStyle} />
               </div>
 
-              <div>
-                <label style={labelStyle}>Tipo *</label>
-                <select value={eventoEditar.tipo}
-                  onChange={(e) => setEventoEditar({...eventoEditar, tipo: e.target.value})} style={inputStyle}>
-                  {TIPOS_EVENTO.map(t => <option key={t.value} value={t.value}>{t.icono} {t.label}</option>)}
-                </select>
-              </div>
-
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                <div>
+                  <label style={labelStyle}>Tipo</label>
+                  <select value={eventoEditar.tipo}
+                    onChange={(e) => setEventoEditar({...eventoEditar, tipo: e.target.value})} style={inputStyle}>
+                    {TIPOS_EVENTO.map(t => <option key={t.value} value={t.value}>{t.icono} {t.label}</option>)}
+                  </select>
+                </div>
                 <div>
                   <label style={labelStyle}>Fecha *</label>
                   <input required type="date" value={eventoEditar.fecha}
                     onChange={(e) => setEventoEditar({...eventoEditar, fecha: e.target.value})} style={inputStyle} />
                 </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
                 <div>
                   <label style={labelStyle}>Hora</label>
                   <input type="time" value={eventoEditar.hora || ''}
-                    onChange={(e) => setEventoEditar({...eventoEditar, hora: e.target.value})} style={inputStyle} />
+                    onChange={(e) => setEventoEditar({...eventoEditar, hora: e.target.value || null})} style={inputStyle} />
                 </div>
-              </div>
-
-              <div>
-                <label style={labelStyle}>Lugar</label>
-                <input type="text" value={eventoEditar.lugar || ''}
-                  onChange={(e) => setEventoEditar({...eventoEditar, lugar: e.target.value})} style={inputStyle} />
+                <div>
+                  <label style={labelStyle}>Lugar</label>
+                  <input type="text" value={eventoEditar.lugar || ''}
+                    onChange={(e) => setEventoEditar({...eventoEditar, lugar: e.target.value || null})} style={inputStyle} />
+                </div>
               </div>
 
               <div>
