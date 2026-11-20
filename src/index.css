@@ -61,7 +61,7 @@ body {
   cursor: pointer;
   border-radius: 8px;
   margin-bottom: 6px;
-  transition: all 0.3s ease;
+  transition: all 0.25s ease;
   display: flex;
   align-items: center;
   gap: 12px;
@@ -83,11 +83,42 @@ body {
   padding-left: 16px;
 }
 
+/* ÁREA DE CONTENIDO PRINCIPAL: CERO BRINCOS DE SCROLLBAR */
 .main-content {
   flex: 1;
   padding: 30px;
-  overflow-y: auto;
+  overflow-y: scroll; /* Reserva fija del canal de scroll para evitar brinco horizontal */
+  scrollbar-gutter: stable; /* Garantiza estabilidad de ancho en navegadores modernos */
   width: 100%;
+}
+
+/* Scrollbar estilizado y discreto para escritorio */
+.main-content::-webkit-scrollbar,
+.sidebar::-webkit-scrollbar {
+  width: 7px;
+}
+
+.main-content::-webkit-scrollbar-track,
+.sidebar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.main-content::-webkit-scrollbar-thumb {
+  background: #CBD5E1;
+  border-radius: 4px;
+}
+
+.main-content::-webkit-scrollbar-thumb:hover {
+  background: #94A3B8;
+}
+
+.sidebar::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 4px;
+}
+
+.sidebar::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.25);
 }
 
 .mobile-header { display: none; }
@@ -122,7 +153,7 @@ body {
   border-radius: 8px;
   cursor: pointer;
   font-weight: 700;
-  transition: all 0.3s;
+  transition: all 0.25s;
   box-shadow: 0 4px 12px rgba(0, 212, 255, 0.3);
 }
 
@@ -227,24 +258,27 @@ body {
 
   .sidebar.open { left: 0; }
 
-  .main-content { padding: 15px; height: calc(100vh - 60px); }
+  .main-content { 
+    padding: 15px; 
+    height: calc(100vh - 60px); 
+    overflow-y: auto; /* En celular mantiene el scroll touch fluido */
+  }
   .header-title { font-size: 20px; }
   .grid-menu { grid-template-columns: 1fr; }
   .card { padding: 15px; }
 }
 
-/* 🚀 ANIMACIÓN DE ENTRADA SUAVE PARA LAS PÁGINAS */
+/* 🚀 TRANSICIÓN SUAVE DE ALTA VELOCIDAD (CERO BRINCOS VERTICALES) */
 .main-content > * {
-  animation: fadeInPage 0.35s ease-out;
+  animation: fadeInSmooth 0.16s ease-out;
+  will-change: opacity;
 }
 
-@keyframes fadeInPage {
+@keyframes fadeInSmooth {
   from {
     opacity: 0;
-    transform: translateY(8px);
   }
   to {
     opacity: 1;
-    transform: translateY(0);
   }
 }
