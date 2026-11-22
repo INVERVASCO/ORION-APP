@@ -65,7 +65,7 @@ export default function Dashboard() {
           });
         }
 
-        // 2. Cargar pronóstico (Usando la lógica original para evitar ceros)
+        // 2. Cargar pronóstico
         const { data: seccionesData } = await supabase.from('secciones_electorales').select('id, numero_seccion, barrio_colonia_id');
         const { data: resultadosData } = await supabase.from('resultados_casilla').select('*').eq('tipo_eleccion', 'Presidencial');
         const { data: activismoData } = await supabase.from('activismo').select('barrio_colonia_id');
@@ -175,6 +175,7 @@ export default function Dashboard() {
         </div>
       </div>
 
+      {/* BANNER IA CON BRANDING OFICIAL ORION */}
       <div style={{ background: 'linear-gradient(135deg, #0A1628 0%, #00D4FF 100%)', borderRadius: '16px', padding: '28px', marginBottom: '25px', color: 'white', boxShadow: '0 10px 30px rgba(0, 212, 255, 0.3)', position: 'relative', overflow: 'hidden' }}>
         <div style={{ position: 'absolute', top: '-50px', right: '-50px', width: '200px', height: '200px', borderRadius: '50%', background: 'rgba(255,255,255,0.08)' }} />
         <div style={{ display: 'flex', alignItems: 'center', gap: '20px', flexWrap: 'wrap', position: 'relative', zIndex: 1 }}>
@@ -184,7 +185,7 @@ export default function Dashboard() {
           <div style={{ flex: 1, minWidth: '250px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '6px' }}>
               <Sparkles size={18} />
-              <span style={{ fontSize: '11px', fontWeight: '800', letterSpacing: '2px', opacity: 0.9 }}>POWERED BY DEEPSEEK IA</span>
+              <span style={{ fontSize: '11px', fontWeight: '800', letterSpacing: '2px', opacity: 0.9 }}>POWERED BY ORION</span>
             </div>
             <h2 style={{ margin: '0 0 8px 0', fontSize: '22px', fontWeight: '800', lineHeight: '1.3' }}>Tu Director de Campaña con Inteligencia Artificial</h2>
             <p style={{ margin: 0, fontSize: '14px', opacity: 0.95, lineHeight: '1.5' }}>La IA analiza los datos de tu campaña y te dice qué hacer HOY.</p>
@@ -240,32 +241,33 @@ export default function Dashboard() {
         <MapPin size={20} color="#00D4FF" /> Mapa Electoral y Prioridades
       </h3>
       
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '20px', marginBottom: '30px', alignItems: 'stretch' }}>
-        <div style={{ height: '100%', minHeight: '400px', gridColumn: 'span 1', flex: 2 }}>
+      {/* GRID DE MAPA ELECTORAL EXPANDIDO (ESTILO WAR ROOM: 70% MAPA / 30% PRIORIDADES) */}
+      <div className="dashboard-mapa-grid">
+        <div style={{ height: '560px', minHeight: '560px', borderRadius: '12px', overflow: 'hidden', boxShadow: '0 4px 12px rgba(0,0,0,0.08)' }}>
           <MapaSecciones datos={datosMapa} />
         </div>
 
-        <div style={{ background: 'white', borderRadius: '12px', padding: '20px', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)', borderTop: '4px solid #F43F5E', height: '100%', minHeight: '400px', maxHeight: '600px', overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '15px' }}>
+        <div style={{ background: 'white', borderRadius: '12px', padding: '22px', boxShadow: '0 4px 12px rgba(0, 0, 0, 0.08)', borderTop: '4px solid #F43F5E', height: '560px', overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
             <AlertTriangle size={22} color="#F43F5E" />
-            <h3 style={{ color: '#F43F5E', fontSize: '15px', margin: 0 }}>Prioridades de Hoy</h3>
+            <h3 style={{ color: '#F43F5E', fontSize: '16px', margin: 0, fontWeight: '800' }}>Prioridades de Hoy</h3>
           </div>
-          <p style={{ fontSize: '12px', color: '#64748B', marginBottom: '15px', lineHeight: '1.4' }}>Secciones con mayor cantidad de votos en riesgo.</p>
+          <p style={{ fontSize: '12px', color: '#64748B', marginBottom: '16px', lineHeight: '1.4' }}>Secciones con mayor cantidad de votos en riesgo crítico.</p>
 
           <div style={{ flex: 1 }}>
             {pronostico.seccionesEnRiesgo.length > 0 ? (
               pronostico.seccionesEnRiesgo.map((s, idx) => (
-                <div key={s.seccion} onClick={() => navigate(`/app/secciones?seccion=${s.seccion}`)} style={{ padding: '12px', background: idx === 0 ? '#FFE4E6' : '#F8FAFC', borderRadius: '8px', marginBottom: '10px', borderLeft: '4px solid #F43F5E', cursor: 'pointer', transition: 'transform 0.15s' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '5px' }}>
+                <div key={s.seccion} onClick={() => navigate(`/app/secciones?seccion=${s.seccion}`)} style={{ padding: '14px', background: idx === 0 ? '#FFE4E6' : '#F8FAFC', borderRadius: '10px', marginBottom: '10px', borderLeft: '4px solid #F43F5E', cursor: 'pointer', transition: 'all 0.15s' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
                     <strong style={{ fontSize: '14px', color: '#0F172A' }}>#{idx + 1} · Sec. {s.seccion}</strong>
-                    <span style={{ fontSize: '11px', fontWeight: 'bold', padding: '2px 6px', background: '#F43F5E', color: 'white', borderRadius: '4px' }}>ALTO</span>
+                    <span style={{ fontSize: '11px', fontWeight: 'bold', padding: '3px 8px', background: '#F43F5E', color: 'white', borderRadius: '4px' }}>ALTO</span>
                   </div>
-                  <div style={{ fontSize: '12px', color: '#64748B', marginBottom: '3px' }}>Proyección: <b style={{ color: '#F43F5E' }}>{s.pct.toFixed(1)}%</b></div>
+                  <div style={{ fontSize: '13px', color: '#64748B', marginBottom: '4px' }}>Proyección: <b style={{ color: '#F43F5E' }}>{s.pct.toFixed(1)}%</b></div>
                   <div style={{ fontSize: '11px', color: '#94A3B8' }}>{s.votos.toLocaleString()} votos esperados</div>
                 </div>
               ))
             ) : (
-              <div style={{ textAlign: 'center', padding: '30px 10px', color: '#94A3B8', fontSize: '13px' }}>🎉 No hay secciones en riesgo crítico</div>
+              <div style={{ textAlign: 'center', padding: '40px 10px', color: '#94A3B8', fontSize: '13px' }}>🎉 No hay secciones en riesgo crítico</div>
             )}
           </div>
         </div>
