@@ -280,16 +280,16 @@ body {
   }
   to {
     opacity: 1;
-    /* Dashboard: Grid del Mapa Electoral de Alto Impacto (Estilo War Room) */
+/* Dashboard: Grid del Mapa Electoral de Alto Impacto (Estilo War Room) */
 .dashboard-mapa-grid {
   display: grid;
-  grid-template-columns: minmax(0, 2.5fr) minmax(320px, 1fr);
+  grid-template-columns: minmax(0, 2fr) minmax(280px, 1fr);
   gap: 20px;
   margin-bottom: 30px;
   align-items: stretch;
 }
 
-@media (max-width: 1024px) {
+@media (max-width: 768px) {
   .dashboard-mapa-grid {
     grid-template-columns: 1fr;
   }
