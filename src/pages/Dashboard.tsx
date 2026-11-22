@@ -241,34 +241,52 @@ export default function Dashboard() {
         <MapPin size={20} color="#00D4FF" /> Mapa Electoral y Prioridades
       </h3>
       
-      {/* GRID DE MAPA ELECTORAL EXPANDIDO (ESTILO WAR ROOM: 70% MAPA / 30% PRIORIDADES) */}
+      {/* GRID DE MAPA ELECTORAL EXPANDIDO (ESTILO WAR ROOM: 67% MAPA / 33% PRIORIDADES) */}
       <div className="dashboard-mapa-grid">
-        <div style={{ height: '560px', minHeight: '560px', borderRadius: '12px', overflow: 'hidden', boxShadow: '0 4px 12px rgba(0,0,0,0.08)' }}>
+        <div style={{ height: '480px', minHeight: '480px', borderRadius: '12px', overflow: 'hidden', boxShadow: '0 4px 12px rgba(0,0,0,0.08)' }}>
           <MapaSecciones datos={datosMapa} />
         </div>
 
-        <div style={{ background: 'white', borderRadius: '12px', padding: '22px', boxShadow: '0 4px 12px rgba(0, 0, 0, 0.08)', borderTop: '4px solid #F43F5E', height: '560px', overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
-            <AlertTriangle size={22} color="#F43F5E" />
-            <h3 style={{ color: '#F43F5E', fontSize: '16px', margin: 0, fontWeight: '800' }}>Prioridades de Hoy</h3>
+        <div style={{ background: 'white', borderRadius: '12px', padding: '20px', boxShadow: '0 4px 12px rgba(0, 0, 0, 0.08)', borderTop: '4px solid #F43F5E', height: '100%', maxHeight: '480px', overflowY: 'auto', display: 'flex', flexDirection: 'column', boxSizing: 'border-box' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+            <AlertTriangle size={20} color="#F43F5E" />
+            <h3 style={{ color: '#F43F5E', fontSize: '15px', margin: 0, fontWeight: '800' }}>Prioridades de Hoy</h3>
           </div>
-          <p style={{ fontSize: '12px', color: '#64748B', marginBottom: '16px', lineHeight: '1.4' }}>Secciones con mayor cantidad de votos en riesgo crítico.</p>
+          <p style={{ fontSize: '12px', color: '#64748B', marginBottom: '14px', lineHeight: '1.4' }}>Secciones con mayor cantidad de votos en riesgo crítico.</p>
 
           <div style={{ flex: 1 }}>
             {pronostico.seccionesEnRiesgo.length > 0 ? (
               pronostico.seccionesEnRiesgo.map((s, idx) => (
-                <div key={s.seccion} onClick={() => navigate(`/app/secciones?seccion=${s.seccion}`)} style={{ padding: '14px', background: idx === 0 ? '#FFE4E6' : '#F8FAFC', borderRadius: '10px', marginBottom: '10px', borderLeft: '4px solid #F43F5E', cursor: 'pointer', transition: 'all 0.15s' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-                    <strong style={{ fontSize: '14px', color: '#0F172A' }}>#{idx + 1} · Sec. {s.seccion}</strong>
-                    <span style={{ fontSize: '11px', fontWeight: 'bold', padding: '3px 8px', background: '#F43F5E', color: 'white', borderRadius: '4px' }}>ALTO</span>
+                <div key={s.seccion} onClick={() => navigate(`/app/secciones?seccion=${s.seccion}`)} style={{ padding: '12px', background: idx === 0 ? '#FFE4E6' : '#F8FAFC', borderRadius: '8px', marginBottom: '10px', borderLeft: '4px solid #F43F5E', cursor: 'pointer', transition: 'all 0.15s' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                    <strong style={{ fontSize: '13px', color: '#0F172A' }}>#{idx + 1} · Sec. {s.seccion}</strong>
+                    <span style={{ fontSize: '10px', fontWeight: 'bold', padding: '2px 6px', background: '#F43F5E', color: 'white', borderRadius: '4px' }}>ALTO</span>
                   </div>
-                  <div style={{ fontSize: '13px', color: '#64748B', marginBottom: '4px' }}>Proyección: <b style={{ color: '#F43F5E' }}>{s.pct.toFixed(1)}%</b></div>
+                  <div style={{ fontSize: '12px', color: '#64748B', marginBottom: '2px' }}>Proyección: <b style={{ color: '#F43F5E' }}>{s.pct.toFixed(1)}%</b></div>
                   <div style={{ fontSize: '11px', color: '#94A3B8' }}>{s.votos.toLocaleString()} votos esperados</div>
                 </div>
               ))
             ) : (
-              <div style={{ textAlign: 'center', padding: '40px 10px', color: '#94A3B8', fontSize: '13px' }}>🎉 No hay secciones en riesgo crítico</div>
+              <div style={{ textAlign: 'center', padding: '30px 10px', color: '#94A3B8', fontSize: '13px' }}>🎉 No hay secciones en riesgo crítico</div>
             )}
+          </div>
+
+          {/* Resumen táctico inferior: Llena armónicamente la tarjeta sin huecos blancos */}
+          <div style={{ marginTop: 'auto', paddingTop: '12px', borderTop: '1px solid #F1F5F9' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: '#64748B', marginBottom: '4px' }}>
+              <span>Secciones Seguras:</span>
+              <strong style={{ color: '#10B981' }}>{pronostico.seguras}</strong>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: '#64748B', marginBottom: '8px' }}>
+              <span>En Riesgo Crítico:</span>
+              <strong style={{ color: '#F43F5E' }}>{pronostico.riesgo}</strong>
+            </div>
+            <button 
+              onClick={() => navigate('/app/analisis')} 
+              style={{ width: '100%', padding: '8px', background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '6px', fontSize: '12px', fontWeight: 'bold', color: '#0F172A', cursor: 'pointer' }}
+            >
+              Ver Análisis Completo →
+            </button>
           </div>
         </div>
       </div>
