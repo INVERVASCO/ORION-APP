@@ -280,5 +280,19 @@ body {
   }
   to {
     opacity: 1;
+    /* Dashboard: Grid del Mapa Electoral de Alto Impacto (Estilo War Room) */
+.dashboard-mapa-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 2.5fr) minmax(320px, 1fr);
+  gap: 20px;
+  margin-bottom: 30px;
+  align-items: stretch;
+}
+
+@media (max-width: 1024px) {
+  .dashboard-mapa-grid {
+    grid-template-columns: 1fr;
+  }
+}
   }
 }
