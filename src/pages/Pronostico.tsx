@@ -42,10 +42,11 @@ export default function Pronostico() {
     const cargarDatos = async () => {
       setLoading(true);
 
-      const { data: seccionesData } = await supabase.from('secciones_electorales').select('id, numero_seccion, barrio_colonia_id');
-      const { data: resultadosData } = await supabase.from('resultados_casilla').select('*').eq('tipo_eleccion', 'Presidencial');
-      const { data: activismoData } = await supabase.from('activismo').select('barrio_colonia_id');
-      const { data: personasData } = await supabase.from('personas').select('barrio_colonia_id');
+// Carga ampliada sin el tope de 1,000 filas
+const { data: seccionesData } = await supabase.from('secciones_electorales').select('id, numero_seccion, barrio_colonia_id').limit(10000);
+const { data: resultadosData } = await supabase.from('resultados_casilla').select('*').eq('tipo_eleccion', 'Presidencial').limit(50000);
+const { data: activismoData } = await supabase.from('activismo').select('barrio_colonia_id').limit(50000);
+const { data: personasData } = await supabase.from('personas').select('barrio_colonia_id').limit(50000);
 
       if (!seccionesData || !resultadosData) {
         setLoading(false);
