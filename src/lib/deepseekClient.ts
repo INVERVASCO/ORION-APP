@@ -1,18 +1,51 @@
 import { supabase } from './supabaseClient';
-import { ORION_CONFIG } from './config'; // 🚀 IMPORTAMOS LA CONFIGURACIÓN
+import { ORION_CONFIG } from './config';
 
 const ORG_NAME = ORION_CONFIG.organizacionNombre;
 
-interface DeepSeekMessage { role: 'system' | 'user' | 'assistant'; content: string; }
-interface DeepSeekOptions { temperature?: number; model?: string; }
+interface DeepSeekMessage { 
+  role: 'system' | 'user' | 'assistant'; 
+  content: string; 
+}
+
+interface DeepSeekOptions { 
+  temperature?: number; 
+  model?: string; 
+}
+
+/**
+ * 🛡️ PROTOCOLO ZERO-PII (CUMPLIMIENTO LFPDPPP & AUDITORÍA A-03)
+ * Filtra automáticamente cualquier dato personal sensible antes de invocar la API externa.
+ */
+export function sanitizarPromptZeroPII(texto: string): string {
+  if (!texto) return '';
+
+  return texto
+    // 1. Teléfonos (10 dígitos o formatos con guiones/espacios)
+    .replace(/\b(\+?52\s?)?(\d{2,3}[-.\s]?\d{3,4}[-.\s]?\d{4})\b/g, '[TELÉFONO_PROTEGIDO]')
+    // 2. Correos electrónicos
+    .replace(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g, '[CORREO_PROTEGIDO]')
+    // 3. Claves de elector (18 caracteres alfanuméricos INE)
+    .replace(/\b[A-Z]{6}\d{8}[A-Z]\d{3}\b/g, '[CLAVE_ELECTOR_PROTEGIDA]')
+    // 4. CURP (18 caracteres)
+    .replace(/\b[A-Z]{4}\d{6}[HM][A-Z]{5}[A-Z0-9]\d\b/g, '[CURP_PROTEGIDO]')
+    // 5. Nombres propios precedidos por etiquetas comunes (C. / Don / Doña / Lic. / Ing. / Hermano / C.P.)
+    .replace(/(?:(?:C\.|Don|Doña|Lic\.|Ing\.|Profr\.|Dra?\.)\s+)([A-ZÁÉÍÓÚÑ][a-záéíóúñ]+(?:\s+[A-ZÁÉÍÓÚÑ][a-záéíóúñ]+)*)/g, '[CIUDADANO_PROTEGIDO]');
+}
 
 export async function invocarDeepSeek(
   messages: DeepSeekMessage[],
   { temperature = 0.4, model = 'deepseek-chat' }: DeepSeekOptions = {}
 ): Promise<string> {
   try {
+    // 🛡️ Sanitizamos todos los mensajes para garantizar CERO PII
+    const mensajesSanitizados = messages.map(m => ({
+      ...m,
+      content: sanitizarPromptZeroPII(m.content)
+    }));
+
     const { data, error } = await supabase.functions.invoke('deepseek-chat', {
-      body: { model, messages, temperature },
+      body: { model, messages: mensajesSanitizados, temperature },
     });
 
     if (error) throw new Error(error.message || 'Error al invocar la Edge Function');
