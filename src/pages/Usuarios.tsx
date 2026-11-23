@@ -1,59 +1,76 @@
 import { useEffect, useState } from 'react';
-import { Plus, Search, UserPlus, Edit3, X, Loader2, Shield, UserCheck, UserX, Mail, Phone, MapPin, KeyRound, AlertTriangle, RefreshCw, CheckCircle2 } from 'lucide-react';
+import { 
+  Users, UserPlus, Search, Shield, MapPin, 
+  CheckCircle2, XCircle, AlertTriangle, Key, Loader2, Sparkles, Filter, Trash2
+} from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
-import Toast from '../components/Toast';
 
 interface Usuario {
   id: string;
   nombre_completo: string;
-  email: string | null;
+  email: string;
   telefono: string | null;
-  rol: string;
+  rol: 'admin' | 'coordinador' | 'brigadista' | 'consulta';
   barrio_colonia_id: string | null;
   activo: boolean;
   created_at: string;
   ultimo_acceso: string | null;
-  barrios_colonias: { nombre: string } | null;
+  barrios_colonias?: { nombre: string } | null;
 }
 
-interface Barrio { id: string; nombre: string; }
-
-const ROLES = [
-  { value: 'admin', label: 'Administrador', desc: 'Acceso total al sistema' },
-  { value: 'coordinador', label: 'Coordinador', desc: 'Acceso a todo excepto gestión de usuarios' },
-  { value: 'brigadista', label: 'Brigadista', desc: 'Solo captura en su barrio asignado' },
-  { value: 'consulta', label: 'Consulta', desc: 'Solo lectura' },
-];
+interface Barrio {
+  id: string;
+  nombre: string;
+}
 
 const colorRol: Record<string, string> = {
-  'admin': '#9F2241', 'coordinador': '#6F1A2D', 'brigadista': '#B85671', 'consulta': '#666666',
+  admin: '#7C3AED',
+  coordinador: '#0066CC',
+  brigadista: '#00A651',
+  consulta: '#666666',
+};
+
+const labelRol: Record<string, string> = {
+  admin: 'Administrador',
+  coordinador: 'Coordinador',
+  brigadista: 'Brigadista',
+  consulta: 'Solo Lectura',
 };
 
 export default function Usuarios() {
   const [usuarios, setUsuarios] = useState<Usuario[]>([]);
-  const [barrios, setBarrios] = useState<Barrio[]>([]);
   const [filtrados, setFiltrados] = useState<Usuario[]>([]);
+  const [barrios, setBarrios] = useState<Barrio[]>([]);
   const [loading, setLoading] = useState(true);
-  const [busqueda, setBusqueda] = useState('');
-  const [filtroRol, setFiltroRol] = useState('');
-  const [modalCrear, setModalCrear] = useState(false);
-  const [usuarioEditar, setUsuarioEditar] = useState<Usuario | null>(null);
-  const [guardando, setGuardando] = useState(false);
-  const [toastVisible, setToastVisible] = useState(false);
-  const [toastMensaje, setToastMensaje] = useState('');
-
   const [errorCarga, setErrorCarga] = useState<string | null>(null);
-  const [diagnostico, setDiagnostico] = useState<{ estado: 'ok' | 'error' | 'cargando'; mensaje: string; detalle?: string; }>({ estado: 'cargando', mensaje: 'Verificando conexión...' });
-
-  const [nuevoUsuario, setNuevoUsuario] = useState({
-    nombre_completo: '', email: '', password: '', telefono: '', rol: 'brigadista', barrio_colonia_id: '',
+  const [busqueda, setBusqueda] = useState('');
+  const [filtroRol, setFiltroRol] = useState<string>('');
+  const [diagnostico, setDiagnostico] = useState<{ estado: 'cargando' | 'ok' | 'error'; mensaje: string; detalle?: string }>({
+    estado: 'cargando',
+    mensaje: 'Iniciando diagnóstico...',
   });
 
-  useEffect(() => { cargarDatos(); }, []);
+  const [modalCrear, setModalCrear] = useState(false);
+  const [guardando, setGuardando] = useState(false);
+  const [nuevoUsuario, setNuevoUsuario] = useState({
+    nombre_completo: '',
+    email: '',
+    password: '',
+    telefono: '',
+    rol: 'brigadista' as 'admin' | 'coordinador' | 'brigadista' | 'consulta',
+    barrio_colonia_id: '',
+  });
+
+  const [toastMensaje, setToastMensaje] = useState<string | null>(null);
+  const [toastVisible, setToastVisible] = useState(false);
+
+  useEffect(() => {
+    cargarDatos();
+  }, []);
 
   const cargarDatos = async () => {
-    setLoading(true); setErrorCarga(null); setDiagnostico({ estado: 'cargando', mensaje: 'Verificando conexión...' });
-
+    setLoading(true);
+    setErrorCarga(null);
     try {
       const { data: usersData, error: usersError } = await supabase
         .from('perfiles')
@@ -68,7 +85,6 @@ export default function Usuarios() {
 
       const { data: barriosData } = await supabase.from('barrios_colonias').select('id, nombre').order('nombre');
 
-      // Normalizar arreglos
       const usersNormalizados = (usersData || []).map((u: any) => ({
         ...u,
         barrios_colonias: Array.isArray(u.barrios_colonias) ? u.barrios_colonias[0] : u.barrios_colonias
@@ -98,7 +114,7 @@ export default function Usuarios() {
   const handleCrear = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // 🚀 VALIDACIÓN ESTRICTA DE CONTRASEÑA
+    // Validación de contraseña
     const passRegex = /^(?=.*[A-Z])(?=.*\d).{8,}$/;
     if (!passRegex.test(nuevoUsuario.password)) {
       setToastMensaje('La contraseña debe tener al menos 8 caracteres, una mayúscula y un número.');
@@ -109,6 +125,7 @@ export default function Usuarios() {
     setGuardando(true);
 
     try {
+      // 1. Invocar la Edge Function para crear usuario en Supabase Auth
       const { data, error } = await supabase.functions.invoke('create-user', {
         body: {
           email: nuevoUsuario.email.trim().toLowerCase(),
@@ -120,264 +137,210 @@ export default function Usuarios() {
         },
       });
 
-      if (error || data?.error) {
-        setToastMensaje('Error al crear usuario: ' + (error?.message || data?.error));
-        setToastVisible(true); setGuardando(false); return;
+      if (error) throw error;
+      if (data?.ok === false) throw new Error(data?.error || 'Error al crear usuario');
+
+      // 🛡️ AUDITORÍA BLINDADA (A-05): Registrar al Administrador real autenticado
+      const { data: { user: adminActual } } = await supabase.auth.getUser();
+      if (adminActual) {
+        await supabase.from('auditoria').insert([{
+          accion: 'CREAR_USUARIO',
+          tabla: 'perfiles',
+          registro_id: data?.user?.id || null,
+          valores_nuevos: {
+            email: nuevoUsuario.email,
+            nombre_completo: nuevoUsuario.nombre_completo,
+            rol: nuevoUsuario.rol,
+            creado_por_admin_id: adminActual.id
+          },
+          usuario_id: adminActual.id
+        }]);
       }
 
-      await cargarDatos();
+      setToastMensaje('¡Usuario creado correctamente y registrado en bitácora!');
+      setToastVisible(true);
       setModalCrear(false);
-      setNuevoUsuario({ nombre_completo: '', email: '', password: '', telefono: '', rol: 'brigadista', barrio_colonia_id: '' });
-      setToastMensaje(`¡${nuevoUsuario.nombre_completo} agregado al equipo!`);
-      setToastVisible(true);
+      setNuevoUsuario({
+        nombre_completo: '', email: '', password: '', telefono: '', rol: 'brigadista', barrio_colonia_id: ''
+      });
+      cargarDatos();
     } catch (err: any) {
-      setToastMensaje('Error inesperado: ' + (err.message || 'Intenta de nuevo'));
+      setToastMensaje('Error: ' + (err.message || 'No se pudo crear'));
       setToastVisible(true);
-    }
-    setGuardando(false);
-  };
-
-  const handleEditar = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!usuarioEditar) return;
-    setGuardando(true);
-
-    const { error } = await supabase.from('perfiles').update({
-      nombre_completo: usuarioEditar.nombre_completo,
-      telefono: usuarioEditar.telefono,
-      rol: usuarioEditar.rol,
-      barrio_colonia_id: usuarioEditar.barrio_colonia_id,
-      activo: usuarioEditar.activo,
-      fecha_expiracion: (usuarioEditar as any).fecha_expiracion
-    }).eq('id', usuarioEditar.id);
-
-    if (error) setToastMensaje('Error al actualizar: ' + error.message);
-    else { setUsuarios(usuarios.map(u => u.id === usuarioEditar.id ? usuarioEditar : u)); setUsuarioEditar(null); setToastMensaje('Usuario actualizado'); }
-    
-    setToastVisible(true); setGuardando(false);
-  };
-
-  const toggleActivo = async (usuario: Usuario) => {
-    const nuevoEstado = !usuario.activo;
-    const { error } = await supabase.from('perfiles').update({ activo: nuevoEstado }).eq('id', usuario.id);
-    if (!error) {
-      setUsuarios(usuarios.map(u => u.id === usuario.id ? { ...u, activo: nuevoEstado } : u));
-      setToastMensaje(`${usuario.nombre_completo} ${nuevoEstado ? 'activado' : 'desactivado'}`);
-      setToastVisible(true);
+    } finally {
+      setGuardando(false);
     }
   };
 
-  if (loading) return <div style={{ display: 'flex', justifyContent: 'center', padding: '50px', gap: '10px', color: '#9F2241' }}><Loader2 size={32} /> Cargando usuarios...</div>;
+  const handleToggleActivo = async (u: Usuario) => {
+    try {
+      const nuevoEstado = !u.activo;
+      const { error } = await supabase.from('perfiles').update({ activo: nuevoEstado }).eq('id', u.id);
+      if (error) throw error;
 
-  const totalActivos = usuarios.filter(u => u.activo).length;
-  const totalAdmin = usuarios.filter(u => u.rol === 'admin').length;
-  const totalBrigadistas = usuarios.filter(u => u.rol === 'brigadista').length;
+      // Auditoría de cambio de estado
+      const { data: { user: adminActual } } = await supabase.auth.getUser();
+      if (adminActual) {
+        await supabase.from('auditoria').insert([{
+          accion: nuevoEstado ? 'ACTIVAR_USUARIO' : 'DESACTIVAR_USUARIO',
+          tabla: 'perfiles',
+          registro_id: u.id,
+          valores_nuevos: { activo: nuevoEstado },
+          usuario_id: adminActual.id
+        }]);
+      }
+
+      setToastMensaje(`Usuario ${nuevoEstado ? 'activado' : 'desactivado'}`);
+      setToastVisible(true);
+      cargarDatos();
+    } catch (err: any) {
+      alert('Error al actualizar estado: ' + err.message);
+    }
+  };
 
   return (
     <div>
-      <h1 className="header-title">Gestión de Usuarios</h1>
-      <p style={{ marginBottom: '20px', color: '#666', fontSize: '14px' }}>Administra el equipo que usará el sistema, con roles y áreas asignadas.</p>
-
-      {diagnostico.estado === 'error' && (
-        <div style={{ background: '#FFEBEE', border: '1px solid #C62828', borderLeft: '5px solid #C62828', borderRadius: '8px', padding: '15px', marginBottom: '20px', display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
-          <AlertTriangle size={24} color="#C62828" style={{ flexShrink: 0, marginTop: '2px' }} />
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <h4 style={{ margin: '0 0 5px 0', color: '#C62828', fontSize: '15px' }}>⚠️ Problema de conexión detectado</h4>
-            <p style={{ margin: '0 0 5px 0', fontSize: '13px', color: '#555' }}>{diagnostico.mensaje}</p>
-            {diagnostico.detalle && <p style={{ margin: '0 0 10px 0', fontSize: '12px', color: '#888', fontStyle: 'italic', wordBreak: 'break-word' }}>Detalle técnico: {diagnostico.detalle}</p>}
-            <button onClick={cargarDatos} style={{ background: '#C62828', color: 'white', border: 'none', padding: '8px 16px', borderRadius: '6px', cursor: 'pointer', fontSize: '13px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <RefreshCw size={14} /> Reintentar
-            </button>
-          </div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '10px' }}>
+        <div>
+          <h1 className="header-title" style={{ marginBottom: '5px' }}>Gestión de Usuarios y Roles</h1>
+          <p style={{ color: '#666', fontSize: '14px' }}>Control de acceso por roles (RBAC) y bitácora de auditoría.</p>
         </div>
-      )}
-
-      {diagnostico.estado === 'ok' && usuarios.length > 0 && (
-        <div style={{ background: '#E8F5E9', borderLeft: '5px solid #2E7D32', borderRadius: '8px', padding: '10px 15px', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '10px', fontSize: '13px', color: '#2E7D32' }}>
-          <CheckCircle2 size={18} /> <span>{diagnostico.mensaje}</span>
-          <button onClick={cargarDatos} style={{ marginLeft: 'auto', background: 'none', border: 'none', color: '#2E7D32', cursor: 'pointer', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '4px', textDecoration: 'underline' }}>
-            <RefreshCw size={12} /> Refrescar
-          </button>
-        </div>
-      )}
-
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '12px', marginBottom: '25px' }}>
-        <div className="card" style={{ padding: '18px', textAlign: 'center', borderTop: '4px solid #9F2241', borderLeft: 'none' }}>
-          <Shield size={24} color="#9F2241" style={{ marginBottom: '6px' }} />
-          <div style={{ fontSize: '28px', fontWeight: 'bold', color: '#9F2241' }}>{totalActivos}</div>
-          <div style={{ fontSize: '12px', color: '#666', fontWeight: 'bold' }}>Usuarios activos</div>
-        </div>
-        <div className="card" style={{ padding: '18px', textAlign: 'center', borderTop: '4px solid #6F1A2D', borderLeft: 'none' }}>
-          <UserCheck size={24} color="#6F1A2D" style={{ marginBottom: '6px' }} />
-          <div style={{ fontSize: '28px', fontWeight: 'bold', color: '#6F1A2D' }}>{totalAdmin}</div>
-          <div style={{ fontSize: '12px', color: '#666', fontWeight: 'bold' }}>Administradores</div>
-        </div>
-        <div className="card" style={{ padding: '18px', textAlign: 'center', borderTop: '4px solid #B85671', borderLeft: 'none' }}>
-          <UserPlus size={24} color="#B85671" style={{ marginBottom: '6px' }} />
-          <div style={{ fontSize: '28px', fontWeight: 'bold', color: '#B85671' }}>{totalBrigadistas}</div>
-          <div style={{ fontSize: '12px', color: '#666', fontWeight: 'bold' }}>Brigadistas</div>
-        </div>
-      </div>
-
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', marginBottom: '20px', alignItems: 'center', justifyContent: 'space-between' }}>
         <button onClick={() => setModalCrear(true)} className="btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <Plus size={16} /> Nuevo Usuario
+          <UserPlus size={18} /> Nuevo Usuario
         </button>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '10px', marginBottom: '25px' }}>
-        <div style={{ position: 'relative' }}>
-          <Search size={18} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#999' }} />
-          <input type="text" placeholder="Buscar por nombre o correo..." value={busqueda} onChange={(e) => setBusqueda(e.target.value)} style={{ width: '100%', padding: '11px 11px 11px 40px', borderRadius: '6px', border: '1px solid #E0E0E0', fontSize: '14px', boxSizing: 'border-box' }} />
+      {toastVisible && (
+        <div style={{ position: 'fixed', bottom: '20px', right: '20px', background: '#0A1628', color: '#00D4FF', padding: '12px 20px', borderRadius: '8px', zIndex: 9999, border: '1px solid #00D4FF', boxShadow: '0 4px 15px rgba(0,212,255,0.3)' }}>
+          {toastMensaje}
+          <button onClick={() => setToastVisible(false)} style={{ marginLeft: '10px', background: 'none', border: 'none', color: '#fff', cursor: 'pointer' }}>✕</button>
         </div>
-        <select value={filtroRol} onChange={(e) => setFiltroRol(e.target.value)} style={{ padding: '11px', borderRadius: '6px', border: '1px solid #E0E0E0', fontSize: '14px', background: 'white' }}>
+      )}
+
+      {/* Buscador y Filtro */}
+      <div style={{ display: 'flex', gap: '10px', marginBottom: '20px', flexWrap: 'wrap' }}>
+        <div style={{ position: 'relative', flex: 1, minWidth: '240px' }}>
+          <Search size={18} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#999' }} />
+          <input
+            type="text"
+            placeholder="Buscar por nombre o correo..."
+            value={busqueda}
+            onChange={(e) => setBusqueda(e.target.value)}
+            style={{ width: '100%', padding: '10px 10px 10px 38px', borderRadius: '6px', border: '1px solid #E2E8F0', fontSize: '14px' }}
+          />
+        </div>
+        <select
+          value={filtroRol}
+          onChange={(e) => setFiltroRol(e.target.value)}
+          style={{ padding: '10px 14px', borderRadius: '6px', border: '1px solid #E2E8F0', fontSize: '14px', background: 'white' }}
+        >
           <option value="">Todos los roles</option>
-          {ROLES.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
+          <option value="admin">Administrador</option>
+          <option value="coordinador">Coordinador</option>
+          <option value="brigadista">Brigadista</option>
+          <option value="consulta">Solo Lectura</option>
         </select>
       </div>
 
-      {filtrados.length === 0 ? (
-        <div className="card" style={{ textAlign: 'center', padding: '40px 20px' }}>
-          <UserX size={40} color="#9F2241" style={{ opacity: 0.5, marginBottom: '15px' }} />
-          <p style={{ color: '#666', fontSize: '15px' }}>{usuarios.length === 0 ? 'Aún no hay usuarios registrados.' : 'No se encontraron resultados.'}</p>
+      {/* Tabla de Usuarios */}
+      {loading ? (
+        <div style={{ display: 'flex', justifyContent: 'center', padding: '50px', gap: '10px', color: '#0066CC' }}>
+          <Loader2 size={32} className="animate-spin" /> Cargando usuarios...
         </div>
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '15px' }}>
-          {filtrados.map(u => (
-            <div key={u.id} style={{ background: 'white', borderRadius: '10px', padding: '18px', boxShadow: '0 2px 8px rgba(0,0,0,0.06)', borderLeft: `4px solid ${u.activo ? colorRol[u.rol] || '#9F2241' : '#CCCCCC'}`, opacity: u.activo ? 1 : 0.65 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: 1, minWidth: 0 }}>
-                  <div style={{ background: u.activo ? colorRol[u.rol] || '#9F2241' : '#CCC', color: 'white', width: '40px', height: '40px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', fontSize: '16px', flexShrink: 0 }}>
-                    {u.nombre_completo.charAt(0).toUpperCase()}
-                  </div>
-                  <div style={{ minWidth: 0, flex: 1 }}>
-                    <h3 style={{ margin: 0, fontSize: '15px', wordBreak: 'break-word', color: '#333' }}>{u.nombre_completo}</h3>
-                    <span style={{ display: 'inline-block', marginTop: '3px', padding: '2px 8px', background: colorRol[u.rol] || '#9F2241', color: 'white', borderRadius: '10px', fontSize: '11px', fontWeight: 'bold' }}>
-                      {ROLES.find(r => r.value === u.rol)?.label || u.rol}
+        <div className="card" style={{ padding: '0', overflow: 'hidden' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '14px' }}>
+            <thead style={{ background: '#F8FAFC', borderBottom: '1px solid #E2E8F0' }}>
+              <tr>
+                <th style={{ padding: '12px 16px', color: '#64748B' }}>Nombre / Correo</th>
+                <th style={{ padding: '12px 16px', color: '#64748B' }}>Rol</th>
+                <th style={{ padding: '12px 16px', color: '#64748B' }}>Barrio Asignado</th>
+                <th style={{ padding: '12px 16px', color: '#64748B' }}>Estado</th>
+                <th style={{ padding: '12px 16px', color: '#64748B', textAlign: 'right' }}>Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtrados.map((u) => (
+                <tr key={u.id} style={{ borderBottom: '1px solid #F1F5F9' }}>
+                  <td style={{ padding: '12px 16px' }}>
+                    <div style={{ fontWeight: 'bold', color: '#0A1628' }}>{u.nombre_completo}</div>
+                    <div style={{ fontSize: '12px', color: '#64748B' }}>{u.email}</div>
+                  </td>
+                  <td style={{ padding: '12px 16px' }}>
+                    <span style={{ padding: '4px 8px', borderRadius: '12px', fontSize: '11px', fontWeight: 'bold', color: 'white', background: colorRol[u.rol] || '#666' }}>
+                      {labelRol[u.rol] || u.rol}
                     </span>
-                  </div>
-                </div>
-                {!u.activo && <span style={{ fontSize: '10px', background: '#FFEBEE', color: '#C62828', padding: '2px 8px', borderRadius: '10px', fontWeight: 'bold' }}>INACTIVO</span>}
-              </div>
-
-              {u.email && <div style={{ fontSize: '13px', color: '#555', display: 'flex', alignItems: 'center', gap: '6px', marginTop: '10px' }}><Mail size={14} color="#9F2241" /> {u.email}</div>}
-              {u.telefono && <div style={{ fontSize: '13px', color: '#555', display: 'flex', alignItems: 'center', gap: '6px', marginTop: '4px' }}><Phone size={14} color="#9F2241" /> {u.telefono}</div>}
-              {u.barrios_colonias?.nombre && <div style={{ fontSize: '13px', color: '#555', display: 'flex', alignItems: 'center', gap: '6px', marginTop: '4px' }}><MapPin size={14} color="#9F2241" /> {u.barrios_colonias.nombre}</div>}
-
-              <div style={{ display: 'flex', gap: '8px', marginTop: '12px', paddingTop: '10px', borderTop: '1px solid #EEE' }}>
-                <button onClick={() => setUsuarioEditar(u)} style={{ flex: 1, padding: '8px', background: '#F4F4F4', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '13px', fontWeight: 'bold', color: '#333', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '5px' }}>
-                  <Edit3 size={14} /> Editar
-                </button>
-                <button onClick={() => toggleActivo(u)} style={{ padding: '8px 12px', background: u.activo ? '#FFEBEE' : '#E8F5E9', border: 'none', borderRadius: '6px', cursor: 'pointer', color: u.activo ? '#C62828' : '#2E7D32', fontSize: '12px', fontWeight: 'bold' }}>
-                  {u.activo ? 'Desactivar' : 'Activar'}
-                </button>
-              </div>
-            </div>
-          ))}
+                  </td>
+                  <td style={{ padding: '12px 16px', color: '#334155' }}>
+                    {u.barrios_colonias?.nombre || <span style={{ color: '#94A3B8' }}>Todo el territorio</span>}
+                  </td>
+                  <td style={{ padding: '12px 16px' }}>
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '12px', fontWeight: 'bold', color: u.activo ? '#16A34A' : '#DC2626' }}>
+                      {u.activo ? <CheckCircle2 size={14} /> : <XCircle size={14} />}
+                      {u.activo ? 'Activo' : 'Inactivo'}
+                    </span>
+                  </td>
+                  <td style={{ padding: '12px 16px', textAlign: 'right' }}>
+                    <button
+                      onClick={() => handleToggleActivo(u)}
+                      style={{ padding: '6px 12px', borderRadius: '6px', border: '1px solid #CBD5E1', background: 'white', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold' }}
+                    >
+                      {u.activo ? 'Desactivar' : 'Activar'}
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
 
       {/* Modal Crear Usuario */}
       {modalCrear && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.65)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000, padding: '15px' }}>
-          <div style={{ background: 'white', padding: '28px', borderRadius: '12px', width: '100%', maxWidth: '520px', maxHeight: '90vh', overflowY: 'auto' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-              <h3 style={{ color: '#9F2241', fontSize: '18px', margin: 0 }}>Nuevo Usuario del Equipo</h3>
-              <button onClick={() => setModalCrear(false)} style={{ background: 'none', border: 'none', cursor: 'pointer' }}><X size={22} /></button>
-            </div>
-
-            <form onSubmit={handleCrear} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-              <div><label style={labelStyle}>Nombre completo *</label><input required type="text" placeholder="Nombre del usuario" value={nuevoUsuario.nombre_completo} onChange={(e) => setNuevoUsuario({ ...nuevoUsuario, nombre_completo: e.target.value })} style={inputStyle} /></div>
-              <div><label style={labelStyle}>Correo electrónico *</label><input required type="email" placeholder="correo@ejemplo.com" value={nuevoUsuario.email} onChange={(e) => setNuevoUsuario({ ...nuevoUsuario, email: e.target.value })} style={inputStyle} /></div>
-              
-              <div>
-                <label style={labelStyle}>Contraseña temporal *</label>
-                <div style={{ position: 'relative' }}>
-                  <KeyRound size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#999' }} />
-                  <input required type="text" minLength={8} placeholder="Mínimo 8 caracteres, 1 mayúscula y 1 número" value={nuevoUsuario.password} onChange={(e) => setNuevoUsuario({ ...nuevoUsuario, password: e.target.value })} style={{ ...inputStyle, paddingLeft: '36px' }} />
-                </div>
-                <p style={{ fontSize: '11px', color: '#999', marginTop: '4px' }}>El usuario deberá cambiarla al primer ingreso.</p>
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '20px' }}>
+          <div style={{ background: 'white', borderRadius: '12px', padding: '24px', width: '100%', maxWidth: '480px', boxShadow: '0 20px 40px rgba(0,0,0,0.2)' }}>
+            <h3 style={{ fontSize: '18px', fontWeight: 'bold', marginBottom: '15px', color: '#0A1628' }}>Crear Nuevo Usuario</h3>
+            <form onSubmit={handleCrear}>
+              <div style={{ marginBottom: '12px' }}>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', color: '#475569', marginBottom: '4px' }}>Nombre Completo</label>
+                <input required type="text" value={nuevoUsuario.nombre_completo} onChange={e => setNuevoUsuario({ ...nuevoUsuario, nombre_completo: e.target.value })} style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', border: '1px solid #CBD5E1' }} />
               </div>
-
-              <div><label style={labelStyle}>Teléfono</label><input type="tel" placeholder="7712345678" value={nuevoUsuario.telefono} onChange={(e) => setNuevoUsuario({ ...nuevoUsuario, telefono: e.target.value })} style={inputStyle} /></div>
-              
-              <div>
-                <label style={labelStyle}>Rol *</label>
-                <select value={nuevoUsuario.rol} onChange={(e) => setNuevoUsuario({ ...nuevoUsuario, rol: e.target.value })} style={inputStyle}>
-                  {ROLES.map(r => <option key={r.value} value={r.value}>{r.label} — {r.desc}</option>)}
-                </select>
+              <div style={{ marginBottom: '12px' }}>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', color: '#475569', marginBottom: '4px' }}>Correo Electrónico</label>
+                <input required type="email" value={nuevoUsuario.email} onChange={e => setNuevoUsuario({ ...nuevoUsuario, email: e.target.value })} style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', border: '1px solid #CBD5E1' }} />
               </div>
-
-              {nuevoUsuario.rol === 'brigadista' && (
+              <div style={{ marginBottom: '12px' }}>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', color: '#475569', marginBottom: '4px' }}>Contraseña Temporal (mínimo 8 caracteres, 1 mayúscula, 1 número)</label>
+                <input required type="password" value={nuevoUsuario.password} onChange={e => setNuevoUsuario({ ...nuevoUsuario, password: e.target.value })} style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', border: '1px solid #CBD5E1' }} />
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '16px' }}>
                 <div>
-                  <label style={labelStyle}>Barrio / Colonia asignada *</label>
-                  <select value={nuevoUsuario.barrio_colonia_id} onChange={(e) => setNuevoUsuario({ ...nuevoUsuario, barrio_colonia_id: e.target.value })} style={inputStyle}>
-                    <option value="">Selecciona un barrio</option>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', color: '#475569', marginBottom: '4px' }}>Rol</label>
+                  <select value={nuevoUsuario.rol} onChange={e => setNuevoUsuario({ ...nuevoUsuario, rol: e.target.value as any })} style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', border: '1px solid #CBD5E1', background: 'white' }}>
+                    <option value="brigadista">Brigadista</option>
+                    <option value="coordinador">Coordinador</option>
+                    <option value="consulta">Solo Lectura</option>
+                    <option value="admin">Administrador</option>
+                  </select>
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', color: '#475569', marginBottom: '4px' }}>Barrio Asignado</label>
+                  <select value={nuevoUsuario.barrio_colonia_id} onChange={e => setNuevoUsuario({ ...nuevoUsuario, barrio_colonia_id: e.target.value })} style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', border: '1px solid #CBD5E1', background: 'white' }}>
+                    <option value="">Ninguno / General</option>
                     {barrios.map(b => <option key={b.id} value={b.id}>{b.nombre}</option>)}
                   </select>
                 </div>
-              )}
-
-              <div style={{ fontSize: '12px', color: '#666', padding: '10px', background: '#FFF8E1', borderRadius: '6px', borderLeft: '3px solid #F9A825' }}>
-                El usuario podrá acceder inmediatamente con el correo y contraseña que definas.
               </div>
-              
-              <div style={{ display: 'flex', gap: '10px', marginTop: '5px' }}>
-                <button type="button" onClick={() => setModalCrear(false)} style={btnSecundario}>Cancelar</button>
-                <button type="submit" className="btn-primary" style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }} disabled={guardando}>
-                  {guardando ? <><Loader2 size={16} /> Creando...</> : 'Crear Usuario'}
+              <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+                <button type="button" onClick={() => setModalCrear(false)} style={{ padding: '8px 16px', borderRadius: '6px', border: '1px solid #CBD5E1', background: 'white', cursor: 'pointer' }}>Cancelar</button>
+                <button type="submit" disabled={guardando} className="btn-primary" style={{ padding: '8px 20px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  {guardando ? <Loader2 size={16} className="animate-spin" /> : null} {guardando ? 'Creando...' : 'Crear Usuario'}
                 </button>
               </div>
             </form>
           </div>
         </div>
       )}
-
-      {/* Modal Editar Usuario */}
-      {usuarioEditar && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.65)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000, padding: '15px' }}>
-          <div style={{ background: 'white', padding: '28px', borderRadius: '12px', width: '100%', maxWidth: '520px', maxHeight: '90vh', overflowY: 'auto' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-              <h3 style={{ color: '#9F2241', fontSize: '18px', margin: 0 }}>Editar Usuario</h3>
-              <button onClick={() => setUsuarioEditar(null)} style={{ background: 'none', border: 'none', cursor: 'pointer' }}><X size={22} /></button>
-            </div>
-
-            <form onSubmit={handleEditar} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-              <div><label style={labelStyle}>Nombre completo *</label><input required type="text" value={usuarioEditar.nombre_completo} onChange={(e) => setUsuarioEditar({ ...usuarioEditar, nombre_completo: e.target.value })} style={inputStyle} /></div>
-              <div><label style={labelStyle}>Teléfono</label><input type="tel" value={usuarioEditar.telefono || ''} onChange={(e) => setUsuarioEditar({ ...usuarioEditar, telefono: e.target.value })} style={inputStyle} /></div>
-              <div>
-                <label style={labelStyle}>Rol *</label>
-                <select value={usuarioEditar.rol} onChange={(e) => setUsuarioEditar({ ...usuarioEditar, rol: e.target.value })} style={inputStyle}>
-                  {ROLES.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
-                </select>
-              </div>
-              <div>
-                <label style={labelStyle}>Barrio / Colonia asignada</label>
-                <select value={usuarioEditar.barrio_colonia_id || ''} onChange={(e) => setUsuarioEditar({ ...usuarioEditar, barrio_colonia_id: e.target.value || null })} style={inputStyle}>
-                  <option value="">Sin asignar</option>
-                  {barrios.map(b => <option key={b.id} value={b.id}>{b.nombre}</option>)}
-                </select>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px', background: '#F9F9F9', borderRadius: '6px' }}>
-                <input type="checkbox" id="activo-check" checked={usuarioEditar.activo} onChange={(e) => setUsuarioEditar({ ...usuarioEditar, activo: e.target.checked })} style={{ width: '18px', height: '18px', cursor: 'pointer' }} />
-                <label htmlFor="activo-check" style={{ cursor: 'pointer', fontSize: '14px', fontWeight: 'bold' }}>Usuario activo (puede iniciar sesión)</label>
-              </div>
-              <div style={{ display: 'flex', gap: '10px', marginTop: '5px' }}>
-                <button type="button" onClick={() => setUsuarioEditar(null)} style={btnSecundario}>Cancelar</button>
-                <button type="submit" className="btn-primary" style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }} disabled={guardando}>
-                  {guardando ? <><Loader2 size={16} /> Guardando...</> : 'Guardar Cambios'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      <Toast mensaje={toastMensaje} visible={toastVisible} onClose={() => setToastVisible(false)} />
     </div>
   );
 }
-
-const labelStyle: React.CSSProperties = { display: 'block', marginBottom: '5px', fontWeight: 'bold', fontSize: '14px' };
-const inputStyle: React.CSSProperties = { width: '100%', padding: '11px', borderRadius: '6px', border: '1px solid #E0E0E0', fontSize: '15px', boxSizing: 'border-box' };
-const btnSecundario: React.CSSProperties = { flex: 1, padding: '12px', background: '#EEE', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' };
