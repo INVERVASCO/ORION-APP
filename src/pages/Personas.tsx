@@ -1,46 +1,32 @@
 import { useEffect, useState, useRef } from 'react';
 import { 
-  Users, UserPlus, Search, Filter, Phone, MapPin, 
-  Trash2, Edit3, X, Download, AlertTriangle, Send,
-  ChevronLeft, ChevronRight, FileSpreadsheet, Sparkles, Loader2
+  Search, User, Phone, Briefcase, MapPin, Download, Edit3, Trash2, 
+  X, Loader2, Users, CheckCircle2, AlertTriangle, Shield, Plus, ChevronLeft, ChevronRight,
+  Send
 } from 'lucide-react';
 import html2canvas from 'html2canvas';
-import ExcelJS from 'exceljs';
-import { saveAs } from 'file-saver';
 import { supabase } from '../lib/supabaseClient';
+import Toast from '../components/Toast';
+import AvisoPrivacidad from '../components/AvisoPrivacidad';
+import TarjetaSelector from '../components/TarjetaSelector';
 import TarjetaPremium from '../components/TarjetaPremium';
-import SelectorTarjeta from '../components/SelectorTarjeta';
-import ModalAvisoPrivacidad from '../components/ModalAvisoPrivacidad';
+import { offlineInsert } from '../lib/syncManager';
 import { PARTIDOS_DB } from '../lib/config';
 
 interface Persona {
-  id: string;
-  nombre_completo: string;
-  telefono: string | null;
-  correo_electronico: string | null;
-  ocupacion: string | null;
-  direccion: string | null;
-  preferencia_voto: string | null;
-  barrio_colonia_id: string | null;
-  created_at: string;
-  barrios_colonias?: { nombre: string } | null;
+  id: string; nombre_completo: string; telefono: string | null; ocupacion: string | null;
+  correo_electronico: string | null; direccion: string | null; preferencia_voto: string | null;
+  barrio_colonia_id: string | null; created_at: string; barrios_colonias: { nombre: string } | null;
 }
 
-interface Barrio { id: string; nombre: string; }
-interface ConfirmModalData {
-  visible: boolean;
-  titulo: string;
-  mensaje: string;
-  tipo: 'danger' | 'success' | 'warning';
-  onConfirm: () => void;
-}
+interface ConfirmModalData { visible: boolean; titulo: string; mensaje: string; tipo: 'danger' | 'success' | 'warning'; onConfirm: () => void; }
 
 export default function Personas() {
   const [personas, setPersonas] = useState<Persona[]>([]);
-  const [barrios, setBarrios] = useState<Barrio[]>([]);
+  const [barrios, setBarrios] = useState<{ id: string; nombre: string }[]>([]);
   const [loading, setLoading] = useState(true);
   const [userRole, setUserRole] = useState<string | null>(null);
-
+  
   const [page, setPage] = useState(0);
   const [totalCount, setTotalCount] = useState(0);
   const PAGE_SIZE = 50;
@@ -71,10 +57,7 @@ export default function Personas() {
   useEffect(() => {
     const fetchRole = async () => {
       const { data: { user } } = await supabase.auth.getUser();
-      if (user) { 
-        const { data } = await supabase.from('perfiles').select('rol').eq('id', user.id).single(); 
-        if (data) setUserRole(data.rol); 
-      }
+      if (user) { const { data } = await supabase.from('perfiles').select('rol').eq('id', user.id).single(); if (data) setUserRole(data.rol); }
     };
     fetchRole();
   }, []);
@@ -101,10 +84,7 @@ export default function Personas() {
   };
 
   useEffect(() => {
-    const fetchBarrios = async () => { 
-      const { data } = await supabase.from('barrios_colonias').select('id, nombre').order('nombre'); 
-      if (data) setBarrios(data); 
-    };
+    const fetchBarrios = async () => { const { data } = await supabase.from('barrios_colonias').select('id, nombre').order('nombre'); if (data) setBarrios(data); };
     fetchBarrios();
   }, []);
 
@@ -126,6 +106,7 @@ export default function Personas() {
     setToastVisible(true);
   };
 
+  // 🚀 EFECTO PARA CAPTURAR LA IMAGEN
   useEffect(() => {
     if (!datosTarjeta || !tarjetaRef.current || !personaSeleccionada) return;
 
@@ -148,53 +129,60 @@ export default function Personas() {
           }
 
           const file = new File([blob], `tarjeta_${datosTarjeta.tipo}.png`, { type: 'image/png' });
+          
+          // Fix estricto: móvil vs PC
           const isMobile = /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || window.innerWidth < 768;
 
           if (isMobile && navigator.canShare && navigator.canShare({ files: [file] })) {
             await navigator.share({
               files: [file],
               title: 'Una tarjeta para ti',
-              text: `Hola ${personaSeleccionada.nombre_completo}, te comparto este pase especial.`
+              text: '¡Hola! Te compartimos esta tarjeta especial.'
             });
-            setToastMensaje('✅ ¡Enviado con éxito!');
+            setToastMensaje('✅ Tarjeta compartida con éxito');
           } else {
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = `Pase_${personaSeleccionada.nombre_completo.replace(/\s+/g, '_')}.png`;
+            a.download = `tarjeta_${datosTarjeta.tipo}_${personaSeleccionada.nombre_completo.replace(/\s+/g, '_')}.png`;
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
-            URL.revokeObjectURL(url);
-            setToastMensaje('💾 Pase descargado');
+            setTimeout(() => URL.revokeObjectURL(url), 100);
+            setToastMensaje('📥 Tarjeta descargada. Revisa tus descargas.');
           }
           setToastVisible(true);
-          setDatosTarjeta(null);
+          setDatosTarjeta(null); 
         }, 'image/png');
-      } catch (err) {
-        console.error('Error al generar imagen:', err);
-        setToastMensaje('❌ No se pudo generar la imagen');
-        setToastVisible(true);
-        setDatosTarjeta(null);
+
+      } catch (error) {
+        console.error('Error generando tarjeta:', error);
+        setToastMensaje('❌ Error al generar la imagen.');
+        setToastVisible(true); setDatosTarjeta(null);
       }
     };
 
-    const timer = setTimeout(ejecutarCaptura, 300);
+    const timer = setTimeout(ejecutarCaptura, 200);
     return () => clearTimeout(timer);
-  }, [datosTarjeta]);
+  }, [datosTarjeta, personaSeleccionada]);
 
   const handleCrearPersona = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!aceptoAviso) { alert('Debes confirmar que el titular aceptó el Aviso de Privacidad.'); return; }
+    if (!personaNueva) return;
+    if (!aceptoAviso) { setToastMensaje('Debes confirmar el Aviso de Privacidad.'); setToastVisible(true); return; }
+
     setGuardando(true);
-    const { error } = await supabase.from('personas').insert([personaNueva]);
-    if (!error) {
-      setPersonaNueva(null);
-      fetchPersonas();
-      setToastMensaje('Persona registrada con éxito');
-      setToastVisible(true);
-    } else {
-      alert('Error al registrar: ' + error.message);
+    const payloadLimpio = {
+      nombre_completo: personaNueva.nombre_completo, telefono: personaNueva.telefono || null, correo_electronico: personaNueva.correo_electronico || null,
+      ocupacion: personaNueva.ocupacion || null, direccion: personaNueva.direccion || null, barrio_colonia_id: personaNueva.barrio_colonia_id || null,
+      preferencia_voto: personaNueva.preferencia_voto || null, consentimiento_aceptado: true, fecha_consentimiento: new Date().toISOString(),
+      origen_captura: 'Captura manual', created_at: new Date().toISOString()
+    };
+
+    const res = await offlineInsert('personas', payloadLimpio);
+    if (res.ok) {
+      setPersonaNueva(null); setAceptoAviso(false);
+      setToastMensaje(res.queued ? '📡 Sin señal: Persona guardada localmente.' : `¡${payloadLimpio.nombre_completo} registrado!`); setToastVisible(true); fetchPersonas();
     }
     setGuardando(false);
   };
@@ -202,93 +190,46 @@ export default function Personas() {
   const handleGuardarEdicion = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!personaEditar) return;
+    if (!aceptoAviso) { setToastMensaje('Debes confirmar el Aviso de Privacidad.'); setToastVisible(true); return; }
+
     setGuardando(true);
     const { error } = await supabase.from('personas').update({
-      nombre_completo: personaEditar.nombre_completo,
-      telefono: personaEditar.telefono,
-      correo_electronico: personaEditar.correo_electronico,
-      ocupacion: personaEditar.ocupacion,
-      direccion: personaEditar.direccion,
-      barrio_colonia_id: personaEditar.barrio_colonia_id,
-      preferencia_voto: personaEditar.preferencia_voto
-    }).eq('id', personaEditar.id);
+        nombre_completo: personaEditar.nombre_completo, telefono: personaEditar.telefono, ocupacion: personaEditar.ocupacion,
+        correo_electronico: personaEditar.correo_electronico, direccion: personaEditar.direccion,
+        preferencia_voto: personaEditar.preferencia_voto, barrio_colonia_id: personaEditar.barrio_colonia_id,
+      }).eq('id', personaEditar.id);
 
-    if (!error) {
-      setPersonaEditar(null);
-      fetchPersonas();
-      setToastMensaje('Cambios guardados');
-      setToastVisible(true);
-    } else {
-      alert('Error al actualizar: ' + error.message);
-    }
-    setGuardando(false);
+    if (error) setToastMensaje('Error al guardar: ' + error.message);
+    else { setPersonaEditar(null); setAceptoAviso(false); setToastMensaje('¡Datos actualizados!'); fetchPersonas(); }
+    setToastVisible(true); setGuardando(false);
   };
 
   const handleEliminar = (id: string, nombre: string) => {
-    if (userRole !== 'admin' && userRole !== 'coordinador') {
-      setToastMensaje('⚠️ Permiso denegado.');
-      setToastVisible(true);
-      return;
-    }
-    mostrarConfirm(
-      '¿Eliminar registro?',
-      `Se borrará a "${nombre}" del padrón. Esta acción queda en bitácora.`,
-      'danger',
-      async () => {
-        const { error } = await supabase.from('personas').delete().eq('id', id);
-        if (!error) {
-          fetchPersonas();
-          setToastMensaje('Persona eliminada');
-          setToastVisible(true);
-        } else {
-          alert('Error al eliminar: ' + error.message);
-        }
-        cerrarConfirm();
-      }
-    );
+    mostrarConfirm('¿Eliminar esta persona?', `Se eliminará a "${nombre}" del directorio.`, 'danger', async () => {
+      cerrarConfirm(); const { error } = await supabase.from('personas').delete().eq('id', id);
+      if (error) { setToastMensaje('Error al eliminar: ' + error.message); setToastVisible(true); }
+      else { setToastMensaje(`${nombre} eliminado`); setToastVisible(true); fetchPersonas(); }
+    });
   };
 
-  const exportarExcel = async () => {
-    if (userRole === 'consulta') {
-      setToastMensaje('⚠️ El rol de Solo Lectura no tiene permisos para descargar el padrón.');
-      setToastVisible(true);
-      return;
-    }
-    setToastMensaje('Exportando datos...');
-    setToastVisible(true);
-
-    const { data } = await supabase.from('personas').select('nombre_completo, telefono, correo_electronico, ocupacion, direccion, preferencia_voto, barrios_colonias(nombre)').limit(50000);
+  const handleExportarCSV = async () => {
+    if (userRole !== 'admin' && userRole !== 'coordinador') { setToastMensaje('⚠️ Permiso denegado.'); setToastVisible(true); return; }
+    setToastMensaje('Generando CSV...'); setToastVisible(true);
+    const { data } = await supabase.from('personas').select('*, barrios_colonias(nombre)');
     if (!data || data.length === 0) return;
 
-    const workbook = new ExcelJS.Workbook();
-    const worksheet = workbook.addWorksheet('Padrón');
-    worksheet.columns = [
-      { header: 'Nombre Completo', key: 'nombre', width: 30 },
-      { header: 'Teléfono', key: 'telefono', width: 18 },
-      { header: 'Correo', key: 'correo', width: 25 },
-      { header: 'Ocupación', key: 'ocupacion', width: 20 },
-      { header: 'Dirección', key: 'direccion', width: 30 },
-      { header: 'Colonia / Barrio', key: 'barrio', width: 25 },
-      { header: 'Preferencia', key: 'preferencia', width: 20 },
-    ];
+    const encabezados = ['Nombre', 'Teléfono', 'Ocupación', 'Correo', 'Dirección', 'Preferencia Voto', 'Barrio/Colonia'];
+    const filas = data.map(p => [ p.nombre_completo, p.telefono || '', p.ocupacion || '', p.correo_electronico || '', p.direccion || '', p.preferencia_voto || '', (Array.isArray(p.barrios_colonias) ? p.barrios_colonias[0]?.nombre : p.barrios_colonias?.nombre) || '' ]);
 
-    data.forEach((p: any) => {
-      worksheet.addRow({
-        nombre: p.nombre_completo,
-        telefono: p.telefono || 'N/A',
-        correo: p.correo_electronico || 'N/A',
-        ocupacion: p.ocupacion || 'N/A',
-        direccion: p.direccion || 'N/A',
-        barrio: p.barrios_colonias?.nombre || 'Sin asignar',
-        preferencia: p.preferencia_voto || 'Sin definir'
-      });
-    });
-
-    const buffer = await workbook.xlsx.writeBuffer();
-    saveAs(new Blob([buffer]), `Padron_ORION_${new Date().toISOString().slice(0, 10)}.xlsx`);
+    const escapar = (val: string) => { let limpio = (val || '').replace(/"/g, '""'); if (/^[=+\-@]/.test(limpio)) limpio = "'" + limpio; return `"${limpio}"`; };
+    const csv = [encabezados.map(escapar).join(','), ...filas.map(fila => fila.map(escapar).join(','))].join('\n');
+    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob); const link = document.createElement('a'); link.href = url;
+    link.download = `personas_${new Date().toISOString().split('T')[0]}.csv`; link.click(); URL.revokeObjectURL(url);
+    setToastMensaje(`Se exportaron ${data.length} registros`); setToastVisible(true);
   };
 
-  // 🛡️ FUNCIÓN DE ENMASCARAMIENTO PARA ROL CONSULTA (A-02)
+  // 🛡️ ENMASCARAMIENTO DE PRIVACIDAD PARA ROL CONSULTA (AUDITORÍA A-02)
   const enmascararTelefono = (tel: string | null) => {
     if (!tel) return '';
     if (userRole === 'consulta') {
@@ -305,50 +246,31 @@ export default function Personas() {
 
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '10px' }}>
-        <div>
-          <h1 className="header-title" style={{ marginBottom: '5px' }}>Estructura Territorial de Personas</h1>
-          <p style={{ color: '#666', fontSize: '14px' }}>Padrón territorial activo: {totalCount} ciudadanos registrados.</p>
-        </div>
-        <div style={{ display: 'flex', gap: '10px' }}>
-          {userRole !== 'consulta' && (
-            <button onClick={exportarExcel} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 16px', background: 'white', border: '1px solid #CBD5E1', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', color: '#0F172A' }}>
-              <FileSpreadsheet size={18} color="#10B981" /> Exportar Padrón
-            </button>
+      <h1 className="header-title">Directorio de Personas</h1>
+      
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', marginBottom: '20px', alignItems: 'center', justifyContent: 'space-between' }}>
+        <p style={{ margin: 0, fontSize: '15px', fontWeight: 'bold', color: '#00D4FF' }}><Users size={18} style={{ verticalAlign: 'middle', marginRight: '6px' }} />{totalCount.toLocaleString()} personas registradas</p>
+        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+          {(userRole === 'admin' || userRole === 'coordinador') && (
+            <button onClick={handleExportarCSV} style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '14px', padding: '12px 20px', background: 'white', color: '#0066CC', border: '2px solid #0066CC', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}><Download size={16} /> Exportar Todo a CSV</button>
           )}
           {userRole !== 'consulta' && (
-            <button onClick={abrirModalNueva} className="btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <UserPlus size={18} /> Registrar Persona
-            </button>
+            <button onClick={abrirModalNueva} className="btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '14px' }}><Plus size={16} /> Nueva Persona</button>
           )}
         </div>
       </div>
 
-      {toastVisible && (
-        <div style={{ position: 'fixed', bottom: '20px', right: '20px', background: '#0A1628', color: '#00D4FF', padding: '12px 20px', borderRadius: '8px', zIndex: 9999, border: '1px solid #00D4FF', boxShadow: '0 4px 15px rgba(0,212,255,0.3)' }}>
-          {toastMensaje}
-          <button onClick={() => setToastVisible(false)} style={{ marginLeft: '10px', background: 'none', border: 'none', color: '#fff', cursor: 'pointer' }}>✕</button>
-        </div>
-      )}
-
-      {/* Buscador y Filtros */}
-      <div style={{ display: 'flex', gap: '10px', marginBottom: '20px', flexWrap: 'wrap' }}>
-        <div style={{ position: 'relative', flex: 1, minWidth: '240px' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '10px', marginBottom: '25px' }}>
+        <div style={{ position: 'relative' }}>
           <Search size={18} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#999' }} />
-          <input
-            type="text"
-            placeholder="Buscar por nombre..."
-            value={busqueda}
-            onChange={(e) => setBusqueda(e.target.value)}
-            style={{ width: '100%', padding: '10px 10px 10px 38px', borderRadius: '6px', border: '1px solid #E2E8F0', fontSize: '14px' }}
-          />
+          <input type="text" placeholder="Buscar nombre..." value={busqueda} onChange={(e) => setBusqueda(e.target.value)} style={{ width: '100%', padding: '11px 11px 11px 40px', borderRadius: '6px', border: '1px solid #E2E8F0', fontSize: '14px', boxSizing: 'border-box' }} />
         </div>
-        <select value={filtroBarrio} onChange={(e) => setFiltroBarrio(e.target.value)} style={{ padding: '10px 14px', borderRadius: '6px', border: '1px solid #E2E8F0', fontSize: '14px', background: 'white' }}>
-          <option value="">Todas las colonias</option>
+        <select value={filtroBarrio} onChange={(e) => setFiltroBarrio(e.target.value)} style={{ padding: '11px', borderRadius: '6px', border: '1px solid #E2E8F0', fontSize: '14px', background: 'white' }}>
+          <option value="">Todos los barrios/colonias</option>
           {barrios.map(b => <option key={b.id} value={b.id}>{b.nombre}</option>)}
         </select>
-        <select value={filtroVoto} onChange={(e) => setFiltroVoto(e.target.value)} style={{ padding: '10px 14px', borderRadius: '6px', border: '1px solid #E2E8F0', fontSize: '14px', background: 'white' }}>
-          <option value="">Todas las simpatías</option>
+        <select value={filtroVoto} onChange={(e) => setFiltroVoto(e.target.value)} style={{ padding: '11px', borderRadius: '6px', border: '1px solid #E2E8F0', fontSize: '14px', background: 'white' }}>
+          <option value="">Todas las preferencias</option>
           {PARTIDOS_DB.map(p => <option key={p.key} value={p.nombre}>{p.nombre}</option>)}
           <option value="Indeciso">Indeciso</option>
           <option value="Otro">Otro</option>
@@ -356,185 +278,100 @@ export default function Personas() {
       </div>
 
       {loading ? (
-        <div style={{ display: 'flex', justifyContent: 'center', padding: '50px', gap: '10px', color: '#00D4FF' }}>
-          <Loader2 size={32} className="animate-spin" /> Cargando padrón territorial...
-        </div>
+        <div style={{ display: 'flex', justifyContent: 'center', padding: '50px', color: '#00D4FF' }}><Loader2 size={32} className="animate-spin" /> Buscando en el servidor...</div>
       ) : personas.length === 0 ? (
-        <div className="card" style={{ textAlign: 'center', padding: '40px', color: '#64748B' }}>
-          No se encontraron personas con los filtros seleccionados.
-        </div>
+        <div className="card" style={{ textAlign: 'center', padding: '40px 20px' }}><User size={40} color="#00D4FF" style={{ opacity: 0.5, marginBottom: '15px' }} /><p style={{ color: '#64748B', fontSize: '15px' }}>No se encontraron resultados.</p></div>
       ) : (
         <>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '15px' }}>
-            {personas.map((p) => {
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '15px', marginBottom: '20px' }}>
+            {personas.map(p => {
               const partidoInfo = PARTIDOS_DB.find(part => part.nombre === p.preferencia_voto);
               const colorBadge = partidoInfo ? partidoInfo.color : '#64748B';
               
               return (
-                <div key={p.id} style={{ background: 'white', borderRadius: '10px', padding: '16px', boxShadow: '0 2px 8px rgba(0,0,0,0.06)', borderLeft: '4px solid #00D4FF', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1, minWidth: 0 }}>
-                    <div style={{ background: '#00D4FF', color: '#0A1628', width: '36px', height: '36px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', fontSize: '15px', flexShrink: 0 }}>
-                      {p.nombre_completo.charAt(0).toUpperCase()}
-                    </div>
-                    <div style={{ minWidth: 0, flex: 1 }}>
-                      <h3 style={{ margin: 0, fontSize: '14px', wordBreak: 'break-word', color: '#0F172A' }}>{p.nombre_completo}</h3>
-                      {p.preferencia_voto && (
-                        <span style={{ display: 'inline-block', marginTop: '3px', padding: '2px 8px', background: colorBadge, color: 'white', borderRadius: '10px', fontSize: '10px', fontWeight: 'bold' }}>
-                          {p.preferencia_voto}
-                        </span>
-                      )}
-                    </div>
+              <div key={p.id} style={{ background: 'white', borderRadius: '10px', padding: '18px', boxShadow: '0 2px 8px rgba(0,0,0,0.06)', borderLeft: '4px solid #00D4FF', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1, minWidth: 0 }}>
+                  <div style={{ background: '#00D4FF', color: 'white', width: '36px', height: '36px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', fontSize: '15px', flexShrink: 0 }}>{p.nombre_completo.charAt(0).toUpperCase()}</div>
+                  <div style={{ minWidth: 0, flex: 1 }}>
+                    <h3 style={{ margin: 0, fontSize: '15px', wordBreak: 'break-word', color: '#0F172A' }}>{p.nombre_completo}</h3>
+                    {p.preferencia_voto && (
+                      <span style={{ display: 'inline-block', marginTop: '3px', padding: '2px 8px', background: colorBadge, color: 'white', borderRadius: '10px', fontSize: '11px', fontWeight: 'bold' }}>
+                        {p.preferencia_voto}
+                      </span>
+                    )}
                   </div>
-
-                  {p.telefono && (
-                    <div style={{ fontSize: '12px', color: '#475569', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <Phone size={13} color="#00D4FF" /> {enmascararTelefono(p.telefono)}
-                      {userRole === 'consulta' && <span style={{ fontSize: '9px', color: '#94A3B8' }}>(Protegido LFPDPPP)</span>}
-                    </div>
-                  )}
-
-                  {p.barrios_colonias?.nombre && (
-                    <div style={{ fontSize: '12px', color: '#475569', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <MapPin size={13} color="#00D4FF" /> {p.barrios_colonias.nombre}
-                    </div>
-                  )}
-                  
-                  {/* Botones de acción protegidos para no-consulta */}
+                </div>
+                {p.telefono && <div style={{ fontSize: '13px', color: '#475569', display: 'flex', alignItems: 'center', gap: '6px' }}><Phone size={14} color="#00D4FF" /> {enmascararTelefono(p.telefono)}</div>}
+                {p.barrios_colonias?.nombre && <div style={{ fontSize: '13px', color: '#475569', display: 'flex', alignItems: 'center', gap: '6px' }}><MapPin size={14} color="#00D4FF" /> {p.barrios_colonias.nombre}</div>}
+                
+                <div style={{ display: 'flex', gap: '8px', marginTop: '8px', paddingTop: '10px', borderTop: '1px solid #E2E8F0' }}>
+                  <button onClick={() => abrirSelectorTarjeta(p)} style={{ flex: 1, padding: '8px', background: '#E0F2FE', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '13px', fontWeight: 'bold', color: '#0284C7', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '5px' }}>
+                    <Send size={14} /> Tarjeta
+                  </button>
                   {userRole !== 'consulta' && (
-                    <div style={{ display: 'flex', gap: '6px', marginTop: '6px', paddingTop: '8px', borderTop: '1px solid #E2E8F0' }}>
-                      <button onClick={() => abrirSelectorTarjeta(p)} style={{ flex: 1, padding: '6px', background: '#E0F2FE', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold', color: '#0284C7', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
-                        <Send size={13} /> Tarjeta
-                      </button>
-                      <button onClick={() => setPersonaEditar(p)} style={{ flex: 1, padding: '6px', background: '#F1F5F9', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold', color: '#0F172A', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
-                        <Edit3 size={13} /> Editar
-                      </button>
-                      <button onClick={() => handleEliminar(p.id, p.nombre_completo)} style={{ padding: '6px 10px', background: '#FFE4E6', border: 'none', borderRadius: '6px', cursor: 'pointer', color: '#F43F5E', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        <Trash2 size={13} />
-                      </button>
-                    </div>
+                    <>
+                      <button onClick={() => setPersonaEditar(p)} style={{ flex: 1, padding: '8px', background: '#F1F5F9', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '13px', fontWeight: 'bold', color: '#0F172A', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '5px' }}><Edit3 size={14} /> Editar</button>
+                      <button onClick={() => handleEliminar(p.id, p.nombre_completo)} style={{ padding: '8px 12px', background: '#FFE4E6', border: 'none', borderRadius: '6px', cursor: 'pointer', color: '#F43F5E', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Trash2 size={14} /></button>
+                    </>
                   )}
                 </div>
-              );
-            })}
+              </div>
+            )})}
           </div>
 
           {totalPages > 1 && (
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '15px', background: 'white', padding: '12px 16px', borderRadius: '8px', border: '1px solid #E2E8F0' }}>
-              <button onClick={() => setPage(p => Math.max(0, p - 1))} disabled={page === 0} style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '6px 12px', background: page === 0 ? '#F0F0F0' : 'white', color: page === 0 ? '#999' : '#00D4FF', border: '1px solid #E2E8F0', borderRadius: '6px', cursor: page === 0 ? 'not-allowed' : 'pointer', fontWeight: 'bold', fontSize: '13px' }}>
-                <ChevronLeft size={15} /> Anterior
-              </button>
-              <span style={{ fontSize: '13px', color: '#64748B', fontWeight: 'bold' }}>Página {page + 1} de {totalPages}</span>
-              <button onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))} disabled={page === totalPages - 1} style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '6px 12px', background: page === totalPages - 1 ? '#F0F0F0' : 'white', color: page === totalPages - 1 ? '#999' : '#00D4FF', border: '1px solid #E2E8F0', borderRadius: '6px', cursor: page === totalPages - 1 ? 'not-allowed' : 'pointer', fontWeight: 'bold', fontSize: '13px' }}>
-                Siguiente <ChevronRight size={15} />
-              </button>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '15px', background: 'white', padding: '15px', borderRadius: '10px', border: '1px solid #E2E8F0' }}>
+              <button onClick={() => setPage(p => Math.max(0, p - 1))} disabled={page === 0} style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '8px 16px', background: page === 0 ? '#F0F0F0' : 'white', color: page === 0 ? '#999' : '#00D4FF', border: '1px solid #E2E8F0', borderRadius: '6px', cursor: page === 0 ? 'not-allowed' : 'pointer', fontWeight: 'bold' }}><ChevronLeft size={16} /> Anterior</button>
+              <span style={{ fontSize: '14px', color: '#64748B', fontWeight: 'bold' }}>Página {page + 1} de {totalPages}</span>
+              <button onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))} disabled={page === totalPages - 1} style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '8px 16px', background: page === totalPages - 1 ? '#F0F0F0' : 'white', color: page === totalPages - 1 ? '#999' : '#00D4FF', border: '1px solid #E2E8F0', borderRadius: '6px', cursor: page === totalPages - 1 ? 'not-allowed' : 'pointer', fontWeight: 'bold' }}>Siguiente <ChevronRight size={16} /></button>
             </div>
           )}
         </>
       )}
 
-      {/* Modal Nueva Persona */}
       {personaNueva && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000, padding: '15px' }}>
-          <div style={{ background: 'white', padding: '24px', borderRadius: '12px', width: '100%', maxWidth: '520px', maxHeight: '90vh', overflowY: 'auto' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-              <h3 style={{ color: '#0A1628', fontSize: '18px', margin: 0, fontWeight: 'bold' }}>Registrar Ciudadano</h3>
-              <button onClick={() => setPersonaNueva(null)} style={{ background: 'none', border: 'none', cursor: 'pointer' }}><X size={20} /></button>
-            </div>
-            <form onSubmit={handleCrearPersona} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          <div style={{ background: 'white', padding: '25px', borderRadius: '12px', width: '100%', maxWidth: '550px', maxHeight: '90vh', overflowY: 'auto' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}><h3 style={{ color: '#00D4FF', fontSize: '18px', margin: 0 }}>Nueva Persona</h3><button onClick={() => setPersonaNueva(null)} style={{ background: 'none', border: 'none', cursor: 'pointer' }}><X size={22} /></button></div>
+            <form onSubmit={handleCrearPersona} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              <div><label style={labelStyle}>Nombre completo *</label><input required type="text" value={personaNueva.nombre_completo} onChange={(e) => setPersonaNueva({...personaNueva, nombre_completo: e.target.value})} style={inputStyle} /></div>
+              <div><label style={labelStyle}>Teléfono</label><input type="tel" value={personaNueva.telefono} onChange={(e) => setPersonaNueva({...personaNueva, telefono: e.target.value})} style={inputStyle} /></div>
+              <div><label style={labelStyle}>Correo electrónico</label><input type="email" value={personaNueva.correo_electronico} onChange={(e) => setPersonaNueva({...personaNueva, correo_electronico: e.target.value})} style={inputStyle} /></div>
+              <div><label style={labelStyle}>Ocupación</label><input type="text" value={personaNueva.ocupacion} onChange={(e) => setPersonaNueva({...personaNueva, ocupacion: e.target.value})} style={inputStyle} /></div>
+              <div><label style={labelStyle}>Dirección</label><input type="text" value={personaNueva.direccion} onChange={(e) => setPersonaNueva({...personaNueva, direccion: e.target.value})} style={inputStyle} /></div>
               <div>
-                <label style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', color: '#475569', marginBottom: '4px' }}>Nombre Completo *</label>
-                <input required type="text" value={personaNueva.nombre_completo} onChange={(e) => setPersonaNueva({...personaNueva, nombre_completo: e.target.value})} style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', border: '1px solid #CBD5E1' }} />
-              </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-                <div>
-                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', color: '#475569', marginBottom: '4px' }}>Teléfono</label>
-                  <input type="tel" value={personaNueva.telefono} onChange={(e) => setPersonaNueva({...personaNueva, telefono: e.target.value})} style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', border: '1px solid #CBD5E1' }} />
-                </div>
-                <div>
-                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', color: '#475569', marginBottom: '4px' }}>Ocupación</label>
-                  <input type="text" value={personaNueva.ocupacion} onChange={(e) => setPersonaNueva({...personaNueva, ocupacion: e.target.value})} style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', border: '1px solid #CBD5E1' }} />
-                </div>
+                <label style={labelStyle}>Barrio / Colonia</label>
+                <select value={personaNueva.barrio_colonia_id} onChange={(e) => setPersonaNueva({...personaNueva, barrio_colonia_id: e.target.value})} style={inputStyle}><option value="">Sin asignar</option>{barrios.map(b => <option key={b.id} value={b.id}>{b.nombre}</option>)}</select>
               </div>
               <div>
-                <label style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', color: '#475569', marginBottom: '4px' }}>Dirección / Calle</label>
-                <input type="text" value={personaNueva.direccion} onChange={(e) => setPersonaNueva({...personaNueva, direccion: e.target.value})} style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', border: '1px solid #CBD5E1' }} />
+                <label style={labelStyle}>Preferencia de voto</label>
+                <select value={personaNueva.preferencia_voto} onChange={(e) => setPersonaNueva({...personaNueva, preferencia_voto: e.target.value})} style={inputStyle}>
+                  <option value="">Sin definir</option>
+                  {PARTIDOS_DB.map(p => <option key={p.key} value={p.nombre}>{p.nombre}</option>)}
+                  <option value="Indeciso">Indeciso</option>
+                  <option value="Otro">Otro</option>
+                </select>
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-                <div>
-                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', color: '#475569', marginBottom: '4px' }}>Colonia / Barrio</label>
-                  <select value={personaNueva.barrio_colonia_id} onChange={(e) => setPersonaNueva({...personaNueva, barrio_colonia_id: e.target.value})} style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', border: '1px solid #CBD5E1', background: 'white' }}>
-                    <option value="">Sin asignar</option>
-                    {barrios.map(b => <option key={b.id} value={b.id}>{b.nombre}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', color: '#475569', marginBottom: '4px' }}>Preferencia</label>
-                  <select value={personaNueva.preferencia_voto} onChange={(e) => setPersonaNueva({...personaNueva, preferencia_voto: e.target.value})} style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', border: '1px solid #CBD5E1', background: 'white' }}>
-                    <option value="">Sin definir</option>
-                    {PARTIDOS_DB.map(p => <option key={p.key} value={p.nombre}>{p.nombre}</option>)}
-                    <option value="Indeciso">Indeciso</option>
-                    <option value="Otro">Otro</option>
-                  </select>
-                </div>
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', padding: '12px', background: '#FEF3C7', borderRadius: '6px', borderLeft: '3px solid #F59E0B' }}>
+                <input type="checkbox" id="acepto-aviso-nuevo" checked={aceptoAviso} onChange={(e) => setAceptoAviso(e.target.checked)} style={{ width: '18px', height: '18px', cursor: 'pointer', marginTop: '2px', flexShrink: 0 }} />
+                <label htmlFor="acepto-aviso-nuevo" style={{ fontSize: '12px', color: '#475569', cursor: 'pointer', lineHeight: '1.5' }}>Confirmo que el titular ha leído y aceptado el <button type="button" onClick={() => setAvisoVisible(true)} style={{ background: 'none', border: 'none', color: '#00D4FF', cursor: 'pointer', textDecoration: 'underline', fontSize: '12px', fontWeight: 'bold', padding: 0 }}>Aviso de Privacidad</button>.</label>
               </div>
-              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', padding: '10px', background: '#FEF3C7', borderRadius: '6px', borderLeft: '3px solid #F59E0B' }}>
-                <input type="checkbox" id="acepto-aviso-nuevo" checked={aceptoAviso} onChange={(e) => setAceptoAviso(e.target.checked)} style={{ width: '16px', height: '16px', cursor: 'pointer', marginTop: '2px', flexShrink: 0 }} />
-                <label htmlFor="acepto-aviso-nuevo" style={{ fontSize: '11px', color: '#475569', cursor: 'pointer', lineHeight: '1.4' }}>
-                  Confirmo que el ciudadano autorizó el tratamiento de sus datos conforme al <button type="button" onClick={() => setAvisoVisible(true)} style={{ background: 'none', border: 'none', color: '#0284C7', cursor: 'pointer', textDecoration: 'underline', fontSize: '11px', fontWeight: 'bold', padding: 0 }}>Aviso de Privacidad LFPDPPP</button>.
-                </label>
-              </div>
-              <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
-                <button type="button" onClick={() => setPersonaNueva(null)} style={{ flex: 1, padding: '8px', border: '1px solid #CBD5E1', borderRadius: '6px', background: 'white', cursor: 'pointer' }}>Cancelar</button>
-                <button type="submit" className="btn-primary" style={{ flex: 1 }} disabled={guardando || !aceptoAviso}>
-                  {guardando ? 'Guardando...' : 'Registrar'}
-                </button>
+              <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
+                <button type="button" onClick={() => setPersonaNueva(null)} style={btnSecundario}>Cancelar</button>
+                <button type="submit" className="btn-primary" style={{ flex: 1 }} disabled={guardando || !aceptoAviso}>Crear Persona</button>
               </div>
             </form>
           </div>
         </div>
       )}
 
-      {/* Selector de Tarjeta y Pases */}
-      {tarjetaVisible && (
-        <SelectorTarjeta
-          persona={personaSeleccionada}
-          onSeleccionar={handleGenerarTarjeta}
-          onCerrar={() => setTarjetaVisible(false)}
-        />
-      )}
-
-      {/* Render Oculto para Generación de Imagen */}
-      {datosTarjeta && personaSeleccionada && (
-        <div style={{ position: 'fixed', left: '-9999px', top: 0 }}>
-          <div ref={tarjetaRef}>
-            <TarjetaPremium
-              persona={personaSeleccionada}
-              tipo={datosTarjeta.tipo}
-              eventoData={datosTarjeta.eventoData}
-            />
-          </div>
-        </div>
-      )}
-
-      {/* Modal de Aviso de Privacidad */}
-      <ModalAvisoPrivacidad
-        visible={avisoVisible}
-        onCerrar={() => setAvisoVisible(false)}
-      />
-
-      {/* Modal de Confirmación Genérico */}
-      {confirmModal.visible && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2000, padding: '20px' }}>
-          <div style={{ background: 'white', borderRadius: '12px', padding: '24px', width: '100%', maxWidth: '420px', boxShadow: '0 20px 40px rgba(0,0,0,0.2)' }}>
-            <h3 style={{ fontSize: '16px', fontWeight: 'bold', marginBottom: '8px', color: '#0F172A' }}>{confirmModal.titulo}</h3>
-            <p style={{ fontSize: '13px', color: '#64748B', marginBottom: '20px', lineHeight: '1.4' }}>{confirmModal.mensaje}</p>
-            <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
-              <button onClick={cerrarConfirm} style={{ padding: '8px 16px', borderRadius: '6px', border: '1px solid #CBD5E1', background: 'white', cursor: 'pointer', fontSize: '13px' }}>Cancelar</button>
-              <button onClick={confirmModal.onConfirm} style={{ padding: '8px 18px', borderRadius: '6px', border: 'none', background: '#EF4444', color: 'white', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px' }}>Confirmar</button>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
+      {personaEditar && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000, padding: '15px' }}>
+          <div style={{ background: 'white', padding: '25px', borderRadius: '12px', width: '100%', maxWidth: '550px', maxHeight: '90vh', overflowY: 'auto' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}><h3 style={{ color: '#00D4FF', fontSize: '18px', margin: 0 }}>Editar Persona</h3><button onClick={() => setPersonaEditar(null)} style={{ background: 'none', border: 'none', cursor: 'pointer' }}><X size={22} /></button></div>
+            <form onSubmit={handleGuardarEdicion} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              <div><label style={labelStyle}>Nombre completo *</label><input required type="text" value={personaEditar.nombre_completo} onChange={(e) => setPersonaEditar({...personaEditar, nombre_completo: e.target.value})} style={inputStyle} /></div>
+              <div><label style={labelStyle}>Teléfono</label><input type="tel" value={personaEditar.telefono || ''} onChange={(e) => setPersonaEditar({...personaEditar, telefono: e.target.value})} style={inputStyle} /></div>
+              <div><label style={labelStyle}>Correo electrónico</label><input type="email" value={personaEditar.correo_electronico || ''} onChange={(e) => setPersonaEditar({...personaEditar, correo_electronico: e.target.value})} style={inputStyle} /></div>
+              <div><label style={labelStyle}>Ocupación</label><input type="text" value={personaEditar.ocupacion || ''} onChange={(e) => setPersonaEditar({...personaEditar, ocupacion: e.target.value})} style={inputStyle} /></div>
+              <div><label style={labelStyle}>Dirección</label><input type="text" value={personaEditar.direccion || ''} onChange={(e) => setPersonaEditar({...personaEditar, direccion: e.target.value})} style={inputStyle} /></div>
