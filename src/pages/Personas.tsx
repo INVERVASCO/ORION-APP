@@ -375,3 +375,74 @@ export default function Personas() {
               <div><label style={labelStyle}>Correo electrónico</label><input type="email" value={personaEditar.correo_electronico || ''} onChange={(e) => setPersonaEditar({...personaEditar, correo_electronico: e.target.value})} style={inputStyle} /></div>
               <div><label style={labelStyle}>Ocupación</label><input type="text" value={personaEditar.ocupacion || ''} onChange={(e) => setPersonaEditar({...personaEditar, ocupacion: e.target.value})} style={inputStyle} /></div>
               <div><label style={labelStyle}>Dirección</label><input type="text" value={personaEditar.direccion || ''} onChange={(e) => setPersonaEditar({...personaEditar, direccion: e.target.value})} style={inputStyle} /></div>
+              <div>
+                <label style={labelStyle}>Barrio / Colonia</label>
+                <select value={personaEditar.barrio_colonia_id || ''} onChange={(e) => setPersonaEditar({...personaEditar, barrio_colonia_id: e.target.value || null})} style={inputStyle}><option value="">Sin asignar</option>{barrios.map(b => <option key={b.id} value={b.id}>{b.nombre}</option>)}</select>
+              </div>
+              <div>
+                <label style={labelStyle}>Preferencia de voto</label>
+                <select value={personaEditar.preferencia_voto || ''} onChange={(e) => setPersonaEditar({...personaEditar, preferencia_voto: e.target.value})} style={inputStyle}>
+                  <option value="">Sin definir</option>
+                  {PARTIDOS_DB.map(p => <option key={p.key} value={p.nombre}>{p.nombre}</option>)}
+                  <option value="Indeciso">Indeciso</option>
+                  <option value="Otro">Otro</option>
+                </select>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', padding: '12px', background: '#FEF3C7', borderRadius: '6px', borderLeft: '3px solid #F59E0B' }}>
+                <input type="checkbox" id="acepto-aviso-edit" checked={aceptoAviso} onChange={(e) => setAceptoAviso(e.target.checked)} style={{ width: '18px', height: '18px', cursor: 'pointer', marginTop: '2px', flexShrink: 0 }} />
+                <label htmlFor="acepto-aviso-edit" style={{ fontSize: '12px', color: '#475569', cursor: 'pointer', lineHeight: '1.5' }}>Confirmo que el titular ha leído y aceptado el <button type="button" onClick={() => setAvisoVisible(true)} style={{ background: 'none', border: 'none', color: '#00D4FF', cursor: 'pointer', textDecoration: 'underline', fontSize: '12px', fontWeight: 'bold', padding: 0 }}>Aviso de Privacidad</button>.</label>
+              </div>
+              <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
+                <button type="button" onClick={() => setPersonaEditar(null)} style={btnSecundario}>Cancelar</button>
+                <button type="submit" className="btn-primary" style={{ flex: 1 }} disabled={guardando || !aceptoAviso}>Guardar Cambios</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {confirmModal.visible && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.65)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 2000, padding: '20px' }}>
+          <div style={{ background: 'white', borderRadius: '14px', padding: '28px', width: '100%', maxWidth: '440px', boxShadow: '0 20px 50px rgba(0,0,0,0.3)', borderTop: `5px solid ${confirmModal.tipo === 'danger' ? '#F43F5E' : '#00D4FF'}` }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '15px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1, minWidth: 0 }}>
+                <div style={{ background: confirmModal.tipo === 'danger' ? '#FFE4E6' : '#E0F2FE', color: confirmModal.tipo === 'danger' ? '#F43F5E' : '#00D4FF', width: '46px', height: '46px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>{confirmModal.tipo === 'success' ? <CheckCircle2 size={26} /> : <AlertTriangle size={26} />}</div>
+                <h3 style={{ margin: 0, fontSize: '17px', color: '#0F172A', wordBreak: 'break-word', lineHeight: '1.3' }}>{confirmModal.titulo}</h3>
+              </div>
+              <button onClick={cerrarConfirm} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px' }}><X size={20} color="#64748B" /></button>
+            </div>
+            <p style={{ fontSize: '14px', color: '#475569', lineHeight: '1.6', marginBottom: '25px' }}>{confirmModal.mensaje}</p>
+            <div style={{ display: 'flex', gap: '10px' }}>
+              <button onClick={cerrarConfirm} style={{ flex: 1, padding: '13px', background: '#F1F5F9', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '14px', color: '#64748B' }}>Cancelar</button>
+              <button onClick={confirmModal.onConfirm} style={{ flex: 1, padding: '13px', background: confirmModal.tipo === 'danger' ? '#F43F5E' : '#00D4FF', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '14px' }}>Sí, confirmar</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <AvisoPrivacidad visible={avisoVisible} onClose={() => setAvisoVisible(false)} onAceptar={() => setAceptoAviso(true)} mostrarBotonAceptar={true} />
+      
+      <TarjetaSelector 
+        visible={tarjetaVisible} 
+        onClose={() => setTarjetaVisible(false)} 
+        persona={personaSeleccionada} 
+        onGenerarTarjeta={handleGenerarTarjeta}
+      />
+
+      {datosTarjeta && (
+        <TarjetaPremium 
+          ref={tarjetaRef} 
+          tipo={datosTarjeta.tipo as any} 
+          persona={personaSeleccionada} 
+          eventoData={datosTarjeta.eventoData} 
+        />
+      )}
+
+      <Toast mensaje={toastMensaje} visible={toastVisible} onClose={() => setToastVisible(false)} />
+    </div>
+  );
+}
+
+const labelStyle: React.CSSProperties = { display: 'block', marginBottom: '5px', fontWeight: 'bold', fontSize: '14px' };
+const inputStyle: React.CSSProperties = { width: '100%', padding: '11px', borderRadius: '6px', border: '1px solid #E2E8F0', fontSize: '15px', boxSizing: 'border-box' };
+const btnSecundario: React.CSSProperties = { flex: 1, padding: '12px', background: '#EEE', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' };
